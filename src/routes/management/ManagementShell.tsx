@@ -2,13 +2,14 @@ import { NavLink, Outlet } from 'react-router-dom'
 import clsx from 'clsx'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Avatar } from '@/components/ui/Avatar'
-import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell } from '@/components/ui/icons'
+import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat } from '@/components/ui/icons'
 import logoFull from '@/assets/logo-full.svg'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 
 const nav = [
   { to: '/admin', label: 'Tableau de bord', icon: IconHome, end: true },
   { to: '/admin/programmes', label: 'Programmes', icon: IconCalendar },
+  { to: '/admin/reporting', label: 'Reporting', icon: IconChat },
   { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers },
   { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings }
 ]
