@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    @apply font-body text-ink-800 bg-ink-50 antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+  html.dark body {
+    @apply bg-ink-900 text-ink-100;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display;
+  }
+  ::selection {
+    @apply bg-royal-200/60;
+  }
+}
+
+@layer components {
+  /* GRAAL exclusive watermark background — replaces empty space app-wide */
+  .graal-surface {
+    background-color: theme('colors.ink.50');
+    background-image: url('/patterns/graal-watermark-light.svg');
+    background-repeat: repeat;
+    background-size: 260px 260px;
+  }
+  html.dark .graal-surface {
+    background-color: theme('colors.ink.900');
+    background-image: url('/patterns/graal-watermark-dark.svg');
+  }
+
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-xl border border-white/60 shadow-glass;
+  }
+  html.dark .glass-panel {
+    @apply bg-ink-800/60 border-white/10;
+  }
+
+  .glass-nav {
+    @apply bg-white/75 backdrop-blur-2xl border border-white/50 shadow-glow;
+  }
+  html.dark .glass-nav {
+    @apply bg-ink-800/70 border-white/10;
+  }
+
+  .card-premium {
+    @apply rounded-xl3 border border-ink-100/80 bg-white shadow-soft;
+  }
+  html.dark .card-premium {
+    @apply bg-ink-800 border-white/5;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-ink-100 rounded-xl2;
+    background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s infinite;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}

@@ -1,0 +1,19 @@
+<svg width="360" height="360" viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg">
+  <g fill="#FFFFFF" fill-opacity="0.035" font-family="'Plus Jakarta Sans','Inter',sans-serif" font-weight="800">
+    <text x="10" y="40" font-size="26" transform="rotate(-12 10 40)">GRAAL</text>
+    <text x="190" y="20" font-size="18" transform="rotate(-12 190 20)">GMS</text>
+    <text x="70" y="120" font-size="26" transform="rotate(-12 70 120)">GRAAL</text>
+    <text x="260" y="100" font-size="26" transform="rotate(-12 260 100)">GRAAL</text>
+    <g transform="translate(230,150) rotate(-12) scale(0.16)">
+      <rect x="18" y="46" width="96" height="96" rx="14"/>
+      <rect x="96" y="18" width="86" height="86" rx="14"/>
+      <rect x="66" y="76" width="86" height="86" rx="14"/>
+      <rect x="96" y="106" width="86" height="86" rx="14"/>
+    </g>
+    <text x="-10" y="210" font-size="18" transform="rotate(-12 -10 210)">GMS</text>
+    <text x="130" y="230" font-size="26" transform="rotate(-12 130 230)">GRAAL</text>
+    <text x="20" y="300" font-size="26" transform="rotate(-12 20 300)">GRAAL</text>
+    <text x="260" y="280" font-size="18" transform="rotate(-12 260 280)">GMS</text>
+    <text x="200" y="345" font-size="26" transform="rotate(-12 200 345)">GRAAL</text>
+  </g>
+</svg>
