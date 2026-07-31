@@ -1,17 +1,31 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { IconCheckCircle, IconChevronRight, IconAlert } from '@/components/ui/icons'
+import { IconCheckCircle, IconChevronRight, IconAlert, IconDownload } from '@/components/ui/icons'
 import { useVisitesDuJour } from '@/features/data/useVisitesDuJour'
-import { nowBenin } from '@/lib/time'
+import { nowBenin, todayBenin } from '@/lib/time'
+import { ouvrirFicheJour } from '@/lib/pdf'
 
 export default function Visites() {
   const { lignes, loading } = useVisitesDuJour()
+  const [exporting, setExporting] = useState(false)
   const restantes = lignes.filter((l) => l.statut_reel === 'EN_ATTENTE')
   const faites = lignes.filter((l) => l.statut_reel !== 'EN_ATTENTE')
+
+  async function exporterFiche() {
+    setExporting(true)
+    try {
+      await ouvrirFicheJour(todayBenin().format('YYYY-MM-DD'))
+    } catch (e) {
+      // Le programme n'est peut-être pas encore validé — silencieux, l'action est secondaire.
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className="space-y-4 mt-2 pb-4">
@@ -20,9 +34,14 @@ export default function Visites() {
           <h1 className="text-lg font-bold text-ink-800 font-display">Visites du jour</h1>
           <p className="text-xs text-ink-400 capitalize">{nowBenin().format('dddd D MMMM')}</p>
         </div>
-        <Link to="/app/cloture">
-          <Button size="sm" variant="secondary">Clôturer</Button>
-        </Link>
+        <div className="flex gap-2">
+          <button onClick={exporterFiche} disabled={exporting} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-ink-500 shadow-softer">
+            <IconDownload className="h-4 w-4" />
+          </button>
+          <Link to="/app/cloture">
+            <Button size="sm" variant="secondary">Clôturer</Button>
+          </Link>
+        </div>
       </div>
 
       {loading && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}

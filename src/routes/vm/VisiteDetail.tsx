@@ -9,6 +9,7 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { supabase } from '@/lib/supabase'
 import { nowBenin, todayBenin } from '@/lib/time'
+import { enqueueVisite } from '@/lib/offlineQueue'
 import type { Database } from '@/types/database'
 
 type Ligne = Database['public']['Tables']['programme_lignes']['Row'] & {
@@ -68,14 +69,29 @@ function ProgrammeForm({ ligneId }: { ligneId: string }) {
     setSaving(true)
     setError(null)
 
-    const { data: visite, error: insertError } = await supabase.from('visites').insert({
+    const payload = {
       programme_ligne_id: ligne.id, client_id: ligne.client_id, vm_id: session.user.id,
       jour: todayBenin().format('YYYY-MM-DD'), type_visite: ligne.type_visite,
       latitude: geo.latitude, longitude: geo.longitude,
       ...fields
-    }).select('id').single()
+    }
 
-    if (insertError) { setError(insertError.message); setSaving(false); return }
+    if (!navigator.onLine) {
+      enqueueVisite(payload, produitsIds)
+      setSaving(false)
+      navigate('/app/visites', { replace: true })
+      return
+    }
+
+    const { data: visite, error: insertError } = await supabase.from('visites').insert(payload).select('id').single()
+
+    if (insertError) {
+      // Hors ligne détecté tardivement (bascule pendant la requête) : on met en file plutôt que de perdre la saisie.
+      if (!navigator.onLine) { enqueueVisite(payload, produitsIds); setSaving(false); navigate('/app/visites', { replace: true }); return }
+      setError(insertError.message)
+      setSaving(false)
+      return
+    }
 
     if (produitsIds.length && visite) {
       await supabase.from('visite_produits').insert(produitsIds.map((pid) => ({ visite_id: visite.id, produit_id: pid })))
