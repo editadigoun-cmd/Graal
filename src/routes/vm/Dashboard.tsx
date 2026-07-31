@@ -1,9 +1,10 @@
+import { Link } from 'react-router-dom'
 import { AreaChart, Area, ResponsiveContainer, XAxis, Tooltip } from 'recharts'
 import { Card } from '@/components/ui/Card'
 import { StatCard } from '@/components/ui/StatCard'
 import { CircularProgress } from '@/components/ui/CircularProgress'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { IconStethoscope, IconCheckCircle, IconTrendingUp, IconMapPin } from '@/components/ui/icons'
+import { IconStethoscope, IconCheckCircle, IconTrendingUp, IconMapPin, IconChevronRight } from '@/components/ui/icons'
 import { useVmDashboard } from '@/features/data/useVmDashboard'
 import dayjs from 'dayjs'
 
@@ -73,6 +74,16 @@ export default function VmDashboard() {
           </ResponsiveContainer>
         </div>
       </Card>
+
+      <Link to="/app/reporting">
+        <Card className="flex items-center justify-between py-3.5">
+          <div>
+            <p className="text-sm font-bold text-ink-800">Reporting hebdomadaire</p>
+            <p className="text-xs text-ink-400">Analyse, points forts, appréciations</p>
+          </div>
+          <IconChevronRight className="h-4 w-4 text-ink-300" />
+        </Card>
+      </Link>
     </div>
   )
 }

@@ -15,10 +15,12 @@ import Messages from '@/routes/vm/Messages'
 import Conversation from '@/routes/vm/Conversation'
 import Profil from '@/routes/vm/Profil'
 import Notifications from '@/routes/vm/Notifications'
+import Reporting from '@/routes/vm/Reporting'
 import ManagementDashboard from '@/routes/management/Dashboard'
 import ManagementProgrammes from '@/routes/management/Programmes'
 import ManagementEquipes from '@/routes/management/Equipes'
 import ManagementParametres from '@/routes/management/Parametres'
+import ManagementReporting from '@/routes/management/Reporting'
 
 function Gate({ children }: { children: React.ReactNode }) {
   const { loading } = useAuth()
@@ -66,11 +68,13 @@ export default function App() {
             <Route path="messages/:conversationId" element={<Conversation />} />
             <Route path="profil" element={<Profil />} />
             <Route path="notifications" element={<Notifications />} />
+            <Route path="reporting" element={<Reporting />} />
           </Route>
 
           <Route path="/admin" element={<RequireAuth><RequireManagement><ManagementShell /></RequireManagement></RequireAuth>}>
             <Route index element={<ManagementDashboard />} />
             <Route path="programmes" element={<ManagementProgrammes />} />
+            <Route path="reporting" element={<ManagementReporting />} />
             <Route path="equipes" element={<ManagementEquipes />} />
             <Route path="parametres" element={<ManagementParametres />} />
           </Route>
