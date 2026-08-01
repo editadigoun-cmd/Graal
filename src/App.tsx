@@ -21,6 +21,7 @@ import ManagementProgrammes from '@/routes/management/Programmes'
 import ManagementEquipes from '@/routes/management/Equipes'
 import ManagementParametres from '@/routes/management/Parametres'
 import ManagementReporting from '@/routes/management/Reporting'
+import ManagementProfil from '@/routes/management/Profil'
 
 function ConfigError() {
   return (
@@ -98,6 +99,7 @@ export default function App() {
             <Route path="reporting" element={<ManagementReporting />} />
             <Route path="equipes" element={<ManagementEquipes />} />
             <Route path="parametres" element={<ManagementParametres />} />
+            <Route path="profil" element={<ManagementProfil />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
