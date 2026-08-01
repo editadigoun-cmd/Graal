@@ -51,7 +51,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 function RoleRedirect() {
-  const { profile } = useAuth()
+  const { session, profile } = useAuth()
+  if (!session) return <Navigate to="/login" replace />
   if (!profile) return <Splash />
   if (profile.role === 'vm') return <Navigate to="/app" replace />
   return <Navigate to="/admin" replace />
