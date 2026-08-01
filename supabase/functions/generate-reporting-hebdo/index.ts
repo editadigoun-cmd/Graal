@@ -9,6 +9,19 @@ const EMERALD = rgb(0.149, 0.6, 0.463)
 const INK = rgb(0.11, 0.13, 0.16)
 const GREY = rgb(0.55, 0.58, 0.64)
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS'
+}
+
+function jsonError(message: string, status: number) {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  })
+}
+
 function isoWeekMondayOf(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00Z')
   const day = d.getUTCDay() || 7
@@ -33,6 +46,8 @@ function wrapText(text: string, maxChars: number) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
   try {
     const url = new URL(req.url)
     const semaine = url.searchParams.get('semaine_debut') ?? isoWeekMondayOf(new Date().toISOString().slice(0, 10))
@@ -45,7 +60,7 @@ Deno.serve(async (req) => {
     )
 
     const { data: userData, error: userError } = await supabase.auth.getUser()
-    if (userError || !userData.user) return new Response(JSON.stringify({ error: 'Non authentifié' }), { status: 401 })
+    if (userError || !userData.user) return jsonError('Non authentifié', 401)
     const vmId = vmIdParam || userData.user.id
 
     const [{ data: profile }, { data: reporting }, { data: taux }] = await Promise.all([
@@ -121,8 +136,10 @@ Deno.serve(async (req) => {
     }
 
     const bytes = await pdf.save()
-    return new Response(bytes, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="reporting-${semaine}.pdf"` } })
+    return new Response(bytes, {
+      headers: { ...corsHeaders, 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="reporting-${semaine}.pdf"` }
+    })
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500 })
+    return jsonError(String(e), 500)
   }
 })
