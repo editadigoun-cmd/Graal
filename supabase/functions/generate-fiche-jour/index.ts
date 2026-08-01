@@ -10,6 +10,19 @@ const ROYAL = rgb(0.082, 0.294, 0.678)
 const INK = rgb(0.11, 0.13, 0.16)
 const GREY = rgb(0.6, 0.63, 0.68)
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS'
+}
+
+function jsonError(message: string, status: number) {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  })
+}
+
 function isoWeekMondayOf(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00Z')
   const day = d.getUTCDay() || 7
@@ -18,6 +31,8 @@ function isoWeekMondayOf(dateStr: string) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
   try {
     const url = new URL(req.url)
     const jour = url.searchParams.get('jour') ?? new Date().toISOString().slice(0, 10)
@@ -31,7 +46,7 @@ Deno.serve(async (req) => {
 
     const { data: userData, error: userError } = await supabase.auth.getUser()
     if (userError || !userData.user) {
-      return new Response(JSON.stringify({ error: 'Non authentifié' }), { status: 401 })
+      return jsonError('Non authentifié', 401)
     }
     const vmId = vmIdParam || userData.user.id
 
@@ -44,7 +59,7 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (!programme || !['VALIDE', 'VERROUILLE'].includes(programme.statut)) {
-      return new Response(JSON.stringify({ error: "Le programme de cette semaine n'est pas encore validé." }), { status: 400 })
+      return jsonError("Le programme de cette semaine n'est pas encore validé.", 400)
     }
 
     const jourSemaine = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI'][
@@ -89,12 +104,13 @@ Deno.serve(async (req) => {
     const bytes = await pdf.save()
     return new Response(bytes, {
       headers: {
+        ...corsHeaders,
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="fiche-${jour}.pdf"`
       }
     })
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500 })
+    return jsonError(String(e), 500)
   }
 })
 

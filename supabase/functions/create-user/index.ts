@@ -3,8 +3,22 @@
 // handle_new_auth_user() (voir 002_profiles_teams.sql) à partir des métadonnées fournies ici.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  })
+}
+
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Méthode non supportée' }), { status: 405 })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method !== 'POST') return json({ error: 'Méthode non supportée' }, 405)
 
   try {
     const body = await req.json()
@@ -14,10 +28,10 @@ Deno.serve(async (req) => {
     }
 
     if (!email || !full_name || !role) {
-      return new Response(JSON.stringify({ error: 'Email, nom complet et rôle sont obligatoires.' }), { status: 400 })
+      return json({ error: 'Email, nom complet et rôle sont obligatoires.' }, 400)
     }
     if (role === 'vm' && (!secteur || !equipe_id)) {
-      return new Response(JSON.stringify({ error: 'Un VM doit avoir un secteur et une équipe.' }), { status: 400 })
+      return json({ error: 'Un VM doit avoir un secteur et une équipe.' }, 400)
     }
 
     // Vérifie que l'appelant est bien administrateur, avec son propre jeton (respecte les RLS)
@@ -27,11 +41,11 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     )
     const { data: userData, error: userError } = await callerClient.auth.getUser()
-    if (userError || !userData.user) return new Response(JSON.stringify({ error: 'Non authentifié' }), { status: 401 })
+    if (userError || !userData.user) return json({ error: 'Non authentifié' }, 401)
 
     const { data: callerProfile } = await callerClient.from('profiles').select('role').eq('id', userData.user.id).single()
     if (callerProfile?.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Action réservée aux administrateurs.' }), { status: 403 })
+      return json({ error: 'Action réservée aux administrateurs.' }, 403)
     }
 
     // Client "service role" — seul ce contexte peut créer un utilisateur auth.
@@ -41,12 +55,10 @@ Deno.serve(async (req) => {
       data: { full_name, role, secteur: secteur ?? null, equipe_id: equipe_id ?? null }
     })
 
-    if (inviteError) return new Response(JSON.stringify({ error: inviteError.message }), { status: 400 })
+    if (inviteError) return json({ error: inviteError.message }, 400)
 
-    return new Response(JSON.stringify({ id: invited.user.id, email: invited.user.email }), {
-      headers: { 'Content-Type': 'application/json' }
-    })
+    return json({ id: invited.user.id, email: invited.user.email })
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500 })
+    return json({ error: String(e) }, 500)
   }
 })
