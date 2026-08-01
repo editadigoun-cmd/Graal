@@ -3,6 +3,8 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { StatCard } from '@/components/ui/StatCard'
+import { IconChat, IconCheckCircle, IconClock } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { isoWeekMonday } from '@/lib/time'
 import dayjs from 'dayjs'
@@ -56,11 +58,19 @@ export default function ManagementReporting() {
 
   if (loading) return <div className="space-y-3"><Skeleton className="h-32" /><Skeleton className="h-32" /></div>
 
+  const visesCount = rows.filter((r) => r.visa_superviseur_id).length
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-ink-800 font-display">Reporting hebdomadaire</h1>
         <p className="text-sm text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <StatCard label="Reportings soumis" value={rows.length} tone="royal" icon={<IconChat className="h-4 w-4" />} />
+        <StatCard label="Visés" value={visesCount} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
+        <StatCard label="En attente" value={rows.length - visesCount} tone="flame" icon={<IconClock className="h-4 w-4" />} />
       </div>
 
       {rows.length === 0 && <Card className="text-center py-10 text-sm text-ink-400">Aucun reporting soumis pour cette semaine.</Card>}
