@@ -17,7 +17,7 @@ export default function Login() {
   const [canBiometric, setCanBiometric] = useState(false)
 
   useEffect(() => {
-    if (session) navigate('/app', { replace: true })
+    if (session) navigate('/', { replace: true })
   }, [session, navigate])
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function Login() {
 
   async function handleBiometric() {
     const ok = await unlockWithBiometric()
-    if (ok && session) navigate('/app', { replace: true })
+    if (ok && session) navigate('/', { replace: true })
     else if (ok) setError('Aucune session active. Connectez-vous une première fois avec votre mot de passe.')
     else setError('Vérification biométrique refusée ou annulée.')
   }
