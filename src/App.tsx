@@ -22,6 +22,22 @@ import ManagementEquipes from '@/routes/management/Equipes'
 import ManagementParametres from '@/routes/management/Parametres'
 import ManagementReporting from '@/routes/management/Reporting'
 
+function ConfigError() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-ink-900 px-6 text-center">
+      <div className="max-w-sm">
+        <p className="text-lg font-bold text-white">Configuration manquante</p>
+        <p className="mt-2 text-sm text-ink-300">
+          Les variables d'environnement Supabase (<code>VITE_SUPABASE_URL</code>,{' '}
+          <code>VITE_SUPABASE_PUBLISHABLE_KEY</code>) ne sont pas définies pour ce déploiement.
+          Ajoutez-les dans Cloudflare Pages/Workers → Settings → Variables and Secrets, puis
+          relancez un déploiement.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function Gate({ children }: { children: React.ReactNode }) {
   const { loading } = useAuth()
   if (loading) return <Splash />
@@ -49,6 +65,10 @@ function RequireManagement({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+    return <ConfigError />
+  }
+
   return (
     <AuthProvider>
       <Gate>

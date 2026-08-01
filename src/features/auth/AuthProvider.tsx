@@ -27,14 +27,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      if (data.session) {
-        loadProfile(data.session.user.id).finally(() => setLoading(false))
-      } else {
-        setLoading(false)
-      }
-    })
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        setSession(data.session)
+        if (data.session) {
+          return loadProfile(data.session.user.id)
+        }
+      })
+      .catch((err) => {
+        // Une session qui ne peut pas être récupérée (ex : Supabase mal configuré, réseau
+        // indisponible) ne doit jamais laisser l'app bloquée indéfiniment sur l'écran de lancement.
+        console.error('Échec de récupération de la session Supabase :', err)
+      })
+      .finally(() => setLoading(false))
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession)
