@@ -6,8 +6,9 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { IconPlus, IconUsers, IconCheckCircle, IconSearch } from '@/components/ui/icons'
+import { IconPlus, IconUsers, IconCheckCircle, IconSearch, IconSend, IconLock } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth/AuthProvider'
 import type { Database } from '@/types/database'
 
 type Equipe = Database['public']['Tables']['equipes']['Row']
@@ -19,6 +20,7 @@ const ROLE_TONE: Record<Role, 'info' | 'success' | 'warning'> = { vm: 'info', su
 const EMPTY_FORM = { email: '', full_name: '', role: 'vm' as Role, secteur: 'A' as 'A' | 'B', equipe_id: '' }
 
 export default function ManagementEquipes() {
+  const { session } = useAuth()
   const [equipes, setEquipes] = useState<Equipe[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,6 +32,9 @@ export default function ManagementEquipes() {
   const [search, setSearch] = useState('')
   const [equipeFilter, setEquipeFilter] = useState('')
   const [roleFilter, setRoleFilter] = useState<Role | ''>('')
+
+  const [rowBusy, setRowBusy] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   async function load() {
     const [{ data: eq }, { data: pr }] = await Promise.all([
@@ -51,6 +56,40 @@ export default function ManagementEquipes() {
   async function changerSecteur(profileId: string, secteur: string) {
     await supabase.from('profiles').update({ secteur: (secteur || null) as 'A' | 'B' | null }).eq('id', profileId)
     load()
+  }
+
+  async function toggleActif(p: Profile) {
+    setRowBusy(p.id)
+    setNotice(null)
+    const { error } = await supabase.from('profiles').update({ actif: !p.actif }).eq('id', p.id)
+    setRowBusy(null)
+    if (error) setNotice({ type: 'error', text: error.message })
+    else {
+      setNotice({ type: 'success', text: p.actif ? `${p.full_name} a été désactivé(e).` : `${p.full_name} a été réactivé(e).` })
+      load()
+    }
+  }
+
+  async function renvoyerInvitation(p: Profile) {
+    if (!p.email) return
+    setRowBusy(p.id)
+    setNotice(null)
+    const { data: sess } = await supabase.auth.getSession()
+    const token = sess.session?.access_token
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email: p.email, resend: true })
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error ?? 'Erreur inconnue')
+      setNotice({ type: 'success', text: `Invitation renvoyée à ${p.email}.` })
+    } catch (err) {
+      setNotice({ type: 'error', text: err instanceof Error ? err.message : 'Erreur inconnue' })
+    } finally {
+      setRowBusy(null)
+    }
   }
 
   function fermerModal() {
@@ -149,6 +188,12 @@ export default function ManagementEquipes() {
         </select>
       </Card>
 
+      {notice && (
+        <p className={`text-xs rounded-xl px-3.5 py-2.5 ${notice.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+          {notice.text}
+        </p>
+      )}
+
       <Card className="overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -158,53 +203,80 @@ export default function ManagementEquipes() {
                 <th className="px-4 py-3 text-left font-semibold">Rôle</th>
                 <th className="px-4 py-3 text-left font-semibold">Équipe</th>
                 <th className="px-4 py-3 text-left font-semibold">Secteur</th>
+                <th className="px-4 py-3 text-left font-semibold">Statut</th>
+                <th className="px-4 py-3 text-right font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
-              {filtered.map((p) => (
-                <tr key={p.id} className="transition hover:bg-ink-50/60">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar name={p.full_name} url={p.avatar_url} size={32} />
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-ink-800 truncate">{p.full_name}</p>
-                        <p className="text-[11px] text-ink-400 truncate">{p.email}</p>
+              {filtered.map((p) => {
+                const isSelf = p.id === session?.user.id
+                const busy = rowBusy === p.id
+                return (
+                  <tr key={p.id} className="transition hover:bg-ink-50/60">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={p.full_name} url={p.avatar_url} size={32} />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-ink-800 truncate">{p.full_name}</p>
+                          <p className="text-[11px] text-ink-400 truncate">{p.email}</p>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge tone={ROLE_TONE[p.role]}>{ROLE_LABEL[p.role]}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.role === 'vm' ? (
-                      <select
-                        value={p.equipe_id ?? ''} onChange={(e) => changerEquipe(p.id, e.target.value)}
-                        className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs"
-                      >
-                        <option value="">Sans équipe</option>
-                        {equipes.map((e2) => <option key={e2.id} value={e2.id}>{e2.nom}</option>)}
-                      </select>
-                    ) : (
-                      <span className="text-xs text-ink-400">{p.equipe_id ? equipeNomById[p.equipe_id] : '—'}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.role === 'vm' ? (
-                      <select
-                        value={p.secteur ?? ''} onChange={(e) => changerSecteur(p.id, e.target.value)}
-                        className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs"
-                      >
-                        <option value="A">Secteur A</option>
-                        <option value="B">Secteur B</option>
-                      </select>
-                    ) : (
-                      <span className="text-xs text-ink-400">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge tone={ROLE_TONE[p.role]}>{ROLE_LABEL[p.role]}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {p.role === 'vm' ? (
+                        <select
+                          value={p.equipe_id ?? ''} onChange={(e) => changerEquipe(p.id, e.target.value)}
+                          className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs"
+                        >
+                          <option value="">Sans équipe</option>
+                          {equipes.map((e2) => <option key={e2.id} value={e2.id}>{e2.nom}</option>)}
+                        </select>
+                      ) : (
+                        <span className="text-xs text-ink-400">{p.equipe_id ? equipeNomById[p.equipe_id] : '—'}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {p.role === 'vm' ? (
+                        <select
+                          value={p.secteur ?? ''} onChange={(e) => changerSecteur(p.id, e.target.value)}
+                          className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs"
+                        >
+                          <option value="A">Secteur A</option>
+                          <option value="B">Secteur B</option>
+                        </select>
+                      ) : (
+                        <span className="text-xs text-ink-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge tone={p.actif ? 'success' : 'neutral'}>{p.actif ? 'Actif' : 'Inactif'}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => renvoyerInvitation(p)} disabled={busy}
+                          title="Renvoyer l'invitation"
+                          className="rounded-full p-2 bg-royal-50 text-royal-600 hover:bg-royal-100 transition disabled:opacity-50"
+                        >
+                          <IconSend className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => toggleActif(p)} disabled={busy || isSelf}
+                          title={isSelf ? 'Vous ne pouvez pas désactiver votre propre compte' : p.actif ? 'Désactiver le compte' : 'Réactiver le compte'}
+                          className={`rounded-full p-2 transition disabled:opacity-40 ${p.actif ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                        >
+                          {p.actif ? <IconLock className="h-3.5 w-3.5" /> : <IconCheckCircle className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
               {filtered.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-xs text-ink-400">Aucun utilisateur ne correspond à ces filtres.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-xs text-ink-400">Aucun utilisateur ne correspond à ces filtres.</td></tr>
               )}
             </tbody>
           </table>

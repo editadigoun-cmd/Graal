@@ -116,16 +116,19 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { email, full_name, role, secteur, equipe_id } = body as {
+    const { email, full_name, role, secteur, equipe_id, resend } = body as {
       email: string; full_name: string; role: 'vm' | 'superviseur' | 'admin'
-      secteur?: 'A' | 'B' | null; equipe_id?: string | null
+      secteur?: 'A' | 'B' | null; equipe_id?: string | null; resend?: boolean
     }
 
-    if (!email || !full_name || !role) {
-      return json({ error: 'Email, nom complet et rôle sont obligatoires.' }, 400)
-    }
-    if (role === 'vm' && (!secteur || !equipe_id)) {
-      return json({ error: 'Un VM doit avoir un secteur et une équipe.' }, 400)
+    if (!email) return json({ error: 'Email obligatoire.' }, 400)
+    if (!resend) {
+      if (!full_name || !role) {
+        return json({ error: 'Email, nom complet et rôle sont obligatoires.' }, 400)
+      }
+      if (role === 'vm' && (!secteur || !equipe_id)) {
+        return json({ error: 'Un VM doit avoir un secteur et une équipe.' }, 400)
+      }
     }
 
     // Vérifie que l'appelant est bien administrateur, avec son propre jeton (respecte les RLS)
@@ -146,13 +149,35 @@ Deno.serve(async (req) => {
     const adminClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
     // Détecte les doublons en amont pour un message clair (au lieu de l'erreur générique de Supabase Auth).
-    const { data: existing } = await adminClient.from('profiles').select('full_name').ilike('email', email).maybeSingle()
+    const { data: existing } = await adminClient.from('profiles').select('full_name, role').ilike('email', email).maybeSingle()
+
+    const brevoKey = Deno.env.get('BREVO_API_KEY')
+    const resendKey = Deno.env.get('RESEND_API_KEY')
+
+    if (resend) {
+      // Renvoyer une invitation : GoTrue refuse un second lien de type "invite" pour un email
+      // déjà enregistré, on passe donc par un lien de type "recovery" (fonctionne même si le
+      // compte n'a jamais été confirmé) pour permettre de (re)définir le mot de passe.
+      if (!existing) return json({ error: 'Aucun compte trouvé avec cet email.' }, 404)
+      if (!brevoKey && !resendKey) return json({ error: "Aucun service d'envoi d'email n'est configuré." }, 400)
+
+      const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({ type: 'recovery', email })
+      if (linkError) return json({ error: linkError.message }, 400)
+
+      try {
+        if (brevoKey) await sendViaBrevo(brevoKey, email, existing.full_name, existing.role, linkData.properties.action_link)
+        else await sendViaResend(resendKey!, email, existing.full_name, existing.role, linkData.properties.action_link)
+      } catch (mailError) {
+        return json({ error: String(mailError) }, 502)
+      }
+
+      return json({ id: linkData.user.id, email: linkData.user.email })
+    }
+
     if (existing) {
       return json({ error: `Un compte existe déjà avec cet email (${existing.full_name}).` }, 409)
     }
 
-    const brevoKey = Deno.env.get('BREVO_API_KEY')
-    const resendKey = Deno.env.get('RESEND_API_KEY')
     const metadata = { full_name, role, secteur: secteur ?? null, equipe_id: equipe_id ?? null }
 
     if (brevoKey || resendKey) {
