@@ -13,6 +13,8 @@ export const supabase = createClient<Database>(url, key, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false
+    // Nécessaire pour que les liens d'invitation et de réinitialisation de mot de passe
+    // (envoyés par create-user) transforment les jetons présents dans l'URL en session.
+    detectSessionInUrl: true
   }
 })

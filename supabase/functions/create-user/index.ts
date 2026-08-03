@@ -16,6 +16,9 @@ const corsHeaders = {
 }
 
 const ROLE_LABEL: Record<string, string> = { vm: 'Visiteur médical', superviseur: 'Superviseur', admin: 'Administrateur' }
+// Le "Site URL" configuré côté Supabase Auth n'est pas fiable (souvent resté sur localhost) —
+// on force donc explicitement où les liens d'invitation/réinitialisation redirigent.
+const REDIRECT_URL = 'https://graal.editadigoun.workers.dev/definir-mot-de-passe'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -161,7 +164,11 @@ Deno.serve(async (req) => {
       if (!existing) return json({ error: 'Aucun compte trouvé avec cet email.' }, 404)
       if (!brevoKey && !resendKey) return json({ error: "Aucun service d'envoi d'email n'est configuré." }, 400)
 
-      const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({ type: 'recovery', email })
+      const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: { redirectTo: REDIRECT_URL }
+      })
       if (linkError) return json({ error: linkError.message }, 400)
 
       try {
@@ -186,7 +193,7 @@ Deno.serve(async (req) => {
       const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
         type: 'invite',
         email,
-        options: { data: metadata }
+        options: { data: metadata, redirectTo: REDIRECT_URL }
       })
       if (linkError) return json({ error: linkError.message }, 400)
 
@@ -201,7 +208,8 @@ Deno.serve(async (req) => {
     }
 
     const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      data: metadata
+      data: metadata,
+      redirectTo: REDIRECT_URL
     })
 
     if (inviteError) return json({ error: inviteError.message }, 400)
