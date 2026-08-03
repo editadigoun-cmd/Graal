@@ -5,7 +5,8 @@ import { StatCard } from '@/components/ui/StatCard'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { IconStethoscope, IconCheckCircle, IconAlert, IconUsers } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
-import { todayBenin } from '@/lib/time'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { todayBenin, nowBenin } from '@/lib/time'
 import dayjs from 'dayjs'
 
 interface VmProgress {
@@ -16,14 +17,26 @@ interface VmProgress {
   realisees: number
 }
 
+interface AnimationRow {
+  superviseur_id: string
+  full_name: string
+  equipes: string[]
+  nb_duo: number
+  nb_reporting_vise: number
+  nb_plans_soumis: number
+}
+
 export default function ManagementDashboard() {
+  const { profile } = useAuth()
   const [loading, setLoading] = useState(true)
   const [progress, setProgress] = useState<VmProgress[]>([])
   const [alertes, setAlertes] = useState<{ id: string; titre: string; corps: string | null; created_at: string }[]>([])
+  const [animation, setAnimation] = useState<AnimationRow[]>([])
 
   useEffect(() => {
     async function load() {
       const today = todayBenin().format('YYYY-MM-DD')
+      const depuis30j = nowBenin().subtract(30, 'day').toISOString()
       const [{ data: taux }, { data: profiles }, { data: notifs }] = await Promise.all([
         supabase.from('v_taux_realisation_journalier').select('*').eq('jour', today),
         supabase.from('profiles').select('id, full_name, equipes(nom)').eq('role', 'vm'),
@@ -36,10 +49,30 @@ export default function ManagementDashboard() {
       })
       setProgress(merged)
       setAlertes(notifs ?? [])
+
+      if (profile?.role === 'admin') {
+        const [{ data: superviseurs }, { data: se }, { data: duo }, { data: reporting }, { data: plans }] = await Promise.all([
+          supabase.from('profiles').select('id, full_name').eq('role', 'superviseur'),
+          supabase.from('superviseur_equipes').select('superviseur_id, equipes(nom)'),
+          supabase.from('rapports_duo').select('superviseur_id').gte('created_at', depuis30j),
+          supabase.from('reporting_hebdomadaire').select('visa_superviseur_id').gte('visa_horodatage', depuis30j).not('visa_superviseur_id', 'is', null),
+          supabase.from('plans_activites_mensuels').select('superviseur_id').gte('soumis_at', depuis30j)
+        ])
+        const rows: AnimationRow[] = (superviseurs ?? []).map((s) => ({
+          superviseur_id: s.id,
+          full_name: s.full_name,
+          equipes: (se ?? []).filter((x: any) => x.superviseur_id === s.id).map((x: any) => x.equipes?.nom).filter(Boolean),
+          nb_duo: (duo ?? []).filter((d) => d.superviseur_id === s.id).length,
+          nb_reporting_vise: (reporting ?? []).filter((r) => r.visa_superviseur_id === s.id).length,
+          nb_plans_soumis: (plans ?? []).filter((p) => p.superviseur_id === s.id).length
+        }))
+        setAnimation(rows)
+      }
+
       setLoading(false)
     }
     load()
-  }, [])
+  }, [profile?.id, profile?.role])
 
   const totalPrevues = progress.reduce((s, p) => s + p.prevues, 0)
   const totalRealisees = progress.reduce((s, p) => s + p.realisees, 0)
@@ -119,6 +152,41 @@ export default function ManagementDashboard() {
           ))}
         </div>
       </Card>
+
+      {profile?.role === 'admin' && (
+        <Card>
+          <p className="text-sm font-bold text-ink-800">Indicateur d'animation d'équipe (30 derniers jours)</p>
+          <p className="text-xs text-ink-400 mb-4">Coaching terrain, correction des reportings et suivi de la planification par superviseur</p>
+          {animation.length === 0 ? (
+            <p className="text-xs text-ink-400 py-2">Aucun superviseur enregistré pour l'instant.</p>
+          ) : (
+            <div className="overflow-x-auto -mx-5">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-ink-100 text-xs text-ink-500">
+                    <th className="px-5 py-2 text-left font-semibold">Superviseur</th>
+                    <th className="px-5 py-2 text-left font-semibold">Équipes</th>
+                    <th className="px-5 py-2 text-center font-semibold">Duo terrain</th>
+                    <th className="px-5 py-2 text-center font-semibold">Reporting visés</th>
+                    <th className="px-5 py-2 text-center font-semibold">Plans soumis</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-100">
+                  {animation.map((a) => (
+                    <tr key={a.superviseur_id}>
+                      <td className="px-5 py-2.5 font-semibold text-ink-800">{a.full_name}</td>
+                      <td className="px-5 py-2.5 text-ink-500">{a.equipes.join(', ') || '—'}</td>
+                      <td className="px-5 py-2.5 text-center text-ink-700">{a.nb_duo}</td>
+                      <td className="px-5 py-2.5 text-center text-ink-700">{a.nb_reporting_vise}</td>
+                      <td className="px-5 py-2.5 text-center text-ink-700">{a.nb_plans_soumis}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   )
 }
