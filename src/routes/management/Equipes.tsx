@@ -6,7 +6,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { IconPlus, IconUsers, IconCheckCircle, IconSearch, IconSend, IconLock } from '@/components/ui/icons'
+import { IconPlus, IconUsers, IconCheckCircle, IconSearch, IconSend, IconLock, IconX } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import type { Database } from '@/types/database'
@@ -67,6 +67,32 @@ export default function ManagementEquipes() {
     else {
       setNotice({ type: 'success', text: p.actif ? `${p.full_name} a été désactivé(e).` : `${p.full_name} a été réactivé(e).` })
       load()
+    }
+  }
+
+  async function supprimerDefinitivement(p: Profile) {
+    const confirme = window.confirm(
+      `Supprimer définitivement le compte de ${p.full_name} ?\n\nCela efface aussi tout son historique (visites, programmes, clôtures, reporting). Cette action est irréversible.\n\nSi ce compte a de l'activité, la suppression sera refusée — utilisez plutôt "Désactiver".`
+    )
+    if (!confirme) return
+    setRowBusy(p.id)
+    setNotice(null)
+    const { data: sess } = await supabase.auth.getSession()
+    const token = sess.session?.access_token
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: p.id })
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error ?? 'Erreur inconnue')
+      setNotice({ type: 'success', text: `${p.full_name} a été supprimé(e) définitivement.` })
+      load()
+    } catch (err) {
+      setNotice({ type: 'error', text: err instanceof Error ? err.message : 'Erreur inconnue' })
+    } finally {
+      setRowBusy(null)
     }
   }
 
@@ -269,6 +295,13 @@ export default function ManagementEquipes() {
                           className={`rounded-full p-2 transition disabled:opacity-40 ${p.actif ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
                         >
                           {p.actif ? <IconLock className="h-3.5 w-3.5" /> : <IconCheckCircle className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          onClick={() => supprimerDefinitivement(p)} disabled={busy || isSelf}
+                          title={isSelf ? 'Vous ne pouvez pas supprimer votre propre compte' : 'Supprimer définitivement'}
+                          className="rounded-full p-2 bg-ink-100 text-ink-500 hover:bg-red-100 hover:text-red-600 transition disabled:opacity-40"
+                        >
+                          <IconX className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </td>
