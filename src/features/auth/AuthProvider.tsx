@@ -23,6 +23,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loadProfile(userId: string) {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    if (data && !data.actif) {
+      // Compte désactivé par un administrateur : on met fin à la session immédiatement,
+      // même si le jeton d'accès courant est encore valide.
+      await supabase.auth.signOut()
+      setSession(null)
+      setProfile(null)
+      return
+    }
     setProfile(data ?? null)
   }
 
