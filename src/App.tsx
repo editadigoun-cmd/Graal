@@ -27,6 +27,8 @@ import ManagementActivite from '@/routes/management/Activite'
 import ManagementPlanActivites from '@/routes/management/PlanActivites'
 import ManagementRapportsDuo from '@/routes/management/RapportsDuo'
 import ManagementImportPortefeuille from '@/routes/management/ImportPortefeuille'
+import ManagementClients from '@/routes/management/Clients'
+import ManagementProduits from '@/routes/management/Produits'
 
 function ConfigError() {
   return (
@@ -104,6 +106,8 @@ export default function App() {
             <Route path="programmes" element={<ManagementProgrammes />} />
             <Route path="reporting" element={<ManagementReporting />} />
             <Route path="equipes" element={<ManagementEquipes />} />
+            <Route path="clients" element={<ManagementClients />} />
+            <Route path="produits" element={<ManagementProduits />} />
             <Route path="activite" element={<ManagementActivite />} />
             <Route path="plan-activites" element={<ManagementPlanActivites />} />
             <Route path="rapports-duo" element={<ManagementRapportsDuo />} />
