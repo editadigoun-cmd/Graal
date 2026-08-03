@@ -2,10 +2,11 @@
 // email — réservé aux administrateurs. Le profil est créé automatiquement par le trigger
 // handle_new_auth_user() (voir 002_profiles_teams.sql) à partir des métadonnées fournies ici.
 //
-// L'envoi utilise Resend (avec un email HTML aux couleurs GRAAL, en français) quand la
-// variable d'environnement RESEND_API_KEY est configurée sur le projet Supabase — sinon on
-// se rabat sur le mailer intégré de Supabase (inviteUserByEmail), qui reste fonctionnel mais
-// n'est pas destiné à un usage en production (fort throttling, domaine d'expédition partagé).
+// L'envoi utilise Brevo, puis Resend en repli (email HTML aux couleurs GRAAL, en français)
+// dès que la variable d'environnement correspondante (BREVO_API_KEY ou RESEND_API_KEY) est
+// configurée comme secret sur le projet Supabase — sinon on se rabat sur le mailer intégré
+// de Supabase (inviteUserByEmail), qui reste fonctionnel mais n'est pas destiné à un usage
+// en production (fort throttling, domaine d'expédition partagé).
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -78,11 +79,27 @@ function invitationEmailHtml(fullName: string, role: string, actionLink: string)
 </html>`
 }
 
-async function sendBrandedInvite(resendKey: string, email: string, fullName: string, role: string, actionLink: string) {
+async function sendViaBrevo(apiKey: string, email: string, fullName: string, role: string, actionLink: string) {
+  const fromEmail = Deno.env.get('BREVO_FROM_EMAIL')
+  if (!fromEmail) throw new Error('BREVO_FROM_EMAIL manquant (adresse expéditeur vérifiée dans Brevo).')
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      sender: { name: 'GRAAL Medical Solutions', email: fromEmail },
+      to: [{ email, name: fullName }],
+      subject: 'Votre invitation GRAAL Medical Solutions',
+      htmlContent: invitationEmailHtml(fullName, role, actionLink)
+    })
+  })
+  if (!res.ok) throw new Error(`Échec de l'envoi de l'email (Brevo) : ${await res.text()}`)
+}
+
+async function sendViaResend(apiKey: string, email: string, fullName: string, role: string, actionLink: string) {
   const from = Deno.env.get('RESEND_FROM_EMAIL') ?? 'GRAAL Medical Solutions <onboarding@resend.dev>'
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from,
       to: email,
@@ -134,12 +151,13 @@ Deno.serve(async (req) => {
       return json({ error: `Un compte existe déjà avec cet email (${existing.full_name}).` }, 409)
     }
 
+    const brevoKey = Deno.env.get('BREVO_API_KEY')
     const resendKey = Deno.env.get('RESEND_API_KEY')
     const metadata = { full_name, role, secteur: secteur ?? null, equipe_id: equipe_id ?? null }
 
-    if (resendKey) {
+    if (brevoKey || resendKey) {
       // Génère le lien d'invitation sans passer par le mailer intégré de Supabase, puis
-      // envoie nous-mêmes l'email en français, aux couleurs GRAAL, via Resend.
+      // envoie nous-mêmes l'email en français, aux couleurs GRAAL, via Brevo (ou Resend).
       const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
         type: 'invite',
         email,
@@ -148,7 +166,8 @@ Deno.serve(async (req) => {
       if (linkError) return json({ error: linkError.message }, 400)
 
       try {
-        await sendBrandedInvite(resendKey, email, full_name, role, linkData.properties.action_link)
+        if (brevoKey) await sendViaBrevo(brevoKey, email, full_name, role, linkData.properties.action_link)
+        else await sendViaResend(resendKey!, email, full_name, role, linkData.properties.action_link)
       } catch (mailError) {
         return json({ error: String(mailError) }, 502)
       }
