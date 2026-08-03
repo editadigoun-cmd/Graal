@@ -2,21 +2,22 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Avatar } from '@/components/ui/Avatar'
-import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser, IconClipboard, IconStethoscope } from '@/components/ui/icons'
+import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser, IconClipboard, IconStethoscope, IconDownload } from '@/components/ui/icons'
 import logoFull from '@/assets/logo-full.svg'
 import logoMark from '@/assets/logo-mark.svg'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 
 const nav = [
-  { to: '/admin', label: 'Tableau de bord', icon: IconHome, end: true },
-  { to: '/admin/programmes', label: 'Programmes', icon: IconCalendar },
-  { to: '/admin/reporting', label: 'Reporting', icon: IconChat },
-  { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers },
-  { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard },
-  { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconStethoscope },
-  { to: '/admin/activite', label: 'Activité', icon: IconActivity },
-  { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings },
-  { to: '/admin/profil', label: 'Mon profil', icon: IconUser }
+  { to: '/admin', label: 'Tableau de bord', icon: IconHome, end: true, adminOnly: false },
+  { to: '/admin/programmes', label: 'Programmes', icon: IconCalendar, end: false, adminOnly: false },
+  { to: '/admin/reporting', label: 'Reporting', icon: IconChat, end: false, adminOnly: false },
+  { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers, end: false, adminOnly: false },
+  { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard, end: false, adminOnly: false },
+  { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconStethoscope, end: false, adminOnly: false },
+  { to: '/admin/import-portefeuille', label: 'Import portefeuille', icon: IconDownload, end: false, adminOnly: true },
+  { to: '/admin/activite', label: 'Activité', icon: IconActivity, end: false, adminOnly: false },
+  { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings, end: false, adminOnly: false },
+  { to: '/admin/profil', label: 'Mon profil', icon: IconUser, end: false, adminOnly: false }
 ]
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Administrateur', superviseur: 'Superviseur' }
@@ -25,6 +26,7 @@ export function ManagementShell() {
   const { profile, signOut } = useAuth()
   const unread = useUnreadNotifications()
   const location = useLocation()
+  const navVisible = nav.filter((n) => !n.adminOnly || profile?.role === 'admin')
   const currentPage = nav.find((n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)))
 
   return (
@@ -38,7 +40,7 @@ export function ManagementShell() {
           </div>
         </div>
         <nav className="space-y-1 flex-1 overflow-y-auto">
-          {nav.map(({ to, label, icon: Icon, end }) => (
+          {navVisible.map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end}>
               {({ isActive }) => (
                 <div className={clsx('flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-semibold transition',
