@@ -102,3 +102,6 @@ export const IconUsers = (p: IconProps) => (
 export const IconActivity = (p: IconProps) => (
   <svg {...base} {...p}><path d="M3 12h4l2.5-7L13 19l2.5-7H21" /></svg>
 )
+export const IconClipboard = (p: IconProps) => (
+  <svg {...base} {...p}><rect x="5" y="4.5" width="14" height="17" rx="2.5" /><rect x="9" y="3" width="6" height="3.5" rx="1.2" /><path d="M8.5 12h7M8.5 15.5h7M8.5 8.7h4" /></svg>
+)
