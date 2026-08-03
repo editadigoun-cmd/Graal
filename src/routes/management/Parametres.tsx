@@ -69,6 +69,7 @@ export default function ManagementParametres() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState(GROUPS[0].title)
 
   useEffect(() => {
     supabase.from('parametres').select('*').order('key').then(({ data }: { data: Parametre[] | null }) => {
@@ -92,7 +93,9 @@ export default function ManagementParametres() {
     setTimeout(() => setSaved(null), 2000)
   }
 
-  if (loading) return <div className="space-y-4"><Skeleton className="h-40" /><Skeleton className="h-40" /><Skeleton className="h-40" /></div>
+  if (loading) return <div className="space-y-4"><Skeleton className="h-10" /><Skeleton className="h-64" /></div>
+
+  const group = GROUPS.find((g) => g.title === activeTab) ?? GROUPS[0]
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -101,50 +104,63 @@ export default function ManagementParametres() {
         <p className="text-sm text-ink-400">Seuils, horaires de verrouillage et pondérations, modifiables à tout moment.</p>
       </div>
 
-      {GROUPS.map((group) => (
-        <Card key={group.title}>
-          <div className="flex items-start gap-3 mb-5">
-            <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl ${TONE_BG[group.tone]}`}>
-              <group.icon className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-ink-800">{group.title}</p>
-              <p className="text-xs text-ink-400 mt-0.5">{group.description}</p>
-            </div>
-          </div>
+      <div className="flex gap-1.5 overflow-x-auto rounded-2xl bg-ink-100/70 p-1.5">
+        {GROUPS.map((g) => (
+          <button
+            key={g.title}
+            onClick={() => setActiveTab(g.title)}
+            className={`flex flex-shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+              activeTab === g.title ? 'bg-white text-ink-800 shadow-softer' : 'text-ink-500 hover:text-ink-700'
+            }`}
+          >
+            <g.icon className="h-4 w-4" />
+            {g.title}
+          </button>
+        ))}
+      </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
-            {group.fields.map((field) => (
-              <div key={field.key}>
-                <label className="mb-1.5 block text-xs font-semibold text-ink-500">{field.label}</label>
-                <div className="relative">
-                  <input
-                    type={field.type === 'time' ? 'time' : 'number'}
-                    value={valeurs[field.key] ?? ''}
-                    onChange={(e) => setValeurs((v) => ({ ...v, [field.key]: e.target.value }))}
-                    className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
-                  />
-                  {field.type === 'percentage' && (
-                    <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-ink-400">%</span>
-                  )}
-                </div>
+      <Card key={group.title}>
+        <div className="flex items-start gap-3 mb-5">
+          <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl ${TONE_BG[group.tone]}`}>
+            <group.icon className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-ink-800">{group.title}</p>
+            <p className="text-xs text-ink-400 mt-0.5">{group.description}</p>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          {group.fields.map((field) => (
+            <div key={field.key}>
+              <label className="mb-1.5 block text-xs font-semibold text-ink-500">{field.label}</label>
+              <div className="relative">
+                <input
+                  type={field.type === 'time' ? 'time' : 'number'}
+                  value={valeurs[field.key] ?? ''}
+                  onChange={(e) => setValeurs((v) => ({ ...v, [field.key]: e.target.value }))}
+                  className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+                />
+                {field.type === 'percentage' && (
+                  <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-ink-400">%</span>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
 
-          <div className="mt-5 flex items-center gap-3 border-t border-ink-100 pt-4">
-            <Button
-              size="sm"
-              loading={saving === group.title}
-              variant={saved === group.title ? 'success' : 'secondary'}
-              icon={<IconCheck className="h-4 w-4" />}
-              onClick={() => sauvegarderGroupe(group)}
-            >
-              {saved === group.title ? 'Enregistré' : 'Enregistrer cette section'}
-            </Button>
-          </div>
-        </Card>
-      ))}
+        <div className="mt-5 flex items-center gap-3 border-t border-ink-100 pt-4">
+          <Button
+            size="sm"
+            loading={saving === group.title}
+            variant={saved === group.title ? 'success' : 'secondary'}
+            icon={<IconCheck className="h-4 w-4" />}
+            onClick={() => sauvegarderGroupe(group)}
+          >
+            {saved === group.title ? 'Enregistré' : 'Enregistrer cette section'}
+          </Button>
+        </div>
+      </Card>
     </div>
   )
 }

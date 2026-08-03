@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string
+          created_at: string
+          entity_label: string | null
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string
+          created_at?: string
+          entity_label?: string | null
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string
+          created_at?: string
+          entity_label?: string | null
+          entity_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cible_specialite_map: {
         Row: {
           cible: string
@@ -659,6 +697,7 @@ export type Database = {
           actif: boolean
           avatar_url: string | null
           created_at: string
+          email: string | null
           equipe_id: string | null
           full_name: string
           id: string
@@ -671,6 +710,7 @@ export type Database = {
           actif?: boolean
           avatar_url?: string | null
           created_at?: string
+          email?: string | null
           equipe_id?: string | null
           full_name: string
           id: string
@@ -683,6 +723,7 @@ export type Database = {
           actif?: boolean
           avatar_url?: string | null
           created_at?: string
+          email?: string | null
           equipe_id?: string | null
           full_name?: string
           id?: string
