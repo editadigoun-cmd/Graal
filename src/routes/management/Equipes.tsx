@@ -14,6 +14,7 @@ import type { Database } from '@/types/database'
 type Equipe = Database['public']['Tables']['equipes']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Role = Database['public']['Enums']['user_role']
+type SuperviseurEquipe = Database['public']['Tables']['superviseur_equipes']['Row']
 
 const ROLE_LABEL: Record<Role, string> = { vm: 'Visiteur médical', superviseur: 'Superviseur', admin: 'Administrateur' }
 const ROLE_TONE: Record<Role, 'info' | 'success' | 'warning'> = { vm: 'info', superviseur: 'success', admin: 'warning' }
@@ -23,6 +24,7 @@ export default function ManagementEquipes() {
   const { session } = useAuth()
   const [equipes, setEquipes] = useState<Equipe[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [superviseurEquipes, setSuperviseurEquipes] = useState<SuperviseurEquipe[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -37,16 +39,29 @@ export default function ManagementEquipes() {
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   async function load() {
-    const [{ data: eq }, { data: pr }] = await Promise.all([
+    const [{ data: eq }, { data: pr }, { data: se }] = await Promise.all([
       supabase.from('equipes').select('*').order('nom'),
-      supabase.from('profiles').select('*').order('full_name')
+      supabase.from('profiles').select('*').order('full_name'),
+      supabase.from('superviseur_equipes').select('*')
     ])
     setEquipes(eq ?? [])
     setProfiles(pr ?? [])
+    setSuperviseurEquipes(se ?? [])
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
+
+  async function assignerEquipe(superviseurId: string, equipeId: string) {
+    if (!equipeId) return
+    await supabase.from('superviseur_equipes').insert({ superviseur_id: superviseurId, equipe_id: equipeId })
+    load()
+  }
+
+  async function retirerEquipe(superviseurId: string, equipeId: string) {
+    await supabase.from('superviseur_equipes').delete().eq('superviseur_id', superviseurId).eq('equipe_id', equipeId)
+    load()
+  }
 
   async function changerEquipe(profileId: string, equipeId: string) {
     await supabase.from('profiles').update({ equipe_id: equipeId || null }).eq('id', profileId)
@@ -260,8 +275,30 @@ export default function ManagementEquipes() {
                           <option value="">Sans équipe</option>
                           {equipes.map((e2) => <option key={e2.id} value={e2.id}>{e2.nom}</option>)}
                         </select>
+                      ) : p.role === 'superviseur' ? (
+                        <div className="flex flex-wrap items-center gap-1.5 max-w-[220px]">
+                          {superviseurEquipes.filter((se) => se.superviseur_id === p.id).map((se) => (
+                            <button
+                              key={se.equipe_id}
+                              onClick={() => retirerEquipe(p.id, se.equipe_id)}
+                              title="Retirer cette équipe"
+                              className="inline-flex items-center gap-1 rounded-full bg-royal-50 px-2 py-0.5 text-[10px] font-semibold text-royal-700 hover:bg-red-50 hover:text-red-600 transition"
+                            >
+                              {equipeNomById[se.equipe_id]} <IconX className="h-2.5 w-2.5" />
+                            </button>
+                          ))}
+                          <select
+                            value="" onChange={(e) => assignerEquipe(p.id, e.target.value)}
+                            className="rounded-lg border border-ink-200 bg-white px-1.5 py-0.5 text-[10px]"
+                          >
+                            <option value="">+ ajouter…</option>
+                            {equipes
+                              .filter((e2) => !superviseurEquipes.some((se) => se.superviseur_id === p.id && se.equipe_id === e2.id))
+                              .map((e2) => <option key={e2.id} value={e2.id}>{e2.nom}</option>)}
+                          </select>
+                        </div>
                       ) : (
-                        <span className="text-xs text-ink-400">{p.equipe_id ? equipeNomById[p.equipe_id] : '—'}</span>
+                        <span className="text-xs text-ink-400">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3">

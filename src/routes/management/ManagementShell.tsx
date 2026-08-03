@@ -2,7 +2,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Avatar } from '@/components/ui/Avatar'
-import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser } from '@/components/ui/icons'
+import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser, IconClipboard } from '@/components/ui/icons'
 import logoFull from '@/assets/logo-full.svg'
 import logoMark from '@/assets/logo-mark.svg'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
@@ -12,6 +12,7 @@ const nav = [
   { to: '/admin/programmes', label: 'Programmes', icon: IconCalendar },
   { to: '/admin/reporting', label: 'Reporting', icon: IconChat },
   { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers },
+  { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard },
   { to: '/admin/activite', label: 'Activité', icon: IconActivity },
   { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings },
   { to: '/admin/profil', label: 'Mon profil', icon: IconUser }
