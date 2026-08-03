@@ -3,7 +3,8 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGri
 import { Card } from '@/components/ui/Card'
 import { StatCard } from '@/components/ui/StatCard'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { IconStethoscope, IconCheckCircle, IconAlert, IconUsers } from '@/components/ui/icons'
+import { Button } from '@/components/ui/Button'
+import { IconStethoscope, IconCheckCircle, IconAlert, IconUsers, IconDownload, IconCamera } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { todayBenin, nowBenin } from '@/lib/time'
@@ -26,21 +27,36 @@ interface AnimationRow {
   nb_plans_soumis: number
 }
 
+interface ClotureRow {
+  id: string
+  vm_id: string
+  statut: string
+  heure_cloture: string | null
+  photo_path: string | null
+  en_retard: boolean
+  profiles: { full_name: string } | null
+}
+
 export default function ManagementDashboard() {
   const { profile } = useAuth()
   const [loading, setLoading] = useState(true)
   const [progress, setProgress] = useState<VmProgress[]>([])
   const [alertes, setAlertes] = useState<{ id: string; titre: string; corps: string | null; created_at: string }[]>([])
   const [animation, setAnimation] = useState<AnimationRow[]>([])
+  const [moisExport, setMoisExport] = useState(nowBenin().format('YYYY-MM-01'))
+  const [exporting, setExporting] = useState(false)
+  const [clotures, setClotures] = useState<ClotureRow[]>([])
+  const [photoBusy, setPhotoBusy] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
       const today = todayBenin().format('YYYY-MM-DD')
       const depuis30j = nowBenin().subtract(30, 'day').toISOString()
-      const [{ data: taux }, { data: profiles }, { data: notifs }] = await Promise.all([
+      const [{ data: taux }, { data: profiles }, { data: notifs }, { data: clo }] = await Promise.all([
         supabase.from('v_taux_realisation_journalier').select('*').eq('jour', today),
         supabase.from('profiles').select('id, full_name, equipes(nom)').eq('role', 'vm'),
-        supabase.from('notifications').select('id, titre, corps, created_at').order('created_at', { ascending: false }).limit(8)
+        supabase.from('notifications').select('id, titre, corps, created_at').order('created_at', { ascending: false }).limit(8),
+        supabase.from('clotures_journalieres').select('id, vm_id, statut, heure_cloture, photo_path, en_retard, profiles(full_name)').eq('jour', today)
       ])
 
       const merged: VmProgress[] = (profiles ?? []).map((p: any) => {
@@ -49,6 +65,7 @@ export default function ManagementDashboard() {
       })
       setProgress(merged)
       setAlertes(notifs ?? [])
+      setClotures((clo as unknown as ClotureRow[]) ?? [])
 
       if (profile?.role === 'admin') {
         const [{ data: superviseurs }, { data: se }, { data: duo }, { data: reporting }, { data: plans }] = await Promise.all([
@@ -73,6 +90,39 @@ export default function ManagementDashboard() {
     }
     load()
   }, [profile?.id, profile?.role])
+
+  async function exporterEvaluations() {
+    setExporting(true)
+    const { data: vms } = await supabase.from('profiles').select('id, full_name').eq('role', 'vm').order('full_name')
+    const lignes: string[][] = [['Visiteur médical', 'Mois', 'Taux couverture (%)', 'Ponctualité (%)', 'Exécution planning (%)', 'Discipline clôtures (%)', 'Score global (%)']]
+
+    for (const vm of vms ?? []) {
+      const { data } = await supabase.rpc('score_mensuel_vm', { p_vm_id: vm.id, p_mois: moisExport }).single()
+      const s = data as any
+      lignes.push([
+        vm.full_name, dayjs(moisExport).format('MMMM YYYY'),
+        String(s?.taux_couverture ?? 0), String(s?.ponctualite ?? 0),
+        String(s?.execution_planning ?? 0), String(s?.discipline_clotures ?? 0), String(s?.score_global ?? 0)
+      ])
+    }
+
+    const csv = lignes.map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `evaluations-${dayjs(moisExport).format('YYYY-MM')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    setExporting(false)
+  }
+
+  async function voirPhoto(path: string, id: string) {
+    setPhotoBusy(id)
+    const { data, error } = await supabase.storage.from('fiches-papier').createSignedUrl(path, 3600)
+    setPhotoBusy(null)
+    if (!error && data) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  }
 
   const totalPrevues = progress.reduce((s, p) => s + p.prevues, 0)
   const totalRealisees = progress.reduce((s, p) => s + p.realisees, 0)
@@ -152,6 +202,58 @@ export default function ManagementDashboard() {
           ))}
         </div>
       </Card>
+
+      <Card>
+        <p className="text-sm font-bold text-ink-800">Clôtures du jour</p>
+        <p className="text-xs text-ink-400 mb-4">Fiche papier photographiée, en regard des données saisies numériquement</p>
+        {clotures.length === 0 ? (
+          <p className="text-xs text-ink-400 py-2">Aucune clôture enregistrée pour l'instant aujourd'hui.</p>
+        ) : (
+          <div className="space-y-2">
+            {clotures.map((c) => (
+              <div key={c.id} className="flex items-center justify-between rounded-xl bg-ink-50 p-2.5">
+                <div>
+                  <p className="text-xs font-semibold text-ink-800">{c.profiles?.full_name}</p>
+                  <p className="text-[10px] text-ink-400">
+                    {c.heure_cloture ? dayjs(c.heure_cloture).format('HH:mm') : '—'}
+                    {c.en_retard && ' · en retard'}
+                    {c.statut === 'CLOTUREE_FORCEE' && ' · clôture forcée'}
+                  </p>
+                </div>
+                {c.photo_path ? (
+                  <Button size="sm" variant="secondary" loading={photoBusy === c.id} icon={<IconCamera className="h-3.5 w-3.5" />}
+                    onClick={() => voirPhoto(c.photo_path!, c.id)}>
+                    Voir la photo
+                  </Button>
+                ) : (
+                  <span className="text-[10px] text-ink-400">Sans photo</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {profile?.role === 'admin' && (
+        <Card>
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-1">
+            <div>
+              <p className="text-sm font-bold text-ink-800">Export des évaluations</p>
+              <p className="text-xs text-ink-400">Scores mensuels par VM, pour la préparation de la paie</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="month" value={dayjs(moisExport).format('YYYY-MM')}
+                onChange={(e) => setMoisExport(`${e.target.value}-01`)}
+                className="rounded-xl border border-ink-200 px-3 py-2 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+              />
+              <Button size="sm" variant="secondary" loading={exporting} icon={<IconDownload className="h-4 w-4" />} onClick={exporterEvaluations}>
+                Exporter (CSV)
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {profile?.role === 'admin' && (
         <Card>
