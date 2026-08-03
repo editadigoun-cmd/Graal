@@ -256,7 +256,14 @@ export default function ManagementClients() {
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-ink-500">Secteur</label>
-              <select value={form.secteur} onChange={(e) => setForm((f) => ({ ...f, secteur: e.target.value as 'A' | 'B' }))}
+              <select value={form.secteur} onChange={(e) => {
+                const secteur = e.target.value as 'A' | 'B'
+                setForm((f) => {
+                  const vmActuel = vms.find((v) => v.id === f.vm_id)
+                  const vmToujoursValide = vmActuel && vmActuel.secteur === secteur
+                  return { ...f, secteur, vm_id: vmToujoursValide ? f.vm_id : '' }
+                })
+              }}
                 className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
                 <option value="A">Secteur A</option>
                 <option value="B">Secteur B</option>
