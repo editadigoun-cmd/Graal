@@ -2,7 +2,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Avatar } from '@/components/ui/Avatar'
-import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat } from '@/components/ui/icons'
+import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser } from '@/components/ui/icons'
 import logoFull from '@/assets/logo-full.svg'
 import logoMark from '@/assets/logo-mark.svg'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
@@ -12,7 +12,9 @@ const nav = [
   { to: '/admin/programmes', label: 'Programmes', icon: IconCalendar },
   { to: '/admin/reporting', label: 'Reporting', icon: IconChat },
   { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers },
-  { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings }
+  { to: '/admin/activite', label: 'Activité', icon: IconActivity },
+  { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings },
+  { to: '/admin/profil', label: 'Mon profil', icon: IconUser }
 ]
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Administrateur', superviseur: 'Superviseur' }
@@ -24,7 +26,7 @@ export function ManagementShell() {
   const currentPage = nav.find((n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)))
 
   return (
-    <div className="graal-surface min-h-screen flex">
+    <div className="graal-surface flex h-screen overflow-hidden">
       <aside className="hidden md:flex w-64 flex-shrink-0 flex-col border-r border-ink-100/60 bg-white/70 backdrop-blur-xl p-5">
         <div className="flex items-center gap-2.5 px-1 mb-8">
           <img src={logoMark} alt="" className="h-8 w-8" />
@@ -33,7 +35,7 @@ export function ManagementShell() {
             <p className="text-[10px] font-semibold text-ink-400 tracking-wide">MEDICAL SOLUTIONS</p>
           </div>
         </div>
-        <nav className="space-y-1 flex-1">
+        <nav className="space-y-1 flex-1 overflow-y-auto">
           {nav.map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end}>
               {({ isActive }) => (
@@ -46,13 +48,13 @@ export function ManagementShell() {
             </NavLink>
           ))}
         </nav>
-        <Link to="/admin/profil" className="mt-4 flex items-center gap-3 rounded-2xl border border-ink-100 p-2.5 hover:bg-ink-50 transition">
+        <div className="mt-4 flex items-center gap-3 rounded-2xl border border-ink-100 p-2.5">
           <Avatar name={profile?.full_name ?? ''} url={profile?.avatar_url} size={38} />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold text-ink-800 truncate">{profile?.full_name}</p>
             <p className="text-[10px] text-ink-400">{profile ? ROLE_LABEL[profile.role] ?? profile.role : ''}</p>
           </div>
-        </Link>
+        </div>
         <button
           onClick={signOut}
           className="mt-2 flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-semibold text-ink-400 hover:bg-red-50 hover:text-red-500 transition"
@@ -61,8 +63,8 @@ export function ManagementShell() {
         </button>
       </aside>
 
-      <main className="flex-1 min-w-0 flex flex-col">
-        <header className="flex items-center justify-between border-b border-ink-100 bg-white/70 backdrop-blur px-5 md:px-8 py-4">
+      <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        <header className="flex-shrink-0 flex items-center justify-between border-b border-ink-100 bg-white/70 backdrop-blur px-5 md:px-8 py-4">
           <div className="flex items-center gap-2 md:hidden">
             <img src={logoFull} alt="GRAAL" className="h-8 w-auto" />
           </div>
@@ -71,17 +73,19 @@ export function ManagementShell() {
             <Link to="/admin/parametres" className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-400 shadow-softer hover:text-royal-600 transition">
               <IconSettings className="h-4.5 w-4.5" />
             </Link>
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-500 shadow-softer">
+            <Link to="/admin/activite" className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-500 shadow-softer hover:text-royal-600 transition">
               <IconBell className="h-4.5 w-4.5" />
               {unread > 0 && <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-flame-500 text-[9px] font-bold text-white flex items-center justify-center">{unread > 9 ? '9+' : unread}</span>}
-            </div>
+            </Link>
             <Link to="/admin/profil" className="md:hidden">
               <Avatar name={profile?.full_name ?? ''} url={profile?.avatar_url} size={34} />
             </Link>
           </div>
         </header>
-        <div className="flex-1 p-5 md:p-8 max-w-7xl w-full mx-auto">
-          <Outlet />
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-5 md:p-8 max-w-7xl w-full mx-auto">
+            <Outlet />
+          </div>
         </div>
       </main>
     </div>

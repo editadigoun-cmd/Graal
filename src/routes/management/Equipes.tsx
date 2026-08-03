@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -6,7 +6,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { IconPlus, IconUsers, IconCheckCircle } from '@/components/ui/icons'
+import { IconPlus, IconUsers, IconCheckCircle, IconSearch } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
@@ -15,6 +15,7 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 type Role = Database['public']['Enums']['user_role']
 
 const ROLE_LABEL: Record<Role, string> = { vm: 'Visiteur médical', superviseur: 'Superviseur', admin: 'Administrateur' }
+const ROLE_TONE: Record<Role, 'info' | 'success' | 'warning'> = { vm: 'info', superviseur: 'success', admin: 'warning' }
 const EMPTY_FORM = { email: '', full_name: '', role: 'vm' as Role, secteur: 'A' as 'A' | 'B', equipe_id: '' }
 
 export default function ManagementEquipes() {
@@ -25,6 +26,10 @@ export default function ManagementEquipes() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [creating, setCreating] = useState(false)
   const [creationMsg, setCreationMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const [search, setSearch] = useState('')
+  const [equipeFilter, setEquipeFilter] = useState('')
+  const [roleFilter, setRoleFilter] = useState<Role | ''>('')
 
   async function load() {
     const [{ data: eq }, { data: pr }] = await Promise.all([
@@ -82,7 +87,20 @@ export default function ManagementEquipes() {
     }
   }
 
-  if (loading) return <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-24" /></div>
+  const equipeNomById = useMemo(() => Object.fromEntries(equipes.map((e) => [e.id, e.nom])), [equipes])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return profiles.filter((p) => {
+      if (equipeFilter === '__none__' && p.equipe_id) return false
+      if (equipeFilter && equipeFilter !== '__none__' && p.equipe_id !== equipeFilter) return false
+      if (roleFilter && p.role !== roleFilter) return false
+      if (q && !p.full_name.toLowerCase().includes(q) && !(p.email ?? '').toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [profiles, search, equipeFilter, roleFilter])
+
+  if (loading) return <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-64" /></div>
 
   const totalVm = profiles.filter((p) => p.role === 'vm').length
   const totalSuperviseurs = profiles.filter((p) => p.role === 'superviseur').length
@@ -105,41 +123,93 @@ export default function ManagementEquipes() {
         <StatCard label="Superviseurs" value={totalSuperviseurs} tone="flame" icon={<IconCheckCircle className="h-4 w-4" />} />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4">
-        {equipes.map((eq) => {
-          const membres = profiles.filter((p) => p.equipe_id === eq.id)
-          return (
-            <Card key={eq.id}>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-bold text-ink-800">{eq.nom}</p>
-                <Badge tone="info">{membres.length} membre{membres.length > 1 ? 's' : ''}</Badge>
-              </div>
-              <div className="space-y-2">
-                {membres.map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 rounded-xl bg-ink-50 p-2.5">
-                    <Avatar name={m.full_name} url={m.avatar_url} size={32} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-ink-800 truncate">{m.full_name}</p>
-                      <p className="text-[10px] text-ink-400 capitalize">{ROLE_LABEL[m.role]}</p>
+      <Card className="flex flex-col sm:flex-row gap-3 sm:items-center">
+        <div className="relative flex-1">
+          <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
+          <input
+            value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher un nom ou un email…"
+            className="w-full rounded-xl border border-ink-200 pl-10 pr-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+          />
+        </div>
+        <select
+          value={equipeFilter} onChange={(e) => setEquipeFilter(e.target.value)}
+          className="rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+        >
+          <option value="">Toutes les équipes</option>
+          <option value="__none__">Sans équipe</option>
+          {equipes.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+        </select>
+        <select
+          value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | '')}
+          className="rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+        >
+          <option value="">Tous les rôles</option>
+          {(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+        </select>
+      </Card>
+
+      <Card className="overflow-hidden p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-ink-100 bg-ink-50/60 text-xs text-ink-500">
+                <th className="px-4 py-3 text-left font-semibold">Utilisateur</th>
+                <th className="px-4 py-3 text-left font-semibold">Rôle</th>
+                <th className="px-4 py-3 text-left font-semibold">Équipe</th>
+                <th className="px-4 py-3 text-left font-semibold">Secteur</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100">
+              {filtered.map((p) => (
+                <tr key={p.id} className="transition hover:bg-ink-50/60">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={p.full_name} url={p.avatar_url} size={32} />
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-ink-800 truncate">{p.full_name}</p>
+                        <p className="text-[11px] text-ink-400 truncate">{p.email}</p>
+                      </div>
                     </div>
-                    {m.role === 'vm' && (
-                      <select value={m.secteur ?? ''} onChange={(e) => changerSecteur(m.id, e.target.value)} className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs">
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={ROLE_TONE[p.role]}>{ROLE_LABEL[p.role]}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    {p.role === 'vm' ? (
+                      <select
+                        value={p.equipe_id ?? ''} onChange={(e) => changerEquipe(p.id, e.target.value)}
+                        className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs"
+                      >
+                        <option value="">Sans équipe</option>
+                        {equipes.map((e2) => <option key={e2.id} value={e2.id}>{e2.nom}</option>)}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-ink-400">{p.equipe_id ? equipeNomById[p.equipe_id] : '—'}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {p.role === 'vm' ? (
+                      <select
+                        value={p.secteur ?? ''} onChange={(e) => changerSecteur(p.id, e.target.value)}
+                        className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs"
+                      >
                         <option value="A">Secteur A</option>
                         <option value="B">Secteur B</option>
                       </select>
+                    ) : (
+                      <span className="text-xs text-ink-400">—</span>
                     )}
-                    <select value={m.equipe_id ?? ''} onChange={(e) => changerEquipe(m.id, e.target.value)} className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs">
-                      <option value="">Sans équipe</option>
-                      {equipes.map((e2) => <option key={e2.id} value={e2.id}>{e2.nom}</option>)}
-                    </select>
-                  </div>
-                ))}
-                {membres.length === 0 && <p className="text-xs text-ink-400 py-2">Aucun membre pour l'instant.</p>}
-              </div>
-            </Card>
-          )
-        })}
-      </div>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-xs text-ink-400">Aucun utilisateur ne correspond à ces filtres.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       <Modal open={modalOpen} onClose={fermerModal} title="Ajouter un membre" description="Une invitation par email sera envoyée pour définir le mot de passe.">
         <form onSubmit={creerCompte} className="space-y-4">

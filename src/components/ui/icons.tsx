@@ -99,3 +99,6 @@ export const IconLock = (p: IconProps) => (
 export const IconUsers = (p: IconProps) => (
   <svg {...base} {...p}><circle cx="9" cy="8" r="3" /><path d="M3 19c.8-3 3-4.7 6-4.7s5.2 1.7 6 4.7" /><path d="M16 5.2a3 3 0 0 1 0 5.8M20.5 19c-.6-2.2-1.8-3.7-3.5-4.4" /></svg>
 )
+export const IconActivity = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M3 12h4l2.5-7L13 19l2.5-7H21" /></svg>
+)
