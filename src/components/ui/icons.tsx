@@ -105,3 +105,6 @@ export const IconActivity = (p: IconProps) => (
 export const IconClipboard = (p: IconProps) => (
   <svg {...base} {...p}><rect x="5" y="4.5" width="14" height="17" rx="2.5" /><rect x="9" y="3" width="6" height="3.5" rx="1.2" /><path d="M8.5 12h7M8.5 15.5h7M8.5 8.7h4" /></svg>
 )
+export const IconMenu = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17" /></svg>
+)
