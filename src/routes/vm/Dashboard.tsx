@@ -33,10 +33,10 @@ export default function VmDashboard() {
 
       <Card>
         <div className="flex items-center gap-5">
-          <CircularProgress value={d.scoreMensuel} label="ce mois" tone={d.scoreMensuel >= 90 ? 'emerald' : d.scoreMensuel >= 70 ? 'flame' : 'royal'} size={104} />
+          <CircularProgress value={d.scoreMensuel} label="ce mois" tone={d.scoreMensuel >= d.seuilMinimal ? 'emerald' : d.scoreMensuel >= d.seuilMinimal - 20 ? 'flame' : 'royal'} size={104} />
           <div className="flex-1">
             <p className="text-sm font-bold text-ink-800">Score mensuel de performance</p>
-            <p className="text-xs text-ink-400 mt-0.5">Objectif direction : 90%</p>
+            <p className="text-xs text-ink-400 mt-0.5">Objectif direction : {d.seuilMinimal}%</p>
             {d.scoreDetail && (
               <div className="mt-3 space-y-1.5">
                 <ScoreLine label="Couverture portefeuille" value={d.scoreDetail.taux_couverture} />
