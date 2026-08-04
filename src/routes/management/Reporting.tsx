@@ -21,27 +21,37 @@ interface ReportingRow {
   appreciation_superviseur: string | null
   recommandations_superviseur: string | null
   visa_superviseur_id: string | null
-  profiles: { full_name: string } | null
+  profiles: { full_name: string; equipe_id: string | null } | null
 }
+
+interface EquipeOption { id: string; nom: string }
 
 export default function ManagementReporting() {
   const [rows, setRows] = useState<ReportingRow[]>([])
+  const [equipes, setEquipes] = useState<EquipeOption[]>([])
+  const [equipeFilter, setEquipeFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [drafts, setDrafts] = useState<Record<string, { appreciation: string; recommandations: string }>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const semaineDebut = isoWeekMonday().format('YYYY-MM-DD')
 
   async function load() {
-    const { data } = await supabase
-      .from('reporting_hebdomadaire')
-      .select('*, profiles!reporting_hebdomadaire_vm_id_fkey(full_name)')
-      .eq('semaine_debut', semaineDebut)
-      .order('created_at', { ascending: false })
+    const [{ data }, { data: eq }] = await Promise.all([
+      supabase
+        .from('reporting_hebdomadaire')
+        .select('*, profiles!reporting_hebdomadaire_vm_id_fkey(full_name, equipe_id)')
+        .eq('semaine_debut', semaineDebut)
+        .order('created_at', { ascending: false }),
+      supabase.from('equipes').select('id, nom').order('nom')
+    ])
     setRows((data as unknown as ReportingRow[]) ?? [])
+    setEquipes(eq ?? [])
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
+
+  const rowsFiltrees = equipeFilter ? rows.filter((r) => r.profiles?.equipe_id === equipeFilter) : rows
 
   async function viser(id: string) {
     const draft = drafts[id]
@@ -58,24 +68,33 @@ export default function ManagementReporting() {
 
   if (loading) return <div className="space-y-3"><Skeleton className="h-32" /><Skeleton className="h-32" /></div>
 
-  const visesCount = rows.filter((r) => r.visa_superviseur_id).length
+  const visesCount = rowsFiltrees.filter((r) => r.visa_superviseur_id).length
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-ink-800 font-display">Reporting hebdomadaire</h1>
-        <p className="text-sm text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-ink-800 font-display">Reporting hebdomadaire</h1>
+          <p className="text-sm text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
+        </div>
+        {equipes.length > 0 && (
+          <select value={equipeFilter} onChange={(e) => setEquipeFilter(e.target.value)}
+            className="rounded-xl border border-ink-200 px-3.5 py-2 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
+            <option value="">Toutes les équipes</option>
+            {equipes.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+          </select>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <StatCard label="Reportings soumis" value={rows.length} tone="royal" icon={<IconChat className="h-4 w-4" />} />
+        <StatCard label="Reportings soumis" value={rowsFiltrees.length} tone="royal" icon={<IconChat className="h-4 w-4" />} />
         <StatCard label="Visés" value={visesCount} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
-        <StatCard label="En attente" value={rows.length - visesCount} tone="flame" icon={<IconClock className="h-4 w-4" />} />
+        <StatCard label="En attente" value={rowsFiltrees.length - visesCount} tone="flame" icon={<IconClock className="h-4 w-4" />} />
       </div>
 
-      {rows.length === 0 && <Card className="text-center py-10 text-sm text-ink-400">Aucun reporting soumis pour cette semaine.</Card>}
+      {rowsFiltrees.length === 0 && <Card className="text-center py-10 text-sm text-ink-400">Aucun reporting soumis pour cette semaine.</Card>}
 
-      {rows.map((r) => {
+      {rowsFiltrees.map((r) => {
         const draft = drafts[r.id] ?? { appreciation: r.appreciation_superviseur ?? '', recommandations: r.recommandations_superviseur ?? '' }
         return (
           <Card key={r.id}>
