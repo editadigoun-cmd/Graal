@@ -3,9 +3,10 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
-import { IconCheck, IconLock, IconLogout } from '@/components/ui/icons'
+import { IconCheck, IconLock, IconLogout, IconBell } from '@/components/ui/icons'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
+import { isPushSupported, isSubscribedToPush, subscribeToPush, unsubscribeFromPush } from '@/lib/pushNotifications'
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Administrateur', superviseur: 'Superviseur', vm: 'Visiteur médical' }
 
@@ -22,6 +23,10 @@ export default function ManagementProfil() {
   const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const [equipesSupervisees, setEquipesSupervisees] = useState<string[]>([])
+  const [pushSupported, setPushSupported] = useState(false)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushError, setPushError] = useState('')
 
   useEffect(() => {
     if (!profile) return
@@ -31,7 +36,24 @@ export default function ManagementProfil() {
       supabase.from('superviseur_equipes').select('equipes(nom)').eq('superviseur_id', profile.id)
         .then(({ data }) => setEquipesSupervisees((data ?? []).map((d: any) => d.equipes?.nom).filter(Boolean)))
     }
+    setPushSupported(isPushSupported())
+    isSubscribedToPush().then(setPushEnabled)
   }, [profile])
+
+  async function togglePush() {
+    if (!profile) return
+    setPushBusy(true)
+    setPushError('')
+    if (pushEnabled) {
+      await unsubscribeFromPush()
+      setPushEnabled(false)
+    } else {
+      const res = await subscribeToPush(profile.id)
+      if (res.ok) setPushEnabled(true)
+      else setPushError(res.error ?? 'Échec de l\'activation.')
+    }
+    setPushBusy(false)
+  }
 
   async function enregistrerInfos() {
     if (!profile) return
@@ -142,6 +164,28 @@ export default function ManagementProfil() {
           </div>
         </form>
       </Card>
+
+      {pushSupported && (
+        <Card>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-ink-100 p-2 text-ink-600"><IconBell className="h-5 w-5" /></div>
+              <div>
+                <p className="text-sm font-bold text-ink-800">Notifications push</p>
+                <p className="text-[11px] text-ink-400">Alertes même application fermée</p>
+              </div>
+            </div>
+            <button
+              onClick={togglePush}
+              disabled={pushBusy}
+              className={`h-7 w-12 rounded-full transition-colors relative ${pushEnabled ? 'bg-emerald-500' : 'bg-ink-200'}`}
+            >
+              <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+          {pushError && <p className="mt-2 text-[11px] text-red-500">{pushError}</p>}
+        </Card>
+      )}
 
       <Button variant="secondary" icon={<IconLogout className="h-4 w-4" />} onClick={signOut}>Se déconnecter</Button>
     </div>

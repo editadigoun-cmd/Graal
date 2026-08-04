@@ -952,6 +952,41 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          profile_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          profile_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotas_cibles: {
         Row: {
           cible: string
@@ -1474,6 +1509,14 @@ export type Database = {
       }
     }
     Functions: {
+      __get_push_config: {
+        Args: never
+        Returns: {
+          private_key_jwk: string
+          subject: string
+          trigger_secret: string
+        }[]
+      }
       benin_now: { Args: never; Returns: string }
       benin_today: { Args: never; Returns: string }
       cible_pour_specialite: {
