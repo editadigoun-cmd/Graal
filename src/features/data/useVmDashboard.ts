@@ -11,6 +11,7 @@ export interface VmDashboardData {
   scoreMensuel: number
   scoreDetail: { taux_couverture: number; ponctualite: number; execution_planning: number; discipline_clotures: number } | null
   tendance: { jour: string; taux: number }[]
+  seuilMinimal: number
   loading: boolean
 }
 
@@ -18,7 +19,7 @@ export function useVmDashboard(): VmDashboardData {
   const { session } = useAuth()
   const [data, setData] = useState<Omit<VmDashboardData, 'loading'>>({
     visitesPrevues: 0, visitesRealisees: 0, tauxRealisation: 0,
-    scoreCouverture: 0, scoreMensuel: 0, scoreDetail: null, tendance: []
+    scoreCouverture: 0, scoreMensuel: 0, scoreDetail: null, tendance: [], seuilMinimal: 90
   })
   const [loading, setLoading] = useState(true)
 
@@ -30,10 +31,11 @@ export function useVmDashboard(): VmDashboardData {
 
     async function load() {
       setLoading(true)
-      const [{ data: today7 }, { data: score }, { data: couverture }] = await Promise.all([
+      const [{ data: today7 }, { data: score }, { data: couverture }, { data: seuilParam }] = await Promise.all([
         supabase.from('v_taux_realisation_journalier').select('*').gte('jour', todayBenin().subtract(6, 'day').format('YYYY-MM-DD')).lte('jour', today).order('jour'),
         supabase.rpc('score_mensuel_vm', { p_vm_id: vmId, p_mois: monthStart }),
-        supabase.from('v_score_couverture_vm').select('*').eq('vm_id', vmId).maybeSingle()
+        supabase.from('v_score_couverture_vm').select('*').eq('vm_id', vmId).maybeSingle(),
+        supabase.from('parametres').select('value').eq('key', 'score_mensuel_minimal').maybeSingle()
       ])
 
       const todayRow = today7?.find((r) => r.jour === today)
@@ -51,7 +53,8 @@ export function useVmDashboard(): VmDashboardData {
               execution_planning: s.execution_planning, discipline_clotures: s.discipline_clotures
             }
           : null,
-        tendance: (today7 ?? []).map((r) => ({ jour: r.jour!, taux: Math.round((r.taux_realisation ?? 0) * 100) }))
+        tendance: (today7 ?? []).map((r) => ({ jour: r.jour!, taux: Math.round((r.taux_realisation ?? 0) * 100) })),
+        seuilMinimal: typeof seuilParam?.value === 'number' ? seuilParam.value : 90
       })
       setLoading(false)
     }
