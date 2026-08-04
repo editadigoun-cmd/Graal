@@ -5,23 +5,27 @@ import { BottomNav } from '@/components/ui/BottomNav'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 import { useOfflineSync } from '@/hooks/useOfflineSync'
+import { useOfflineClotureSync } from '@/hooks/useOfflineClotureSync'
 
 export function VmShell() {
   const { profile } = useAuth()
   const unread = useUnreadNotifications()
   const location = useLocation()
   const { online, pending, syncing } = useOfflineSync()
+  const { hasPending: cloturePending, syncing: clotureSyncing } = useOfflineClotureSync()
+  const enAttente = pending + (cloturePending ? 1 : 0)
+  const enCours = syncing || clotureSyncing
 
   return (
     <div className="graal-surface min-h-screen">
       <div className="mx-auto max-w-md px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-28">
         <TopBar name={profile?.full_name ?? ''} avatarUrl={profile?.avatar_url} notificationsCount={unread} />
-        {(!online || pending > 0) && (
+        {(!online || enAttente > 0) && (
           <div className={`mb-3 flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold ${!online ? 'bg-ink-800 text-white' : 'bg-flame-50 text-flame-700'}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${!online ? 'bg-flame-400' : 'bg-flame-500'} ${syncing ? 'animate-pulse' : ''}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${!online ? 'bg-flame-400' : 'bg-flame-500'} ${enCours ? 'animate-pulse' : ''}`} />
             {!online
-              ? `Hors ligne — ${pending > 0 ? `${pending} visite(s) en attente de synchronisation` : 'les visites saisies seront synchronisées au retour du réseau'}`
-              : `Synchronisation de ${pending} visite(s) en cours…`}
+              ? `Hors ligne — ${enAttente > 0 ? `${enAttente} élément(s) en attente de synchronisation` : 'les saisies seront synchronisées au retour du réseau'}`
+              : `Synchronisation de ${enAttente} élément(s) en cours…`}
           </div>
         )}
         <AnimatePresence mode="wait">

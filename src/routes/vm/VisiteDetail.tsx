@@ -142,15 +142,29 @@ function HorsProgrammeForm() {
     setSaving(true)
     setError(null)
 
-    const { data: visite, error: insertError } = await supabase.from('visites').insert({
+    const payload = {
       client_id: clientId, vm_id: session.user.id, jour: todayBenin().format('YYYY-MM-DD'),
       type_visite: typeVisite, hors_programme: true, motif_hors_programme_id: motifId,
       motif_hors_programme_commentaire: commentaire || null,
       latitude: geo.latitude, longitude: geo.longitude,
       ...fields
-    }).select('id').single()
+    }
 
-    if (insertError) { setError(insertError.message); setSaving(false); return }
+    if (!navigator.onLine) {
+      enqueueVisite(payload, produitsIds)
+      setSaving(false)
+      navigate('/app/visites', { replace: true })
+      return
+    }
+
+    const { data: visite, error: insertError } = await supabase.from('visites').insert(payload).select('id').single()
+
+    if (insertError) {
+      if (!navigator.onLine) { enqueueVisite(payload, produitsIds); setSaving(false); navigate('/app/visites', { replace: true }); return }
+      setError(insertError.message)
+      setSaving(false)
+      return
+    }
     if (produitsIds.length && visite) {
       await supabase.from('visite_produits').insert(produitsIds.map((pid) => ({ visite_id: visite.id, produit_id: pid })))
     }

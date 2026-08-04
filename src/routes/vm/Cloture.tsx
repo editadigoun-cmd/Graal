@@ -6,6 +6,8 @@ import { IconCamera, IconCheckCircle, IconAlert } from '@/components/ui/icons'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useVisitesDuJour } from '@/features/data/useVisitesDuJour'
+import { useOfflineClotureSync } from '@/hooks/useOfflineClotureSync'
+import { savePendingCloture, getPendingCloture, type MotifLocal } from '@/lib/offlineCloture'
 import { supabase } from '@/lib/supabase'
 import { todayBenin } from '@/lib/time'
 import type { Database } from '@/types/database'
@@ -17,15 +19,18 @@ export default function Cloture() {
   const { session } = useAuth()
   const geo = useGeolocation()
   const { lignes, loading, reload } = useVisitesDuJour()
+  const { hasPending } = useOfflineClotureSync()
   const [motifs, setMotifs] = useState<Motif[]>([])
   const [motifChoisi, setMotifChoisi] = useState<Record<string, string>>({})
   const [commentaires, setCommentaires] = useState<Record<string, string>>({})
+  const [motifsLocaux, setMotifsLocaux] = useState<Record<string, MotifLocal>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [cloturing, setCloturing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const [doneOffline, setDoneOffline] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -33,20 +38,34 @@ export default function Cloture() {
       .then(({ data }) => setMotifs((data ?? []).filter((m) => !m.libelle.includes('clôture forcée'))))
   }, [])
 
+  useEffect(() => {
+    getPendingCloture().then((p) => setDoneOffline(!!p))
+  }, [hasPending])
+
   const manquantes = lignes.filter((l) => l.statut_reel === 'NON_FAITE' || l.statut_reel === 'EN_ATTENTE')
   const realisees = lignes.filter((l) => l.statut_reel === 'REALISEE')
-  const dejaMotivees = new Set(lignes.filter((l) => l.statut_reel === 'NON_FAITE').map((l) => l.programme_ligne_id))
+  const dejaMotivees = new Set([
+    ...lignes.filter((l) => l.statut_reel === 'NON_FAITE').map((l) => l.programme_ligne_id),
+    ...Object.keys(motifsLocaux)
+  ])
 
   async function enregistrerMotif(ligneId: string) {
     if (!motifChoisi[ligneId] || !session) return
     setSaving(ligneId)
+    if (!navigator.onLine) {
+      setMotifsLocaux((m) => ({ ...m, [ligneId]: { programmeLigneId: ligneId, motifId: motifChoisi[ligneId], commentaire: commentaires[ligneId] || null } }))
+      setSaving(null)
+      return
+    }
     const { error } = await supabase.from('visite_manquante_motifs').insert({
       programme_ligne_id: ligneId, motif_id: motifChoisi[ligneId], commentaire: commentaires[ligneId] || null,
       cree_par: session.user.id
     })
     setSaving(null)
-    if (error) setError(error.message)
-    else reload()
+    if (error) {
+      if (!navigator.onLine) { setMotifsLocaux((m) => ({ ...m, [ligneId]: { programmeLigneId: ligneId, motifId: motifChoisi[ligneId], commentaire: commentaires[ligneId] || null } })); return }
+      setError(error.message)
+    } else reload()
   }
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -65,13 +84,32 @@ export default function Cloture() {
     if (geo.status !== 'ok' || geo.latitude === null || geo.longitude === null) { setError('Position GPS requise pour clôturer.'); return }
     const latitude = geo.latitude
     const longitude = geo.longitude
+    const jour = todayBenin().format('YYYY-MM-DD')
 
     setCloturing(true)
     setError(null)
 
-    const path = `${session.user.id}/${todayBenin().format('YYYY-MM-DD')}-${Date.now()}.jpg`
+    if (!navigator.onLine) {
+      await savePendingCloture({
+        jour, photoBlob: photo, photoType: photo.type, latitude, longitude,
+        motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString()
+      })
+      setCloturing(false)
+      setDoneOffline(true)
+      return
+    }
+
+    const path = `${session.user.id}/${jour}-${Date.now()}.jpg`
     const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: photo.type })
-    if (uploadError) { setError(uploadError.message); setCloturing(false); return }
+    if (uploadError) {
+      if (!navigator.onLine) {
+        await savePendingCloture({ jour, photoBlob: photo, photoType: photo.type, latitude, longitude, motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString() })
+        setCloturing(false)
+        setDoneOffline(true)
+        return
+      }
+      setError(uploadError.message); setCloturing(false); return
+    }
 
     const { data, error: rpcError } = await supabase.rpc('cloturer_journee', {
       p_photo_path: path, p_photo_latitude: latitude, p_photo_longitude: longitude
@@ -90,6 +128,19 @@ export default function Cloture() {
         <div className="rounded-full bg-emerald-50 p-4"><IconCheckCircle className="h-10 w-10 text-emerald-600" /></div>
         <p className="mt-4 text-lg font-bold text-ink-800 font-display">Journée clôturée</p>
         <p className="mt-1 text-sm text-ink-400">Vos résultats alimentent votre score de performance.</p>
+        <Button className="mt-6" onClick={() => navigate('/app')}>Retour à l'accueil</Button>
+      </div>
+    )
+  }
+
+  if (doneOffline) {
+    return (
+      <div className="mt-10 flex flex-col items-center text-center">
+        <div className="rounded-full bg-flame-50 p-4"><IconAlert className="h-10 w-10 text-flame-600" /></div>
+        <p className="mt-4 text-lg font-bold text-ink-800 font-display">Clôture en attente de synchronisation</p>
+        <p className="mt-1 text-sm text-ink-400 max-w-xs">
+          Votre clôture (photo et motifs) est enregistrée sur cet appareil et sera transmise automatiquement dès que le réseau sera rétabli.
+        </p>
         <Button className="mt-6" onClick={() => navigate('/app')}>Retour à l'accueil</Button>
       </div>
     )
