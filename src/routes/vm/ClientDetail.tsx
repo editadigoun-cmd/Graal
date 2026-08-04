@@ -1,37 +1,63 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import { PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { IconChevronLeft, IconClock, IconMapPin } from '@/components/ui/icons'
+import { IconChevronLeft, IconClock, IconMapPin, IconAlert } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth/AuthProvider'
 import type { Database } from '@/types/database'
 import dayjs from 'dayjs'
 
 type Client = Database['public']['Tables']['clients']['Row']
 type Visite = Database['public']['Tables']['visites']['Row']
 type ClientFreq = Database['public']['Views']['v_client_frequence']['Row']
+type Justification = Database['public']['Tables']['justifications_frequence']['Row']
 
 export default function ClientDetail() {
   const { clientId } = useParams()
+  const { session } = useAuth()
   const [client, setClient] = useState<Client | null>(null)
   const [freq, setFreq] = useState<ClientFreq | null>(null)
   const [visites, setVisites] = useState<Visite[]>([])
   const [loading, setLoading] = useState(true)
+  const [justification, setJustification] = useState<Justification | null>(null)
+  const [justificationTexte, setJustificationTexte] = useState('')
+  const [savingJustification, setSavingJustification] = useState(false)
+  const moisCourant = dayjs().format('YYYY-MM-01')
 
   useEffect(() => {
-    if (!clientId) return
+    if (!clientId || !session) return
     Promise.all([
       supabase.from('clients').select('*').eq('id', clientId).single(),
       supabase.from('v_client_frequence').select('*').eq('client_id', clientId).maybeSingle(),
-      supabase.from('visites').select('*').eq('client_id', clientId).order('jour', { ascending: false }).limit(20)
-    ]).then(([c, f, v]) => {
+      supabase.from('visites').select('*').eq('client_id', clientId).order('jour', { ascending: false }).limit(20),
+      supabase.from('justifications_frequence').select('*')
+        .eq('client_id', clientId).eq('vm_id', session.user.id).eq('mois', moisCourant).maybeSingle()
+    ]).then(([c, f, v, j]) => {
       setClient(c.data)
       setFreq(f.data)
       setVisites(v.data ?? [])
+      setJustification(j.data)
+      setJustificationTexte(j.data?.justification ?? '')
       setLoading(false)
     })
-  }, [clientId])
+  }, [clientId, session, moisCourant])
+
+  async function enregistrerJustification() {
+    if (!clientId || !session || !justificationTexte.trim()) return
+    setSavingJustification(true)
+    const { data, error } = await supabase.from('justifications_frequence')
+      .upsert(
+        { client_id: clientId, vm_id: session.user.id, mois: moisCourant, justification: justificationTexte.trim() },
+        { onConflict: 'client_id,vm_id,mois' }
+      )
+      .select('*')
+      .single()
+    setSavingJustification(false)
+    if (!error) setJustification(data)
+  }
 
   if (loading) return <div className="space-y-3 mt-2"><Skeleton className="h-32" /><Skeleton className="h-48" /></div>
   if (!client) return <p className="mt-6 text-center text-sm text-ink-400">Client introuvable.</p>
@@ -78,6 +104,32 @@ export default function ClientDetail() {
           {freq?.prochaine_visite_due && <span>Prochaine due : {dayjs(freq.prochaine_visite_due).format('DD/MM')}</span>}
         </div>
       </Card>
+
+      {freq && !freq.frequence_respectee && (
+        <Card className="border border-flame-200 bg-flame-50/50">
+          <div className="flex items-center gap-2 mb-2">
+            <IconAlert className="h-4 w-4 text-flame-600 flex-shrink-0" />
+            <p className="text-sm font-bold text-flame-700">Fréquence non respectée ce mois — justification requise</p>
+          </div>
+          <textarea
+            value={justificationTexte}
+            onChange={(e) => setJustificationTexte(e.target.value)}
+            rows={3}
+            placeholder="Expliquez pourquoi ce client n'a pas été visité selon la fréquence attendue…"
+            className="w-full rounded-xl border border-flame-200 bg-white px-3 py-2 text-sm outline-none focus:border-flame-400 focus:ring-4 focus:ring-flame-100"
+          />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            {justification && (
+              <p className="text-[10px] text-ink-400">
+                Enregistrée le {dayjs(justification.updated_at).format('DD/MM/YYYY à HH:mm')}
+              </p>
+            )}
+            <Button size="sm" loading={savingJustification} disabled={!justificationTexte.trim()} onClick={enregistrerJustification} className="ml-auto">
+              {justification ? 'Mettre à jour' : 'Enregistrer la justification'}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Card>
         <p className="text-sm font-bold text-ink-800 mb-3">Historique des visites</p>

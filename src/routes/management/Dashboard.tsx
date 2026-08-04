@@ -16,6 +16,7 @@ interface VmProgress {
   equipe: string | null
   prevues: number
   realisees: number
+  conforme: boolean | null
 }
 
 interface AnimationRow {
@@ -25,6 +26,17 @@ interface AnimationRow {
   nb_duo: number
   nb_reporting_vise: number
   nb_plans_soumis: number
+}
+
+interface SousVisiteRow {
+  client_id: string
+  nom: string
+  potentiel: string
+  vm_id: string
+  vm_nom: string
+  visites_mois_courant: number
+  frequence_visite_mensuelle: number
+  justifie: boolean
 }
 
 interface ClotureRow {
@@ -47,6 +59,7 @@ export default function ManagementDashboard() {
   const [exporting, setExporting] = useState(false)
   const [clotures, setClotures] = useState<ClotureRow[]>([])
   const [photoBusy, setPhotoBusy] = useState<string | null>(null)
+  const [sousVisites, setSousVisites] = useState<SousVisiteRow[]>([])
 
   useEffect(() => {
     async function load() {
@@ -61,11 +74,31 @@ export default function ManagementDashboard() {
 
       const merged: VmProgress[] = (profiles ?? []).map((p: any) => {
         const t = taux?.find((x) => x.vm_id === p.id)
-        return { vm_id: p.id, full_name: p.full_name, equipe: p.equipes?.nom ?? null, prevues: t?.visites_prevues ?? 0, realisees: t?.visites_realisees ?? 0 }
+        return { vm_id: p.id, full_name: p.full_name, equipe: p.equipes?.nom ?? null, prevues: t?.visites_prevues ?? 0, realisees: t?.visites_realisees ?? 0, conforme: t?.conforme ?? null }
       })
       setProgress(merged)
       setAlertes(notifs ?? [])
       setClotures((clo as unknown as ClotureRow[]) ?? [])
+
+      const moisCourant = nowBenin().format('YYYY-MM-01')
+      const [{ data: freq }, { data: justifs }] = await Promise.all([
+        supabase.from('v_client_frequence').select('client_id, nom, potentiel, vm_id, visites_mois_courant, frequence_visite_mensuelle')
+          .eq('frequence_respectee', false).not('vm_id', 'is', null),
+        supabase.from('justifications_frequence').select('client_id, vm_id').eq('mois', moisCourant)
+      ])
+      const vmNomById = Object.fromEntries((profiles ?? []).map((p: any) => [p.id, p.full_name]))
+      setSousVisites(
+        (freq ?? [])
+          .filter((f): f is typeof f & { client_id: string; nom: string; potentiel: string; vm_id: string } =>
+            !!f.client_id && !!f.nom && !!f.potentiel && !!f.vm_id)
+          .map((f) => ({
+            client_id: f.client_id, nom: f.nom, potentiel: f.potentiel, vm_id: f.vm_id,
+            vm_nom: vmNomById[f.vm_id] ?? '—',
+            visites_mois_courant: f.visites_mois_courant ?? 0,
+            frequence_visite_mensuelle: f.frequence_visite_mensuelle ?? 0,
+            justifie: (justifs ?? []).some((j) => j.client_id === f.client_id && j.vm_id === f.vm_id)
+          }))
+      )
 
       if (profile?.role === 'admin') {
         const [{ data: superviseurs }, { data: se }, { data: duo }, { data: reporting }, { data: plans }] = await Promise.all([
@@ -181,6 +214,10 @@ export default function ManagementDashboard() {
                     style={{ width: `${p.prevues ? Math.min(100, (p.realisees / p.prevues) * 100) : 0}%` }} />
                 </div>
                 <span className="text-[11px] text-ink-400 w-10 text-right">{p.realisees}/{p.prevues}</span>
+                {p.conforme !== null && (
+                  <span className={`h-2 w-2 rounded-full flex-shrink-0 ${p.conforme ? 'bg-emerald-500' : 'bg-red-500'}`}
+                    title={p.conforme ? 'Journée conforme au seuil' : 'Journée sous le seuil de conformité'} />
+                )}
               </div>
             ))}
           </div>
@@ -202,6 +239,26 @@ export default function ManagementDashboard() {
           ))}
         </div>
       </Card>
+
+      {sousVisites.length > 0 && (
+        <Card>
+          <p className="text-sm font-bold text-ink-800">Clients sous-visités ce mois</p>
+          <p className="text-xs text-ink-400 mb-4">Fréquence de visite non respectée — justification VM attendue pour chacun</p>
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            {sousVisites.map((s) => (
+              <div key={`${s.client_id}-${s.vm_id}`} className="flex items-center justify-between gap-3 rounded-xl bg-ink-50 p-2.5">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-ink-800 truncate">{s.nom}</p>
+                  <p className="text-[10px] text-ink-400">{s.vm_nom} · {s.visites_mois_courant}/{s.frequence_visite_mensuelle} visite(s) ce mois</p>
+                </div>
+                <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${s.justifie ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                  {s.justifie ? 'Justifié' : 'Non justifié'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card>
         <p className="text-sm font-bold text-ink-800">Clôtures du jour</p>

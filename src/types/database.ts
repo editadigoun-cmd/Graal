@@ -411,6 +411,58 @@ export type Database = {
           },
         ]
       }
+      justifications_frequence: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          justification: string
+          mois: string
+          updated_at: string
+          vm_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          justification: string
+          mois: string
+          updated_at?: string
+          vm_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          justification?: string
+          mois?: string
+          updated_at?: string
+          vm_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "justifications_frequence_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "justifications_frequence_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_client_frequence"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "justifications_frequence_vm_id_fkey"
+            columns: ["vm_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_lectures: {
         Row: {
           lu_at: string
@@ -1403,6 +1455,7 @@ export type Database = {
       }
       v_taux_realisation_journalier: {
         Row: {
+          conforme: boolean | null
           jour: string | null
           taux_realisation: number | null
           visites_prevues: number | null
@@ -1434,6 +1487,10 @@ export type Database = {
           p_photo_path: string
         }
         Returns: Json
+      }
+      coord_plausible: {
+        Args: { p_lat: number; p_lon: number }
+        Returns: boolean
       }
       current_equipe: { Args: never; Returns: string }
       current_role: {
@@ -1503,6 +1560,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      rappel_cloture_journee: { Args: never; Returns: undefined }
+      rappel_soumission_programme: { Args: never; Returns: undefined }
       rejeter_programme_hebdomadaire: {
         Args: { p_motif: string; p_programme_id: string }
         Returns: undefined
@@ -1519,6 +1578,7 @@ export type Database = {
           vm_id: string
         }[]
       }
+      signaler_non_conformite_journaliere: { Args: never; Returns: undefined }
       signaler_non_respect_frequence: { Args: never; Returns: undefined }
       soumettre_programme_hebdomadaire: {
         Args: { p_programme_id: string }
