@@ -14,6 +14,61 @@ export type Database = {
   }
   public: {
     Tables: {
+      activites_animation: {
+        Row: {
+          created_at: string
+          equipe_id: string
+          id: string
+          jour: string
+          notes: string | null
+          superviseur_id: string
+          type: Database["public"]["Enums"]["type_animation"]
+          vm_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          equipe_id: string
+          id?: string
+          jour?: string
+          notes?: string | null
+          superviseur_id: string
+          type: Database["public"]["Enums"]["type_animation"]
+          vm_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          equipe_id?: string
+          id?: string
+          jour?: string
+          notes?: string | null
+          superviseur_id?: string
+          type?: Database["public"]["Enums"]["type_animation"]
+          vm_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activites_animation_equipe_id_fkey"
+            columns: ["equipe_id"]
+            isOneToOne: false
+            referencedRelation: "equipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activites_animation_superviseur_id_fkey"
+            columns: ["superviseur_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activites_animation_vm_id_fkey"
+            columns: ["vm_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_log: {
         Row: {
           action: string
@@ -1653,6 +1708,14 @@ export type Database = {
       statut_programme: "BROUILLON" | "SOUMIS" | "VALIDE" | "VERROUILLE"
       statut_visite: "REALISEE" | "HORS_PROGRAMME" | "NON_FAITE"
       stock_niveau: "RUPTURE" | "FAIBLE" | "CORRECT" | "BON"
+      type_animation:
+        | "POINT_QUOTIDIEN"
+        | "REUNION_LUNDI"
+        | "REUNION_MERCREDI"
+        | "CHALLENGE"
+        | "FORMATION_CONTINUE"
+        | "COACHING_TERRAIN"
+        | "ARGUMENTAIRE_VM"
       type_visite: "MEDICAL" | "PHARMACIE"
       user_role: "vm" | "superviseur" | "admin"
     }
@@ -1801,6 +1864,15 @@ export const Constants = {
       statut_programme: ["BROUILLON", "SOUMIS", "VALIDE", "VERROUILLE"],
       statut_visite: ["REALISEE", "HORS_PROGRAMME", "NON_FAITE"],
       stock_niveau: ["RUPTURE", "FAIBLE", "CORRECT", "BON"],
+      type_animation: [
+        "POINT_QUOTIDIEN",
+        "REUNION_LUNDI",
+        "REUNION_MERCREDI",
+        "CHALLENGE",
+        "FORMATION_CONTINUE",
+        "COACHING_TERRAIN",
+        "ARGUMENTAIRE_VM",
+      ],
       type_visite: ["MEDICAL", "PHARMACIE"],
       user_role: ["vm", "superviseur", "admin"],
     },
