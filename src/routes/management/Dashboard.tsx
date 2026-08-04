@@ -14,6 +14,7 @@ interface VmProgress {
   vm_id: string
   full_name: string
   equipe: string | null
+  equipe_id: string | null
   prevues: number
   realisees: number
   conforme: boolean | null
@@ -34,6 +35,7 @@ interface SousVisiteRow {
   potentiel: string
   vm_id: string
   vm_nom: string
+  equipe_id: string | null
   visites_mois_courant: number
   frequence_visite_mensuelle: number
   justifie: boolean
@@ -60,25 +62,32 @@ export default function ManagementDashboard() {
   const [clotures, setClotures] = useState<ClotureRow[]>([])
   const [photoBusy, setPhotoBusy] = useState<string | null>(null)
   const [sousVisites, setSousVisites] = useState<SousVisiteRow[]>([])
+  const [equipes, setEquipes] = useState<{ id: string; nom: string }[]>([])
+  const [equipeFilter, setEquipeFilter] = useState('')
+  const [vmEquipeById, setVmEquipeById] = useState<Record<string, string | null>>({})
 
   useEffect(() => {
     async function load() {
       const today = todayBenin().format('YYYY-MM-DD')
       const depuis30j = nowBenin().subtract(30, 'day').toISOString()
-      const [{ data: taux }, { data: profiles }, { data: notifs }, { data: clo }] = await Promise.all([
+      const [{ data: taux }, { data: profiles }, { data: notifs }, { data: clo }, { data: eq }] = await Promise.all([
         supabase.from('v_taux_realisation_journalier').select('*').eq('jour', today),
-        supabase.from('profiles').select('id, full_name, equipes(nom)').eq('role', 'vm'),
+        supabase.from('profiles').select('id, full_name, equipe_id, equipes(nom)').eq('role', 'vm'),
         supabase.from('notifications').select('id, titre, corps, created_at').order('created_at', { ascending: false }).limit(8),
-        supabase.from('clotures_journalieres').select('id, vm_id, statut, heure_cloture, photo_path, en_retard, profiles(full_name)').eq('jour', today)
+        supabase.from('clotures_journalieres').select('id, vm_id, statut, heure_cloture, photo_path, en_retard, profiles(full_name)').eq('jour', today),
+        supabase.from('equipes').select('id, nom').order('nom')
       ])
 
       const merged: VmProgress[] = (profiles ?? []).map((p: any) => {
         const t = taux?.find((x) => x.vm_id === p.id)
-        return { vm_id: p.id, full_name: p.full_name, equipe: p.equipes?.nom ?? null, prevues: t?.visites_prevues ?? 0, realisees: t?.visites_realisees ?? 0, conforme: t?.conforme ?? null }
+        return { vm_id: p.id, full_name: p.full_name, equipe: p.equipes?.nom ?? null, equipe_id: p.equipe_id ?? null, prevues: t?.visites_prevues ?? 0, realisees: t?.visites_realisees ?? 0, conforme: t?.conforme ?? null }
       })
       setProgress(merged)
       setAlertes(notifs ?? [])
       setClotures((clo as unknown as ClotureRow[]) ?? [])
+      setEquipes(eq ?? [])
+      const vmEquipeMap = Object.fromEntries((profiles ?? []).map((p: any) => [p.id, p.equipe_id as string | null]))
+      setVmEquipeById(vmEquipeMap)
 
       const moisCourant = nowBenin().format('YYYY-MM-01')
       const [{ data: freq }, { data: justifs }] = await Promise.all([
@@ -94,6 +103,7 @@ export default function ManagementDashboard() {
           .map((f) => ({
             client_id: f.client_id, nom: f.nom, potentiel: f.potentiel, vm_id: f.vm_id,
             vm_nom: vmNomById[f.vm_id] ?? '—',
+            equipe_id: vmEquipeMap[f.vm_id] ?? null,
             visites_mois_courant: f.visites_mois_courant ?? 0,
             frequence_visite_mensuelle: f.frequence_visite_mensuelle ?? 0,
             justifie: (justifs ?? []).some((j) => j.client_id === f.client_id && j.vm_id === f.vm_id)
@@ -157,12 +167,16 @@ export default function ManagementDashboard() {
     if (!error && data) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
-  const totalPrevues = progress.reduce((s, p) => s + p.prevues, 0)
-  const totalRealisees = progress.reduce((s, p) => s + p.realisees, 0)
-  const enRetard = progress.filter((p) => p.prevues > 0 && p.realisees < p.prevues).length
+  const progressFiltre = equipeFilter ? progress.filter((p) => p.equipe_id === equipeFilter) : progress
+  const sousVisitesFiltre = equipeFilter ? sousVisites.filter((s) => s.equipe_id === equipeFilter) : sousVisites
+  const cloturesFiltre = equipeFilter ? clotures.filter((c) => vmEquipeById[c.vm_id] === equipeFilter) : clotures
+
+  const totalPrevues = progressFiltre.reduce((s, p) => s + p.prevues, 0)
+  const totalRealisees = progressFiltre.reduce((s, p) => s + p.realisees, 0)
+  const enRetard = progressFiltre.filter((p) => p.prevues > 0 && p.realisees < p.prevues).length
 
   const parEquipe = Object.entries(
-    progress.reduce<Record<string, { prevues: number; realisees: number }>>((acc, p) => {
+    progressFiltre.reduce<Record<string, { prevues: number; realisees: number }>>((acc, p) => {
       const key = p.equipe ?? 'Sans équipe'
       acc[key] = acc[key] ?? { prevues: 0, realisees: 0 }
       acc[key].prevues += p.prevues
@@ -175,13 +189,22 @@ export default function ManagementDashboard() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-ink-800 font-display">Tableau de bord — {dayjs().format('dddd D MMMM')}</h1>
-        <p className="text-sm text-ink-400">Suivi en temps réel de l'activité terrain</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-ink-800 font-display">Tableau de bord — {dayjs().format('dddd D MMMM')}</h1>
+          <p className="text-sm text-ink-400">Suivi en temps réel de l'activité terrain</p>
+        </div>
+        {equipes.length > 0 && (
+          <select value={equipeFilter} onChange={(e) => setEquipeFilter(e.target.value)}
+            className="rounded-xl border border-ink-200 px-3.5 py-2 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
+            <option value="">Toutes les équipes</option>
+            {equipes.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+          </select>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="VM actifs" value={progress.length} tone="royal" icon={<IconUsers className="h-4 w-4" />} />
+        <StatCard label="VM actifs" value={progressFiltre.length} tone="royal" icon={<IconUsers className="h-4 w-4" />} />
         <StatCard label="Visites prévues" value={totalPrevues} tone="ink" icon={<IconStethoscope className="h-4 w-4" />} />
         <StatCard label="Visites réalisées" value={totalRealisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
         <StatCard label="VM en retard" value={enRetard} tone="flame" icon={<IconAlert className="h-4 w-4" />} />
@@ -206,7 +229,7 @@ export default function ManagementDashboard() {
         <Card>
           <p className="text-sm font-bold text-ink-800 mb-3">Avancement par VM aujourd'hui</p>
           <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
-            {progress.map((p) => (
+            {progressFiltre.map((p) => (
               <div key={p.vm_id} className="flex items-center gap-3">
                 <span className="text-xs font-medium text-ink-600 w-28 truncate">{p.full_name}</span>
                 <div className="flex-1 h-2 rounded-full bg-ink-100 overflow-hidden">
@@ -240,12 +263,12 @@ export default function ManagementDashboard() {
         </div>
       </Card>
 
-      {sousVisites.length > 0 && (
+      {sousVisitesFiltre.length > 0 && (
         <Card>
           <p className="text-sm font-bold text-ink-800">Clients sous-visités ce mois</p>
           <p className="text-xs text-ink-400 mb-4">Fréquence de visite non respectée — justification VM attendue pour chacun</p>
           <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-            {sousVisites.map((s) => (
+            {sousVisitesFiltre.map((s) => (
               <div key={`${s.client_id}-${s.vm_id}`} className="flex items-center justify-between gap-3 rounded-xl bg-ink-50 p-2.5">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-ink-800 truncate">{s.nom}</p>
@@ -263,11 +286,11 @@ export default function ManagementDashboard() {
       <Card>
         <p className="text-sm font-bold text-ink-800">Clôtures du jour</p>
         <p className="text-xs text-ink-400 mb-4">Fiche papier photographiée, en regard des données saisies numériquement</p>
-        {clotures.length === 0 ? (
+        {cloturesFiltre.length === 0 ? (
           <p className="text-xs text-ink-400 py-2">Aucune clôture enregistrée pour l'instant aujourd'hui.</p>
         ) : (
           <div className="space-y-2">
-            {clotures.map((c) => (
+            {cloturesFiltre.map((c) => (
               <div key={c.id} className="flex items-center justify-between rounded-xl bg-ink-50 p-2.5">
                 <div>
                   <p className="text-xs font-semibold text-ink-800">{c.profiles?.full_name}</p>

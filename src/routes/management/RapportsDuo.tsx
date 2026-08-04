@@ -9,7 +9,8 @@ import type { Database } from '@/types/database'
 import dayjs from 'dayjs'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
-type RapportDuo = Database['public']['Tables']['rapports_duo']['Row'] & { profiles: { full_name: string } | null }
+type RapportDuo = Database['public']['Tables']['rapports_duo']['Row'] & { profiles: { full_name: string; equipe_id: string | null } | null }
+type EquipeOption = { id: string; nom: string }
 
 const CRITERES = [
   { key: 'connaissance_produits', label: 'Connaissance produits' },
@@ -22,6 +23,8 @@ const EMPTY_FORM = { vm_id: '', connaissance_produits: 3, maitrise_portefeuille:
 export default function ManagementRapportsDuo() {
   const { profile } = useAuth()
   const [vms, setVms] = useState<Profile[]>([])
+  const [equipes, setEquipes] = useState<EquipeOption[]>([])
+  const [equipeFilter, setEquipeFilter] = useState('')
   const [rapports, setRapports] = useState<RapportDuo[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -29,17 +32,22 @@ export default function ManagementRapportsDuo() {
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   async function load() {
-    const [{ data: pr }, { data: rd }] = await Promise.all([
+    const [{ data: pr }, { data: rd }, { data: eq }] = await Promise.all([
       supabase.from('profiles').select('*').eq('role', 'vm').order('full_name'),
-      supabase.from('rapports_duo').select('*, profiles!rapports_duo_vm_id_fkey(full_name)').order('jour', { ascending: false }).limit(20)
+      supabase.from('rapports_duo').select('*, profiles!rapports_duo_vm_id_fkey(full_name, equipe_id)').order('jour', { ascending: false }).limit(20),
+      supabase.from('equipes').select('id, nom').order('nom')
     ])
     setVms(pr ?? [])
     setRapports((rd as unknown as RapportDuo[]) ?? [])
+    setEquipes(eq ?? [])
     if (!form.vm_id && pr && pr.length > 0) setForm((f) => ({ ...f, vm_id: pr[0].id }))
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
+
+  const vmsFiltres = equipeFilter ? vms.filter((v) => v.equipe_id === equipeFilter) : vms
+  const rapportsFiltres = equipeFilter ? rapports.filter((r) => r.profiles?.equipe_id === equipeFilter) : rapports
 
   async function soumettre(e: React.FormEvent) {
     e.preventDefault()
@@ -67,12 +75,28 @@ export default function ManagementRapportsDuo() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-ink-800 font-display">Rapports de duo terrain</h1>
-        <p className="text-sm text-ink-400">Évaluation à produire après une sortie conjointe avec un visiteur médical</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-ink-800 font-display">Rapports de duo terrain</h1>
+          <p className="text-sm text-ink-400">Évaluation à produire après une sortie conjointe avec un visiteur médical</p>
+        </div>
+        {equipes.length > 0 && (
+          <select
+            value={equipeFilter}
+            onChange={(e) => {
+              setEquipeFilter(e.target.value)
+              const filtres = e.target.value ? vms.filter((v) => v.equipe_id === e.target.value) : vms
+              setForm((f) => ({ ...f, vm_id: filtres[0]?.id ?? '' }))
+            }}
+            className="rounded-xl border border-ink-200 px-3.5 py-2 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+          >
+            <option value="">Toutes les équipes</option>
+            {equipes.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+          </select>
+        )}
       </div>
 
-      {vms.length === 0 ? (
+      {vmsFiltres.length === 0 ? (
         <Card className="text-sm text-ink-400 text-center py-8">Aucun visiteur médical dans votre périmètre.</Card>
       ) : (
         <Card>
@@ -83,7 +107,7 @@ export default function ManagementRapportsDuo() {
                 value={form.vm_id} onChange={(e) => setForm((f) => ({ ...f, vm_id: e.target.value }))}
                 className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
               >
-                {vms.map((v) => <option key={v.id} value={v.id}>{v.full_name}</option>)}
+                {vmsFiltres.map((v) => <option key={v.id} value={v.id}>{v.full_name}</option>)}
               </select>
             </div>
 
@@ -122,11 +146,11 @@ export default function ManagementRapportsDuo() {
 
       <div>
         <p className="text-sm font-bold text-ink-600 mb-3">Derniers rapports</p>
-        {rapports.length === 0 ? (
+        {rapportsFiltres.length === 0 ? (
           <Card className="text-sm text-ink-400 text-center py-6">Aucun rapport de duo pour l'instant.</Card>
         ) : (
           <div className="space-y-2">
-            {rapports.map((r) => (
+            {rapportsFiltres.map((r) => (
               <Card key={r.id} className="flex items-center gap-3">
                 <Avatar name={r.profiles?.full_name ?? ''} size={32} />
                 <div className="flex-1 min-w-0">
