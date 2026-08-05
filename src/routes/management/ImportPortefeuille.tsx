@@ -5,10 +5,28 @@ import { Badge } from '@/components/ui/Badge'
 import { IconDownload, IconChevronLeft } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { normalizeText } from '@/lib/text'
 
 const SPECIALITES = ['GENERALISTE', 'GYNECOLOGUE', 'PEDIATRE', 'CARDIOLOGUE', 'RHUMATOLOGUE', 'ORL', 'AUTRE_SPECIALITE', 'MATERNITE', 'DISPENSAIRE', 'PHARMACIE']
 const POTENTIELS = ['GROS', 'MOYEN', 'FAIBLE']
 const SECTEURS = ['A', 'B']
+
+// Le fichier peut contenir soit le code (GENERALISTE), soit le libellé français avec
+// accents (Généraliste) : les deux doivent être acceptés, insensibles à la casse/accents.
+const SPECIALITE_LABELS: Record<string, string> = {
+  GENERALISTE: 'Généraliste', GYNECOLOGUE: 'Gynécologue', PEDIATRE: 'Pédiatre', CARDIOLOGUE: 'Cardiologue',
+  RHUMATOLOGUE: 'Rhumatologue', ORL: 'ORL', AUTRE_SPECIALITE: 'Autre spécialité',
+  MATERNITE: 'Maternité', DISPENSAIRE: 'Dispensaire', PHARMACIE: 'Pharmacie'
+}
+const SPECIALITE_ALIASES: Record<string, string> = Object.fromEntries(
+  SPECIALITES.flatMap((code) => [
+    [normalizeText(code), code],
+    [normalizeText(SPECIALITE_LABELS[code]), code]
+  ])
+)
+function resoudreSpecialite(valeur: string): string {
+  return SPECIALITE_ALIASES[normalizeText(valeur)] ?? valeur.toUpperCase()
+}
 
 const CHAMPS = [
   { key: 'nom', label: 'Nom du client', requis: true },
@@ -98,7 +116,7 @@ export default function ManagementImportPortefeuille() {
     const get = (row: string[], key: ChampKey) => (m[key] >= 0 ? (row[m[key]] ?? '').trim() : '')
     return rawRows.map((row) => {
       const l: LigneImport = {
-        nom: get(row, 'nom'), centre: get(row, 'centre'), specialite: get(row, 'specialite').toUpperCase(),
+        nom: get(row, 'nom'), centre: get(row, 'centre'), specialite: resoudreSpecialite(get(row, 'specialite')),
         potentiel: get(row, 'potentiel').toUpperCase(), categorie: get(row, 'categorie'), secteur: get(row, 'secteur').toUpperCase(),
         jour_heure: get(row, 'jour_heure'), contacts: get(row, 'contacts'), observations: get(row, 'observations'),
         frequence: get(row, 'frequence'), email_vm: get(row, 'email_vm').toLowerCase(), erreurs: []
@@ -197,7 +215,8 @@ export default function ManagementImportPortefeuille() {
                 l'étape suivante permet de vérifier et corriger le mappage de chaque colonne avant l'import.
               </p>
               <p className="text-[11px] text-ink-400 mt-1">
-                specialite : {SPECIALITES.join(' / ')} · potentiel : GROS/MOYEN/FAIBLE · secteur : A/B ·
+                specialite : {SPECIALITES.map((s) => SPECIALITE_LABELS[s]).join(' / ')} (avec ou sans accents) ·
+                potentiel : GROS/MOYEN/FAIBLE · secteur : A/B ·
                 email_vm (optionnel) affecte directement le client à ce visiteur médical.
                 Depuis Excel : Fichier → Enregistrer sous → CSV.
               </p>

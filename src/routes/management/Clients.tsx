@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Badge, PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { IconPlus, IconUsers, IconSearch, IconLock, IconCheckCircle } from '@/components/ui/icons'
+import { IconPlus, IconUsers, IconSearch, IconLock, IconCheckCircle, IconCheck, IconX } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
@@ -41,6 +41,11 @@ export default function ManagementClients() {
   const [secteurFilter, setSecteurFilter] = useState('')
   const [potentielFilter, setPotentielFilter] = useState('')
 
+  const [selection, setSelection] = useState<Set<string>>(new Set())
+  const [bulkVmId, setBulkVmId] = useState('')
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   async function load() {
     const [{ data: cl }, { data: pf }, { data: vm }] = await Promise.all([
       supabase.from('clients').select('*').order('nom'),
@@ -67,6 +72,56 @@ export default function ManagementClients() {
       return true
     })
   }, [clients, search, secteurFilter, potentielFilter])
+
+  const selectedClients = clients.filter((c) => selection.has(c.id))
+  const secteursSelection = new Set(selectedClients.map((c) => c.secteur))
+  const secteurCommun = secteursSelection.size === 1 ? [...secteursSelection][0] : null
+  const toutSelectionne = filtered.length > 0 && filtered.every((c) => selection.has(c.id))
+
+  function toggleSelection(id: string) {
+    setSelection((s) => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectionTout() {
+    setSelection((s) => {
+      if (toutSelectionne) {
+        const next = new Set(s)
+        filtered.forEach((c) => next.delete(c.id))
+        return next
+      }
+      const next = new Set(s)
+      filtered.forEach((c) => next.add(c.id))
+      return next
+    })
+  }
+
+  function annulerSelection() {
+    setSelection(new Set())
+    setBulkVmId('')
+    setBulkMsg(null)
+  }
+
+  async function affecterSelection() {
+    if (!bulkVmId || selectedClients.length === 0) return
+    setBulkSaving(true)
+    setBulkMsg(null)
+    const ids = selectedClients.map((c) => c.id)
+    await supabase.from('portefeuille').delete().in('client_id', ids)
+    const { error } = await supabase.from('portefeuille').insert(ids.map((client_id) => ({ client_id, vm_id: bulkVmId })))
+    setBulkSaving(false)
+    if (error) setBulkMsg({ type: 'error', text: error.message })
+    else {
+      setBulkMsg({ type: 'success', text: `${ids.length} client(s) affecté(s).` })
+      setSelection(new Set())
+      setBulkVmId('')
+      load()
+    }
+  }
 
   function ouvrirAjout() {
     setEditingId(null)
@@ -172,11 +227,45 @@ export default function ManagementClients() {
         </select>
       </Card>
 
+      {selection.size > 0 && (
+        <Card className="flex flex-col sm:flex-row sm:items-center gap-3 border border-royal-200 bg-royal-50/50">
+          <p className="text-xs font-semibold text-royal-700 flex-1">
+            {selection.size} client{selection.size > 1 ? 's' : ''} sélectionné{selection.size > 1 ? 's' : ''}
+            {secteurCommun && ` · secteur ${secteurCommun}`}
+          </p>
+          {secteurCommun ? (
+            <>
+              <select value={bulkVmId} onChange={(e) => setBulkVmId(e.target.value)}
+                className="rounded-xl border border-ink-200 px-3.5 py-2 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
+                <option value="">Affecter à…</option>
+                {vms.filter((v) => v.secteur === secteurCommun).map((v) => <option key={v.id} value={v.id}>{v.full_name}</option>)}
+              </select>
+              <Button size="sm" loading={bulkSaving} disabled={!bulkVmId} onClick={affecterSelection}>Affecter</Button>
+            </>
+          ) : (
+            <p className="text-xs text-flame-600 font-semibold">Secteurs mélangés : affectation groupée impossible</p>
+          )}
+          <button onClick={annulerSelection} className="rounded-full p-2 text-ink-400 hover:bg-ink-100" title="Annuler la sélection">
+            <IconX className="h-4 w-4" />
+          </button>
+        </Card>
+      )}
+      {bulkMsg && (
+        <p className={`text-xs rounded-xl px-3.5 py-2.5 ${bulkMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+          {bulkMsg.text}
+        </p>
+      )}
+
       <Card className="overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-ink-100 bg-ink-50/60 text-xs text-ink-500">
+                <th className="w-10 px-4 py-3">
+                  <button onClick={toggleSelectionTout} className={`flex h-4.5 w-4.5 items-center justify-center rounded-md border ${toutSelectionne ? 'border-royal-600 bg-royal-600' : 'border-ink-300'}`}>
+                    {toutSelectionne && <IconCheck className="h-3 w-3 text-white" />}
+                  </button>
+                </th>
                 <th className="px-4 py-3 text-left font-semibold">Client</th>
                 <th className="px-4 py-3 text-left font-semibold">Spécialité</th>
                 <th className="px-4 py-3 text-left font-semibold">Potentiel</th>
@@ -188,7 +277,12 @@ export default function ManagementClients() {
             </thead>
             <tbody className="divide-y divide-ink-100">
               {filtered.map((c) => (
-                <tr key={c.id} className="transition hover:bg-ink-50/60">
+                <tr key={c.id} className={`transition hover:bg-ink-50/60 ${selection.has(c.id) ? 'bg-royal-50/40' : ''}`}>
+                  <td className="px-4 py-3">
+                    <button onClick={() => toggleSelection(c.id)} className={`flex h-4.5 w-4.5 items-center justify-center rounded-md border ${selection.has(c.id) ? 'border-royal-600 bg-royal-600' : 'border-ink-300'}`}>
+                      {selection.has(c.id) && <IconCheck className="h-3 w-3 text-white" />}
+                    </button>
+                  </td>
                   <td className="px-4 py-3">
                     <p className="text-xs font-semibold text-ink-800">{c.nom}</p>
                     {c.centre && <p className="text-[10px] text-ink-400">{c.centre}</p>}
@@ -213,7 +307,7 @@ export default function ManagementClients() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-xs text-ink-400">Aucun client ne correspond à ces filtres.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-xs text-ink-400">Aucun client ne correspond à ces filtres.</td></tr>
               )}
             </tbody>
           </table>
