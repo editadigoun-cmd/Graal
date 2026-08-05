@@ -21,7 +21,8 @@ const ROLE_TONE: Record<Role, 'info' | 'success' | 'warning'> = { vm: 'info', su
 const EMPTY_FORM = { email: '', full_name: '', role: 'vm' as Role, secteur: 'A' as 'A' | 'B', equipe_id: '' }
 
 export default function ManagementEquipes() {
-  const { session } = useAuth()
+  const { session, profile } = useAuth()
+  const isAdmin = profile?.role === 'admin'
   const [equipes, setEquipes] = useState<Equipe[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [superviseurEquipes, setSuperviseurEquipes] = useState<SuperviseurEquipe[]>([])
@@ -169,38 +170,50 @@ export default function ManagementEquipes() {
 
   const equipeNomById = useMemo(() => Object.fromEntries(equipes.map((e) => [e.id, e.nom])), [equipes])
 
+  // Un superviseur ne voit que les VM de ses propres équipes : ni les autres équipes,
+  // ni les autres superviseurs/admins, ni la gestion des comptes (réservée à l'admin).
+  const mesEquipeIds = useMemo(
+    () => (profile ? superviseurEquipes.filter((se) => se.superviseur_id === profile.id).map((se) => se.equipe_id) : []),
+    [superviseurEquipes, profile]
+  )
+  const equipesVisibles = isAdmin ? equipes : equipes.filter((e) => mesEquipeIds.includes(e.id))
+  const profilesVisibles = isAdmin ? profiles : profiles.filter((p) => p.role === 'vm' && p.equipe_id && mesEquipeIds.includes(p.equipe_id))
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return profiles.filter((p) => {
+    return profilesVisibles.filter((p) => {
       if (equipeFilter === '__none__' && p.equipe_id) return false
       if (equipeFilter && equipeFilter !== '__none__' && p.equipe_id !== equipeFilter) return false
       if (roleFilter && p.role !== roleFilter) return false
       if (q && !p.full_name.toLowerCase().includes(q) && !(p.email ?? '').toLowerCase().includes(q)) return false
       return true
     })
-  }, [profiles, search, equipeFilter, roleFilter])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profilesVisibles, search, equipeFilter, roleFilter])
 
   if (loading) return <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-64" /></div>
 
-  const totalVm = profiles.filter((p) => p.role === 'vm').length
-  const totalSuperviseurs = profiles.filter((p) => p.role === 'superviseur').length
+  const totalVm = profilesVisibles.filter((p) => p.role === 'vm').length
+  const totalSuperviseurs = profilesVisibles.filter((p) => p.role === 'superviseur').length
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-ink-800 font-display">Équipes & visiteurs médicaux</h1>
-          <p className="text-sm text-ink-400">Gestion des comptes, secteurs et rattachements d'équipe</p>
+          <p className="text-sm text-ink-400">{isAdmin ? "Gestion des comptes, secteurs et rattachements d'équipe" : 'Les visiteurs médicaux de vos équipes'}</p>
         </div>
-        <Button size="sm" icon={<IconPlus className="h-4 w-4" />} onClick={() => setModalOpen(true)}>
-          Ajouter un membre
-        </Button>
+        {isAdmin && (
+          <Button size="sm" icon={<IconPlus className="h-4 w-4" />} onClick={() => setModalOpen(true)}>
+            Ajouter un membre
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <StatCard label="Équipes" value={equipes.length} tone="royal" icon={<IconUsers className="h-4 w-4" />} />
+        <StatCard label="Équipes" value={equipesVisibles.length} tone="royal" icon={<IconUsers className="h-4 w-4" />} />
         <StatCard label="Visiteurs médicaux" value={totalVm} tone="emerald" icon={<IconUsers className="h-4 w-4" />} />
-        <StatCard label="Superviseurs" value={totalSuperviseurs} tone="flame" icon={<IconCheckCircle className="h-4 w-4" />} />
+        {isAdmin && <StatCard label="Superviseurs" value={totalSuperviseurs} tone="flame" icon={<IconCheckCircle className="h-4 w-4" />} />}
       </div>
 
       <Card className="flex flex-col sm:flex-row gap-3 sm:items-center">
@@ -216,17 +229,19 @@ export default function ManagementEquipes() {
           value={equipeFilter} onChange={(e) => setEquipeFilter(e.target.value)}
           className="rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
         >
-          <option value="">Toutes les équipes</option>
-          <option value="__none__">Sans équipe</option>
-          {equipes.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+          <option value="">{isAdmin ? 'Toutes les équipes' : 'Mes équipes'}</option>
+          {isAdmin && <option value="__none__">Sans équipe</option>}
+          {equipesVisibles.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
         </select>
-        <select
-          value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | '')}
-          className="rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
-        >
-          <option value="">Tous les rôles</option>
-          {(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-        </select>
+        {isAdmin && (
+          <select
+            value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | '')}
+            className="rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+          >
+            <option value="">Tous les rôles</option>
+            {(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+          </select>
+        )}
       </Card>
 
       {notice && (
@@ -268,13 +283,17 @@ export default function ManagementEquipes() {
                     </td>
                     <td className="px-4 py-3">
                       {p.role === 'vm' ? (
-                        <select
-                          value={p.equipe_id ?? ''} onChange={(e) => changerEquipe(p.id, e.target.value)}
-                          className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs"
-                        >
-                          <option value="">Sans équipe</option>
-                          {equipes.map((e2) => <option key={e2.id} value={e2.id}>{e2.nom}</option>)}
-                        </select>
+                        isAdmin ? (
+                          <select
+                            value={p.equipe_id ?? ''} onChange={(e) => changerEquipe(p.id, e.target.value)}
+                            className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs"
+                          >
+                            <option value="">Sans équipe</option>
+                            {equipes.map((e2) => <option key={e2.id} value={e2.id}>{e2.nom}</option>)}
+                          </select>
+                        ) : (
+                          <span className="text-xs text-ink-600">{p.equipe_id ? equipeNomById[p.equipe_id] ?? '—' : '—'}</span>
+                        )
                       ) : p.role === 'superviseur' ? (
                         <div className="flex flex-wrap items-center gap-1.5 max-w-[220px]">
                           {superviseurEquipes.filter((se) => se.superviseur_id === p.id).map((se) => (
@@ -303,13 +322,17 @@ export default function ManagementEquipes() {
                     </td>
                     <td className="px-4 py-3">
                       {p.role === 'vm' ? (
-                        <select
-                          value={p.secteur ?? ''} onChange={(e) => changerSecteur(p.id, e.target.value)}
-                          className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs"
-                        >
-                          <option value="A">Secteur A</option>
-                          <option value="B">Secteur B</option>
-                        </select>
+                        isAdmin ? (
+                          <select
+                            value={p.secteur ?? ''} onChange={(e) => changerSecteur(p.id, e.target.value)}
+                            className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs"
+                          >
+                            <option value="A">Secteur A</option>
+                            <option value="B">Secteur B</option>
+                          </select>
+                        ) : (
+                          <span className="text-xs text-ink-600">{p.secteur ? `Secteur ${p.secteur}` : '—'}</span>
+                        )
                       ) : (
                         <span className="text-xs text-ink-400">—</span>
                       )}
@@ -318,29 +341,33 @@ export default function ManagementEquipes() {
                       <Badge tone={p.actif ? 'success' : 'neutral'}>{p.actif ? 'Actif' : 'Inactif'}</Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => renvoyerInvitation(p)} disabled={busy}
-                          title="Renvoyer l'invitation"
-                          className="rounded-full p-2 bg-royal-50 text-royal-600 hover:bg-royal-100 transition disabled:opacity-50"
-                        >
-                          <IconSend className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => toggleActif(p)} disabled={busy || isSelf}
-                          title={isSelf ? 'Vous ne pouvez pas désactiver votre propre compte' : p.actif ? 'Désactiver le compte' : 'Réactiver le compte'}
-                          className={`rounded-full p-2 transition disabled:opacity-40 ${p.actif ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
-                        >
-                          {p.actif ? <IconLock className="h-3.5 w-3.5" /> : <IconCheckCircle className="h-3.5 w-3.5" />}
-                        </button>
-                        <button
-                          onClick={() => supprimerDefinitivement(p)} disabled={busy || isSelf}
-                          title={isSelf ? 'Vous ne pouvez pas supprimer votre propre compte' : 'Supprimer définitivement'}
-                          className="rounded-full p-2 bg-ink-100 text-ink-500 hover:bg-red-100 hover:text-red-600 transition disabled:opacity-40"
-                        >
-                          <IconX className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                      {isAdmin ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => renvoyerInvitation(p)} disabled={busy}
+                            title="Renvoyer l'invitation"
+                            className="rounded-full p-2 bg-royal-50 text-royal-600 hover:bg-royal-100 transition disabled:opacity-50"
+                          >
+                            <IconSend className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => toggleActif(p)} disabled={busy || isSelf}
+                            title={isSelf ? 'Vous ne pouvez pas désactiver votre propre compte' : p.actif ? 'Désactiver le compte' : 'Réactiver le compte'}
+                            className={`rounded-full p-2 transition disabled:opacity-40 ${p.actif ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                          >
+                            {p.actif ? <IconLock className="h-3.5 w-3.5" /> : <IconCheckCircle className="h-3.5 w-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => supprimerDefinitivement(p)} disabled={busy || isSelf}
+                            title={isSelf ? 'Vous ne pouvez pas supprimer votre propre compte' : 'Supprimer définitivement'}
+                            className="rounded-full p-2 bg-ink-100 text-ink-500 hover:bg-red-100 hover:text-red-600 transition disabled:opacity-40"
+                          >
+                            <IconX className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="block text-right text-[10px] text-ink-300">—</span>
+                      )}
                     </td>
                   </tr>
                 )

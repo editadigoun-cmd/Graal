@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { IconCheckCircle, IconX, IconClock, IconCalendar, IconPill, IconUsers } from '@/components/ui/icons'
+import { IconCheckCircle, IconX, IconClock, IconCalendar, IconPill, IconUsers, IconAlert, IconSend } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
-import { isoWeekMonday, nowBenin } from '@/lib/time'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { isoWeekMonday, nowBenin, deadlineSoumission } from '@/lib/time'
 import dayjs from 'dayjs'
 
 interface ProgrammeRow {
@@ -39,11 +40,13 @@ type Potentiel = 'GROS' | 'MOYEN' | 'FAIBLE'
 const POTENTIELS: Potentiel[] = ['GROS', 'MOYEN', 'FAIBLE']
 
 export default function ManagementProgrammes() {
+  const { profile } = useAuth()
   const [programmes, setProgrammes] = useState<ProgrammeRow[]>([])
   const [brouillons, setBrouillons] = useState<BrouillonRow[]>([])
   const [fusions, setFusions] = useState<FusionRow[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
+  const [forceMsg, setForceMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const [fusionSemaine, setFusionSemaine] = useState(isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD'))
   const [fusionPotentiels, setFusionPotentiels] = useState<Potentiel[]>(['GROS'])
@@ -72,7 +75,30 @@ export default function ManagementProgrammes() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    // Sans ceci, un programme fraîchement soumis par un VM n'apparaît qu'après un
+    // rechargement manuel de la page — l'admin/superviseur voit la notification arriver
+    // mais pas le programme tant que l'écran n'est pas rouvert.
+    const channel = supabase
+      .channel('programmes-management')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'programmes_hebdomadaires' }, load)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
+  const deadlinePassee = (semaineDebut: string) => nowBenin().isAfter(deadlineSoumission(semaineDebut))
+
+  async function forcerSoumission(programmeId: string) {
+    setBusy(programmeId)
+    setForceMsg(null)
+    const { data, error } = await supabase.rpc('soumettre_programme_hebdomadaire', { p_programme_id: programmeId })
+    setBusy(null)
+    if (error) { setForceMsg({ type: 'error', text: error.message }); return }
+    const res = data as { statut: string; message?: string }
+    if (res.statut !== 'SOUMIS') setForceMsg({ type: 'error', text: res.message ?? 'Soumission refusée.' })
+    else { setForceMsg({ type: 'success', text: 'Programme soumis en votre nom.' }); load() }
+  }
 
   async function valider(id: string) {
     setBusy(id)
@@ -124,6 +150,7 @@ export default function ManagementProgrammes() {
   const soumis = programmes.filter((p) => p.statut === 'SOUMIS')
   const autres = programmes.filter((p) => p.statut !== 'SOUMIS')
   const valides = programmes.filter((p) => p.statut === 'VALIDE' || p.statut === 'VERROUILLE').length
+  const brouillonsEnRetard = brouillons.filter((b) => deadlinePassee(b.semaine_debut))
 
   return (
     <div className="space-y-6">
@@ -131,6 +158,38 @@ export default function ManagementProgrammes() {
         <h1 className="text-xl font-bold text-ink-800 font-display">Validation des programmes</h1>
         <p className="text-sm text-ink-400">Programmes hebdomadaires soumis par les visiteurs médicaux</p>
       </div>
+
+      {brouillonsEnRetard.length > 0 && (
+        <div>
+          <p className="text-sm font-bold text-flame-700 mb-3 flex items-center gap-2">
+            <IconAlert className="h-4 w-4" /> Programmes bloqués — délai de soumission dépassé ({brouillonsEnRetard.length})
+          </p>
+          <div className="space-y-2">
+            {brouillonsEnRetard.map((b) => (
+              <Card key={b.id} className="flex items-center justify-between border border-flame-200 bg-flame-50/50">
+                <div>
+                  <p className="text-sm font-semibold text-ink-800">{b.profiles?.full_name}</p>
+                  <p className="text-xs text-ink-500">
+                    Semaine du {dayjs(b.semaine_debut).format('DD/MM/YYYY')} — resté en brouillon, le VM n'a pas pu soumettre à temps.
+                  </p>
+                </div>
+                {profile?.role === 'admin' ? (
+                  <Button size="sm" variant="secondary" loading={busy === b.id} icon={<IconSend className="h-3.5 w-3.5" />} onClick={() => forcerSoumission(b.id)}>
+                    Soumettre en son nom
+                  </Button>
+                ) : (
+                  <span className="text-[11px] text-ink-400">Contactez l'administrateur</span>
+                )}
+              </Card>
+            ))}
+          </div>
+          {forceMsg && (
+            <p className={`mt-2 text-xs rounded-xl px-3.5 py-2.5 ${forceMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+              {forceMsg.text}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <StatCard label="En attente" value={soumis.length} tone="flame" icon={<IconClock className="h-4 w-4" />} />

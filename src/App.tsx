@@ -74,6 +74,13 @@ function RequireManagement({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { profile } = useAuth()
+  if (!profile) return <Splash />
+  if (profile.role !== 'admin') return <Navigate to="/admin" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
     return <ConfigError />
@@ -107,14 +114,14 @@ export default function App() {
             <Route path="programmes" element={<ManagementProgrammes />} />
             <Route path="reporting" element={<ManagementReporting />} />
             <Route path="equipes" element={<ManagementEquipes />} />
-            <Route path="clients" element={<ManagementClients />} />
-            <Route path="produits" element={<ManagementProduits />} />
+            <Route path="clients" element={<RequireAdmin><ManagementClients /></RequireAdmin>} />
+            <Route path="produits" element={<RequireAdmin><ManagementProduits /></RequireAdmin>} />
             <Route path="activite" element={<ManagementActivite />} />
             <Route path="plan-activites" element={<ManagementPlanActivites />} />
             <Route path="rapports-duo" element={<ManagementRapportsDuo />} />
             <Route path="animation-equipe" element={<ManagementAnimationEquipe />} />
-            <Route path="import-portefeuille" element={<ManagementImportPortefeuille />} />
-            <Route path="parametres" element={<ManagementParametres />} />
+            <Route path="import-portefeuille" element={<RequireAdmin><ManagementImportPortefeuille /></RequireAdmin>} />
+            <Route path="parametres" element={<RequireAdmin><ManagementParametres /></RequireAdmin>} />
             <Route path="profil" element={<ManagementProfil />} />
           </Route>
 
