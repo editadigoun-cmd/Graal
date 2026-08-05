@@ -4,12 +4,13 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { IconPlus, IconX, IconClock, IconCheckCircle, IconAlert } from '@/components/ui/icons'
+import { IconPlus, IconX, IconClock, IconCheckCircle, IconAlert, IconSearch, IconCheck } from '@/components/ui/icons'
 import { usePlanning, targetSemaineDebut } from '@/features/data/usePlanning'
 import { supabase } from '@/lib/supabase'
 import { JOURS, potentielAutorise } from '@/lib/rules'
 import { JOUR_LABEL } from '@/lib/theme'
 import { deadlineSoumission, formatCountdown, nowBenin } from '@/lib/time'
+import { normalizeText } from '@/lib/text'
 import type { Database } from '@/types/database'
 import dayjs from 'dayjs'
 
@@ -20,6 +21,9 @@ export default function Planning() {
   const { programme, lignes, portefeuille, loading, error, setError, reload } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
   const [picking, setPicking] = useState<TypeVisite | null>(null)
+  const [recherche, setRecherche] = useState('')
+  const [selection, setSelection] = useState<Set<string>>(new Set())
+  const [ajoutEnCours, setAjoutEnCours] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [resultat, setResultat] = useState<{ statut: string; message?: string; conformite?: unknown[] } | null>(null)
   const [, forceTick] = useState(0)
@@ -40,15 +44,36 @@ export default function Planning() {
     if (!picking) return false
     if (!potentielAutorise(jourActif, c.potentiel)) return false
     if (clientIdsUtilises.has(c.id)) return false
+    if (recherche && !normalizeText(c.nom).includes(normalizeText(recherche))) return false
     return true
   })
 
-  async function ajouterLigne(clientId: string, type: TypeVisite) {
-    if (!programme) return
-    setError(null)
-    const { error } = await supabase.from('programme_lignes').insert({
-      programme_id: programme.id, client_id: clientId, jour: jourActif, type_visite: type, ordre: lignesJour.length
+  function ouvrirPicker(type: TypeVisite) {
+    setPicking(type)
+    setRecherche('')
+    setSelection(new Set())
+  }
+
+  function toggleSelection(clientId: string) {
+    setSelection((s) => {
+      const next = new Set(s)
+      if (next.has(clientId)) next.delete(clientId)
+      else next.add(clientId)
+      return next
     })
+  }
+
+  async function ajouterSelection() {
+    if (!programme || !picking || selection.size === 0) return
+    setAjoutEnCours(true)
+    setError(null)
+    const ids = Array.from(selection)
+    const { error } = await supabase.from('programme_lignes').insert(
+      ids.map((clientId, i) => ({
+        programme_id: programme.id, client_id: clientId, jour: jourActif, type_visite: picking, ordre: lignesJour.length + i
+      }))
+    )
+    setAjoutEnCours(false)
     if (error) setError(error.message)
     else { setPicking(null); reload() }
   }
@@ -150,10 +175,10 @@ export default function Planning() {
 
         {!verrouille && (
           <div className="grid grid-cols-2 gap-2.5">
-            <button onClick={() => setPicking('MEDICAL')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-royal-200 py-3 text-sm font-semibold text-royal-600">
+            <button onClick={() => ouvrirPicker('MEDICAL')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-royal-200 py-3 text-sm font-semibold text-royal-600">
               <IconPlus className="h-4 w-4" /> Client médical
             </button>
-            <button onClick={() => setPicking('PHARMACIE')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-emerald-200 py-3 text-sm font-semibold text-emerald-600">
+            <button onClick={() => ouvrirPicker('PHARMACIE')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-emerald-200 py-3 text-sm font-semibold text-emerald-600">
               <IconPlus className="h-4 w-4" /> Pharmacie
             </button>
           </div>
@@ -186,23 +211,42 @@ export default function Planning() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink-200" />
-              <p className="text-sm font-bold text-ink-800 mb-1">Ajouter un client — {JOUR_LABEL[jourActif]}</p>
-              <p className="text-xs text-ink-400 mb-4">Seuls les clients autorisés ce jour selon leur potentiel sont affichés.</p>
-              <div className="space-y-2">
-                {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
-                {candidats.map((c) => (
-                  <button
-                    key={c.id} onClick={() => ajouterLigne(c.id, picking)}
-                    className="flex w-full items-center justify-between rounded-2xl border border-ink-100 p-3 text-left hover:bg-ink-50"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-ink-800">{c.nom}</p>
-                      <p className="text-[11px] text-ink-400">{c.centre || c.specialite}</p>
-                    </div>
-                    <PotentielBadge potentiel={c.potentiel} compact />
-                  </button>
-                ))}
+              <p className="text-sm font-bold text-ink-800 mb-1">Ajouter des clients — {JOUR_LABEL[jourActif]}</p>
+              <p className="text-xs text-ink-400 mb-3">Seuls les clients autorisés ce jour selon leur potentiel sont affichés. Sélectionnez-en un ou plusieurs.</p>
+              <div className="relative mb-3">
+                <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
+                <input
+                  value={recherche} onChange={(e) => setRecherche(e.target.value)}
+                  placeholder="Rechercher un client…"
+                  className="w-full rounded-xl border border-ink-200 pl-10 pr-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+                />
               </div>
+              <div className="space-y-2 pb-2">
+                {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
+                {candidats.map((c) => {
+                  const selected = selection.has(c.id)
+                  return (
+                    <button
+                      key={c.id} onClick={() => toggleSelection(c.id)}
+                      className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition ${selected ? 'border-royal-400 bg-royal-50' : 'border-ink-100 hover:bg-ink-50'}`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border ${selected ? 'border-royal-600 bg-royal-600' : 'border-ink-300'}`}>
+                          {selected && <IconCheck className="h-3.5 w-3.5 text-white" />}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-ink-800 truncate">{c.nom}</p>
+                          <p className="text-[11px] text-ink-400 truncate">{c.centre || c.specialite}</p>
+                        </div>
+                      </div>
+                      <PotentielBadge potentiel={c.potentiel} compact />
+                    </button>
+                  )
+                })}
+              </div>
+              <Button fullWidth className="mt-2" loading={ajoutEnCours} disabled={selection.size === 0} onClick={ajouterSelection}>
+                Ajouter {selection.size > 0 ? `(${selection.size})` : ''}
+              </Button>
             </motion.div>
           </motion.div>
         )}
