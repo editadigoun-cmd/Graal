@@ -256,7 +256,67 @@ export default function ManagementClients() {
         </p>
       )}
 
-      <Card className="overflow-hidden p-0">
+      {filtered.length > 0 && (
+        <button onClick={toggleSelectionTout} className="flex items-center gap-2 text-xs font-semibold text-ink-500 md:hidden">
+          <span className={`flex h-5 w-5 items-center justify-center rounded-md border ${toutSelectionne ? 'border-royal-600 bg-royal-600' : 'border-ink-300'}`}>
+            {toutSelectionne && <IconCheck className="h-3.5 w-3.5 text-white" />}
+          </span>
+          Tout sélectionner
+        </button>
+      )}
+
+      {/* Liste mobile : toute la carte est cliquable pour sélectionner (case à cocher trop petite à viser dans un tableau qui défile) */}
+      <div className="space-y-2.5 md:hidden">
+        {filtered.map((c) => {
+          const selected = selection.has(c.id)
+          return (
+            <Card
+              key={c.id}
+              onClick={() => toggleSelection(c.id)}
+              className={`cursor-pointer transition ${selected ? 'border-2 border-royal-400 bg-royal-50/50' : ''}`}
+            >
+              <div className="flex items-start gap-3">
+                <span className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border ${selected ? 'border-royal-600 bg-royal-600' : 'border-ink-300'}`}>
+                  {selected && <IconCheck className="h-3.5 w-3.5 text-white" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink-800 truncate">{c.nom}</p>
+                      {c.centre && <p className="text-[11px] text-ink-400 truncate">{c.centre}</p>}
+                    </div>
+                    <Badge tone={c.actif ? 'success' : 'neutral'}>{c.actif ? 'Actif' : 'Inactif'}</Badge>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <PotentielBadge potentiel={c.potentiel} compact />
+                    <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-500">Secteur {c.secteur}</span>
+                    <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-500">{SPECIALITE_LABEL[c.specialite]}</span>
+                  </div>
+                  <p className="mt-2 text-[11px] text-ink-500">
+                    VM : {vmParClient[c.id] ? vmNomById[vmParClient[c.id]] ?? '—' : 'Sans affectation'}
+                  </p>
+                  <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => ouvrirEdition(c)} className="rounded-full px-3 py-1.5 text-[11px] font-semibold bg-royal-50 text-royal-700 hover:bg-royal-100 transition">
+                      Modifier
+                    </button>
+                    <button onClick={() => toggleActif(c)}
+                      title={c.actif ? 'Désactiver' : 'Réactiver'}
+                      className={`rounded-full p-2 transition ${c.actif ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
+                      {c.actif ? <IconLock className="h-3.5 w-3.5" /> : <IconCheckCircle className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )
+        })}
+        {filtered.length === 0 && (
+          <Card className="text-center py-8 text-xs text-ink-400">Aucun client ne correspond à ces filtres.</Card>
+        )}
+      </div>
+
+      {/* Tableau desktop */}
+      <Card className="hidden overflow-hidden p-0 md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -277,11 +337,15 @@ export default function ManagementClients() {
             </thead>
             <tbody className="divide-y divide-ink-100">
               {filtered.map((c) => (
-                <tr key={c.id} className={`transition hover:bg-ink-50/60 ${selection.has(c.id) ? 'bg-royal-50/40' : ''}`}>
+                <tr
+                  key={c.id}
+                  onClick={() => toggleSelection(c.id)}
+                  className={`cursor-pointer transition hover:bg-ink-50/60 ${selection.has(c.id) ? 'bg-royal-50/40' : ''}`}
+                >
                   <td className="px-4 py-3">
-                    <button onClick={() => toggleSelection(c.id)} className={`flex h-4.5 w-4.5 items-center justify-center rounded-md border ${selection.has(c.id) ? 'border-royal-600 bg-royal-600' : 'border-ink-300'}`}>
+                    <span className={`flex h-4.5 w-4.5 items-center justify-center rounded-md border ${selection.has(c.id) ? 'border-royal-600 bg-royal-600' : 'border-ink-300'}`}>
                       {selection.has(c.id) && <IconCheck className="h-3 w-3 text-white" />}
-                    </button>
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <p className="text-xs font-semibold text-ink-800">{c.nom}</p>
@@ -293,7 +357,7 @@ export default function ManagementClients() {
                   <td className="px-4 py-3 text-xs text-ink-500">{vmParClient[c.id] ? vmNomById[vmParClient[c.id]] ?? '—' : '—'}</td>
                   <td className="px-4 py-3"><Badge tone={c.actif ? 'success' : 'neutral'}>{c.actif ? 'Actif' : 'Inactif'}</Badge></td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => ouvrirEdition(c)} className="rounded-full px-3 py-1.5 text-[11px] font-semibold bg-royal-50 text-royal-700 hover:bg-royal-100 transition">
                         Modifier
                       </button>
