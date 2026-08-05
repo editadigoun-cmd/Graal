@@ -58,13 +58,13 @@ export default function ManagementProgrammes() {
     const [{ data }, { data: br }, { data: fu }] = await Promise.all([
       supabase
         .from('programmes_hebdomadaires')
-        .select('*, profiles(full_name), programme_conformite(cible, quota_attendu, quantite_programmee, statut)')
+        .select('*, profiles!programmes_hebdomadaires_vm_id_fkey(full_name), programme_conformite(cible, quota_attendu, quantite_programmee, statut)')
         .in('statut', ['SOUMIS', 'VALIDE', 'VERROUILLE'])
         .order('soumis_at', { ascending: false })
         .limit(30),
       supabase
         .from('programmes_hebdomadaires')
-        .select('id, semaine_debut, mode_pharmacie_uniquement, vm_id, profiles(full_name)')
+        .select('id, semaine_debut, mode_pharmacie_uniquement, vm_id, profiles!programmes_hebdomadaires_vm_id_fkey(full_name)')
         .eq('statut', 'BROUILLON')
         .in('semaine_debut', [semaineCourante, semaineProchaine]),
       supabase.from('fusions_secteurs').select('*').order('created_at', { ascending: false }).limit(10)
