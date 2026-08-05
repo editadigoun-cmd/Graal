@@ -21,7 +21,7 @@ const nav = [
   { to: '/admin/animation-equipe', label: 'Animation d\'équipe', icon: IconTrendingUp, end: false, adminOnly: false },
   { to: '/admin/import-portefeuille', label: 'Import portefeuille', icon: IconDownload, end: false, adminOnly: true },
   { to: '/admin/activite', label: 'Activité', icon: IconActivity, end: false, adminOnly: false },
-  { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings, end: false, adminOnly: false },
+  { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings, end: false, adminOnly: true },
   { to: '/admin/profil', label: 'Mon profil', icon: IconUser, end: false, adminOnly: false }
 ]
 
@@ -87,9 +87,11 @@ export function ManagementShell() {
           </div>
           <p className="hidden md:block text-sm font-bold text-ink-700">{currentPage?.label ?? 'GRAAL'}</p>
           <div className="flex items-center gap-3">
-            <Link to="/admin/parametres" className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-400 shadow-softer hover:text-royal-600 transition">
-              <IconSettings className="h-4.5 w-4.5" />
-            </Link>
+            {profile?.role === 'admin' && (
+              <Link to="/admin/parametres" className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-400 shadow-softer hover:text-royal-600 transition">
+                <IconSettings className="h-4.5 w-4.5" />
+              </Link>
+            )}
             <Link to="/admin/activite" className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-500 shadow-softer hover:text-royal-600 transition">
               <IconBell className="h-4.5 w-4.5" />
               {unread > 0 && <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-flame-500 text-[9px] font-bold text-white flex items-center justify-center">{unread > 9 ? '9+' : unread}</span>}
