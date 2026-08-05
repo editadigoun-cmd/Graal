@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
+import { Badge, PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { IconCheckCircle, IconX, IconClock, IconCalendar, IconPill, IconUsers, IconAlert, IconSend } from '@/components/ui/icons'
+import { Modal } from '@/components/ui/Modal'
+import { IconCheckCircle, IconX, IconClock, IconCalendar, IconPill, IconUsers, IconAlert, IconSend, IconEye } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { isoWeekMonday, nowBenin, deadlineSoumission } from '@/lib/time'
+import { JOURS } from '@/lib/rules'
+import { JOUR_LABEL } from '@/lib/theme'
 import dayjs from 'dayjs'
 
 interface ProgrammeRow {
@@ -36,6 +39,13 @@ interface FusionRow {
   actif: boolean
 }
 
+interface LigneRow {
+  id: string
+  jour: string
+  type_visite: string
+  clients: { id: string; nom: string; potentiel: string; specialite: string | null; centre: string | null } | null
+}
+
 type Potentiel = 'GROS' | 'MOYEN' | 'FAIBLE'
 const POTENTIELS: Potentiel[] = ['GROS', 'MOYEN', 'FAIBLE']
 
@@ -51,6 +61,10 @@ export default function ManagementProgrammes() {
   const [fusionSemaine, setFusionSemaine] = useState(isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD'))
   const [fusionPotentiels, setFusionPotentiels] = useState<Potentiel[]>(['GROS'])
   const [fusionBusy, setFusionBusy] = useState(false)
+
+  const [detail, setDetail] = useState<ProgrammeRow | null>(null)
+  const [detailLignes, setDetailLignes] = useState<LigneRow[]>([])
+  const [detailLoading, setDetailLoading] = useState(false)
 
   async function load() {
     const semaineProchaine = isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD')
@@ -88,6 +102,19 @@ export default function ManagementProgrammes() {
   }, [])
 
   const deadlinePassee = (semaineDebut: string) => nowBenin().isAfter(deadlineSoumission(semaineDebut))
+
+  async function ouvrirDetail(p: ProgrammeRow) {
+    setDetail(p)
+    setDetailLoading(true)
+    setDetailLignes([])
+    const { data } = await supabase
+      .from('programme_lignes')
+      .select('id, jour, type_visite, clients(id, nom, potentiel, specialite, centre)')
+      .eq('programme_id', p.id)
+      .order('ordre')
+    setDetailLignes((data as unknown as LigneRow[]) ?? [])
+    setDetailLoading(false)
+  }
 
   async function forcerSoumission(programmeId: string) {
     setBusy(programmeId)
@@ -211,6 +238,7 @@ export default function ManagementProgrammes() {
                     <p className="text-xs text-ink-400">Semaine du {dayjs(p.semaine_debut).format('DD/MM/YYYY')} · soumis le {dayjs(p.soumis_at).format('DD/MM HH:mm')}</p>
                   </div>
                   <div className="flex gap-2">
+                    <button onClick={() => ouvrirDetail(p)} className="rounded-full p-2 bg-royal-50 text-royal-600 hover:bg-royal-100 transition"><IconEye className="h-4 w-4" /></button>
                     <button onClick={() => rejeter(p.id)} disabled={busy === p.id} className="rounded-full p-2 bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-50"><IconX className="h-4 w-4" /></button>
                     <button onClick={() => valider(p.id)} disabled={busy === p.id} className="rounded-full p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition disabled:opacity-50"><IconCheckCircle className="h-4 w-4" /></button>
                   </div>
@@ -243,14 +271,16 @@ export default function ManagementProgrammes() {
                     <th className="px-4 py-3 text-left font-semibold">Visiteur médical</th>
                     <th className="px-4 py-3 text-left font-semibold">Semaine</th>
                     <th className="px-4 py-3 text-left font-semibold">Statut</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-100">
                   {autres.map((p) => (
-                    <tr key={p.id} className="transition hover:bg-ink-50/60">
+                    <tr key={p.id} className="cursor-pointer transition hover:bg-ink-50/60" onClick={() => ouvrirDetail(p)}>
                       <td className="px-4 py-3 font-semibold text-ink-800">{p.profiles?.full_name}</td>
                       <td className="px-4 py-3 text-ink-500">{dayjs(p.semaine_debut).format('DD/MM/YYYY')}</td>
                       <td className="px-4 py-3"><Badge tone={p.statut === 'VERROUILLE' ? 'info' : 'success'}>{p.statut}</Badge></td>
+                      <td className="px-4 py-3 text-right"><IconEye className="h-4 w-4 text-ink-300 inline-block" /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -346,6 +376,56 @@ export default function ManagementProgrammes() {
           )}
         </Card>
       </div>
+
+      <Modal
+        open={detail !== null}
+        onClose={() => setDetail(null)}
+        title={detail?.profiles?.full_name ?? 'Détail du programme'}
+        description={detail ? `Semaine du ${dayjs(detail.semaine_debut).format('DD/MM/YYYY')}` : undefined}
+        maxWidth="max-w-2xl"
+      >
+        {detail && detail.programme_conformite?.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 border-b border-ink-100 pb-4 mb-4">
+            {detail.programme_conformite.map((c) => (
+              <Badge key={c.cible} tone={c.statut === 'CONFORME' ? 'success' : c.statut === 'SOUS_COUVERT' ? 'warning' : 'info'}>
+                {c.cible.replace(/_/g, ' ')}: {c.quantite_programmee}/{c.quota_attendu}
+              </Badge>
+            ))}
+          </div>
+        )}
+        <div className="space-y-4">
+          {detailLoading ? (
+            <div className="space-y-2"><Skeleton className="h-14" /><Skeleton className="h-14" /></div>
+          ) : detailLignes.length === 0 ? (
+            <p className="text-sm text-ink-400 text-center py-6">Aucun client programmé.</p>
+          ) : (
+            JOURS.map((j) => {
+              const lignesJour = detailLignes.filter((l) => l.jour === j)
+              if (lignesJour.length === 0) return null
+              return (
+                <div key={j}>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">
+                    {JOUR_LABEL[j]} <span className="font-normal normal-case text-ink-300">({lignesJour.length})</span>
+                  </p>
+                  <div className="space-y-1.5">
+                    {lignesJour.map((l) => (
+                      <div key={l.id} className="flex items-center justify-between rounded-xl bg-ink-50 px-3.5 py-2.5">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-ink-800 truncate">{l.clients?.nom}</p>
+                          <p className="text-[11px] text-ink-400 truncate">
+                            {l.clients?.centre || l.clients?.specialite} · {l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}
+                          </p>
+                        </div>
+                        {l.clients?.potentiel && <PotentielBadge potentiel={l.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }
