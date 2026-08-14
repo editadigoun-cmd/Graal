@@ -1,13 +1,62 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { IconChevronLeft, IconSend, IconPaperclip, IconMic, IconX, IconDownload, IconClipboard, IconAlert } from '@/components/ui/icons'
+import { IconChevronLeft, IconSend, IconPaperclip, IconMic, IconX, IconDownload, IconClipboard, IconAlert, IconPlay, IconPause } from '@/components/ui/icons'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 import dayjs from 'dayjs'
 
 type Message = Database['public']['Tables']['messages']['Row']
+
+function formatDuree(s: number) {
+  if (!isFinite(s) || s < 0) return '0:00'
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+function AudioBubble({ url, mine }: { url: string; mine: boolean }) {
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [playing, setPlaying] = useState(false)
+  const [current, setCurrent] = useState(0)
+  const [duration, setDuration] = useState(0)
+
+  function toggle() {
+    const audio = audioRef.current
+    if (!audio) return
+    if (playing) audio.pause()
+    else audio.play()
+  }
+
+  const progress = duration > 0 ? (current / duration) * 100 : 0
+
+  return (
+    <div className="flex items-center gap-3 min-w-[190px]">
+      <audio
+        ref={audioRef} src={url} preload="metadata"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => { setPlaying(false); setCurrent(0) }}
+        onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+        className="hidden"
+      />
+      <button
+        onClick={toggle}
+        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition active:scale-95 ${mine ? 'bg-white/20 text-white' : 'bg-royal-600 text-white'}`}
+      >
+        {playing ? <IconPause className="h-4 w-4" /> : <IconPlay className="h-4 w-4 ml-0.5" />}
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className={`h-1 rounded-full overflow-hidden ${mine ? 'bg-white/30' : 'bg-ink-200'}`}>
+          <div className={`h-full rounded-full ${mine ? 'bg-white' : 'bg-royal-500'}`} style={{ width: `${progress}%` }} />
+        </div>
+        <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-ink-400'}`}>{formatDuree(playing || current > 0 ? current : duration)}</p>
+      </div>
+    </div>
+  )
+}
 
 export default function Conversation() {
   const { conversationId } = useParams()
@@ -132,8 +181,11 @@ export default function Conversation() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col graal-surface">
-      <div className="flex items-center gap-2 border-b border-ink-100/60 bg-white/70 px-4 py-3 backdrop-blur pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+    <div className={estVm
+      ? 'fixed inset-0 z-50 flex flex-col graal-surface'
+      : 'flex h-[75vh] min-h-[420px] flex-col overflow-hidden rounded-xl3 border border-ink-100 bg-white shadow-soft'
+    }>
+      <div className={`flex items-center gap-2 border-b border-ink-100/60 bg-white/70 px-4 py-3 backdrop-blur ${estVm ? 'pt-[calc(env(safe-area-inset-top)+0.75rem)]' : ''}`}>
         <Link to={base} className="rounded-full p-1.5 hover:bg-ink-100"><IconChevronLeft className="h-5 w-5" /></Link>
         <p className="font-bold text-ink-800">{titre}</p>
       </div>
@@ -153,7 +205,7 @@ export default function Conversation() {
                     <img src={url} alt={m.contenu ?? 'Image'} className="max-w-full rounded-xl mb-1" />
                   </a>
                 ) : m.type === 'audio' && url ? (
-                  <audio controls src={url} className="max-w-full" />
+                  <AudioBubble url={url} mine={mine} />
                 ) : m.type === 'fichier' && url ? (
                   <a href={url} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 ${mine ? 'text-white' : 'text-royal-600'}`}>
                     <IconClipboard className="h-4 w-4 flex-shrink-0" />
