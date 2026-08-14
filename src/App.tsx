@@ -31,6 +31,7 @@ import ManagementClients from '@/routes/management/Clients'
 import ManagementProduits from '@/routes/management/Produits'
 import ManagementAnimationEquipe from '@/routes/management/AnimationEquipe'
 import ManagementIndicateursAnimation from '@/routes/management/IndicateursAnimation'
+import ManagementSuiviTerrain from '@/routes/management/SuiviTerrain'
 
 function ConfigError() {
   return (
@@ -126,6 +127,7 @@ export default function App() {
             <Route path="parametres" element={<RequireAdmin><ManagementParametres /></RequireAdmin>} />
             <Route path="messages" element={<Messages />} />
             <Route path="messages/:conversationId" element={<Conversation />} />
+            <Route path="suivi-terrain" element={<ManagementSuiviTerrain />} />
             <Route path="profil" element={<ManagementProfil />} />
           </Route>
 
