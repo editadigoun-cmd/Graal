@@ -69,6 +69,101 @@ export type Database = {
           },
         ]
       }
+      appels_programmes: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          daily_room_name: string | null
+          daily_room_url: string | null
+          date_heure: string
+          id: string
+          motif: string | null
+          programme_par: string
+          rappel_1h_envoye: boolean
+          rappel_30min_envoye: boolean
+          rappel_5min_envoye: boolean
+          statut: string
+          titre: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          daily_room_name?: string | null
+          daily_room_url?: string | null
+          date_heure: string
+          id?: string
+          motif?: string | null
+          programme_par: string
+          rappel_1h_envoye?: boolean
+          rappel_30min_envoye?: boolean
+          rappel_5min_envoye?: boolean
+          statut?: string
+          titre: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          daily_room_name?: string | null
+          daily_room_url?: string | null
+          date_heure?: string
+          id?: string
+          motif?: string | null
+          programme_par?: string
+          rappel_1h_envoye?: boolean
+          rappel_30min_envoye?: boolean
+          rappel_5min_envoye?: boolean
+          statut?: string
+          titre?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appels_programmes_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appels_programmes_programme_par_fkey"
+            columns: ["programme_par"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appel_enregistrements: {
+        Row: {
+          appel_id: string
+          created_at: string
+          duree_secondes: number | null
+          id: string
+          url: string
+        }
+        Insert: {
+          appel_id: string
+          created_at?: string
+          duree_secondes?: number | null
+          id?: string
+          url: string
+        }
+        Update: {
+          appel_id?: string
+          created_at?: string
+          duree_secondes?: number | null
+          id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appel_enregistrements_appel_id_fkey"
+            columns: ["appel_id"]
+            isOneToOne: false
+            referencedRelation: "appels_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_log: {
         Row: {
           action: string
