@@ -334,6 +334,10 @@ export default function Conversation() {
               <p className="text-[11px] font-semibold text-ink-500">Enregistrements</p>
               {appels.filter((a) => a.statut === 'TERMINE').map((a) => {
                 const enrs = enregistrements[a.id] ?? []
+                // Un enregistrement met généralement quelques minutes à être traité par
+                // Daily.co après la fin de l'appel — au-delà de 2h, on considère qu'il n'y en
+                // aura pas plutôt que d'afficher indéfiniment "en attente".
+                const depasseDelai = dayjs(a.date_heure).isBefore(dayjs().subtract(2, 'hour'))
                 return (
                   <div key={a.id} className="flex items-center justify-between gap-2 text-[11px] text-ink-500">
                     <span className="truncate">{a.titre} — {dayjs(a.date_heure).format('DD/MM/YYYY')}</span>
@@ -342,7 +346,7 @@ export default function Conversation() {
                         <span className="text-ink-300 italic">non enregistré</span>
                       )}
                       {enrs.length === 0 && a.recording_actif !== false && (
-                        <span className="text-ink-300 italic">en attente</span>
+                        <span className="text-ink-300 italic">{depasseDelai ? 'indisponible' : 'en attente'}</span>
                       )}
                       {enrs.map((e) => (
                         <a key={e.id} href={e.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-royal-600 underline">Écouter</a>

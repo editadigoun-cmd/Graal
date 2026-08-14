@@ -139,6 +139,7 @@ export type Database = {
         Row: {
           appel_id: string
           created_at: string
+          daily_recording_id: string | null
           duree_secondes: number | null
           id: string
           url: string
@@ -146,6 +147,7 @@ export type Database = {
         Insert: {
           appel_id: string
           created_at?: string
+          daily_recording_id?: string | null
           duree_secondes?: number | null
           id?: string
           url: string
@@ -153,6 +155,7 @@ export type Database = {
         Update: {
           appel_id?: string
           created_at?: string
+          daily_recording_id?: string | null
           duree_secondes?: number | null
           id?: string
           url?: string
