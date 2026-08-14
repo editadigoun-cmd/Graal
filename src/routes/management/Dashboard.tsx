@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts'
 import { Card } from '@/components/ui/Card'
 import { StatCard } from '@/components/ui/StatCard'
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { IconStethoscope, IconCheckCircle, IconAlert, IconUsers, IconDownload, IconCamera } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { todayBenin, nowBenin } from '@/lib/time'
+import { todayBenin, nowBenin, isoWeekMonday } from '@/lib/time'
 import dayjs from 'dayjs'
 
 interface VmProgress {
@@ -18,22 +19,6 @@ interface VmProgress {
   prevues: number
   realisees: number
   conforme: boolean | null
-}
-
-interface AnimationRow {
-  superviseur_id: string
-  full_name: string
-  equipes: string[]
-  nb_duo: number
-  nb_reporting_vise: number
-  nb_plans_soumis: number
-  nb_programmes_suivis: number
-  nb_points_quotidiens: number
-  nb_reunions: number
-  nb_challenges: number
-  nb_formations: number
-  nb_coaching: number
-  nb_argumentaires: number
 }
 
 interface SousVisiteRow {
@@ -63,7 +48,6 @@ export default function ManagementDashboard() {
   const [loading, setLoading] = useState(true)
   const [progress, setProgress] = useState<VmProgress[]>([])
   const [alertes, setAlertes] = useState<{ id: string; titre: string; corps: string | null; created_at: string }[]>([])
-  const [animation, setAnimation] = useState<AnimationRow[]>([])
   const [moisExport, setMoisExport] = useState(nowBenin().format('YYYY-MM-01'))
   const [exporting, setExporting] = useState(false)
   const [clotures, setClotures] = useState<ClotureRow[]>([])
@@ -72,29 +56,45 @@ export default function ManagementDashboard() {
   const [equipes, setEquipes] = useState<{ id: string; nom: string }[]>([])
   const [equipeFilter, setEquipeFilter] = useState('')
   const [vmEquipeById, setVmEquipeById] = useState<Record<string, string | null>>({})
+  const [vmsSansPlanning, setVmsSansPlanning] = useState<{ id: string; full_name: string; equipe: string | null; equipe_id: string | null }[]>([])
 
   useEffect(() => {
     async function load() {
       const today = todayBenin().format('YYYY-MM-DD')
-      const depuis30j = nowBenin().subtract(30, 'day').toISOString()
-      const [{ data: taux }, { data: profiles }, { data: notifs }, { data: clo }, { data: eq }] = await Promise.all([
+      const semaineProchaine = isoWeekMonday(nowBenin().add(7, 'day')).format('YYYY-MM-DD')
+      // Requête volontairement sans embed equipes(nom) : cette combinaison précise
+      // (filtre role=eq.vm + jointure) ne renvoyait jamais de réponse observable dans les
+      // logs Supabase (uniquement le préflight CORS, jamais le GET), laissant `profiles`
+      // à null et donc TOUTES les statistiques du dashboard à zéro en permanence. On
+      // reconstruit le nom d'équipe côté client à partir de la liste `equipes` déjà chargée
+      // séparément (nécessaire de toute façon pour le filtre), ce qui évite l'embed fragile.
+      const [{ data: taux }, { data: profiles }, { data: notifs }, { data: clo }, { data: eq }, { data: progSemaine }] = await Promise.all([
         supabase.from('v_taux_realisation_journalier').select('*').eq('jour', today),
-        supabase.from('profiles').select('id, full_name, equipe_id, equipes(nom)').eq('role', 'vm'),
+        supabase.from('profiles').select('id, full_name, equipe_id').eq('role', 'vm'),
         supabase.from('notifications').select('id, titre, corps, created_at').order('created_at', { ascending: false }).limit(8),
         supabase.from('clotures_journalieres').select('id, vm_id, statut, heure_cloture, photo_path, en_retard, profiles(full_name)').eq('jour', today),
-        supabase.from('equipes').select('id, nom').order('nom')
+        supabase.from('equipes').select('id, nom').order('nom'),
+        supabase.from('programmes_hebdomadaires').select('vm_id').eq('semaine_debut', semaineProchaine)
       ])
 
-      const merged: VmProgress[] = (profiles ?? []).map((p: any) => {
+      const equipeNomById = Object.fromEntries((eq ?? []).map((e) => [e.id, e.nom]))
+      const merged: VmProgress[] = (profiles ?? []).map((p) => {
         const t = taux?.find((x) => x.vm_id === p.id)
-        return { vm_id: p.id, full_name: p.full_name, equipe: p.equipes?.nom ?? null, equipe_id: p.equipe_id ?? null, prevues: t?.visites_prevues ?? 0, realisees: t?.visites_realisees ?? 0, conforme: t?.conforme ?? null }
+        return { vm_id: p.id, full_name: p.full_name, equipe: p.equipe_id ? equipeNomById[p.equipe_id] ?? null : null, equipe_id: p.equipe_id ?? null, prevues: t?.visites_prevues ?? 0, realisees: t?.visites_realisees ?? 0, conforme: t?.conforme ?? null }
       })
       setProgress(merged)
       setAlertes(notifs ?? [])
       setClotures((clo as unknown as ClotureRow[]) ?? [])
       setEquipes(eq ?? [])
-      const vmEquipeMap = Object.fromEntries((profiles ?? []).map((p: any) => [p.id, p.equipe_id as string | null]))
+      const vmEquipeMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p.equipe_id as string | null]))
       setVmEquipeById(vmEquipeMap)
+
+      const vmIdsAvecProgramme = new Set((progSemaine ?? []).map((pr) => pr.vm_id))
+      setVmsSansPlanning(
+        (profiles ?? [])
+          .filter((p) => !vmIdsAvecProgramme.has(p.id))
+          .map((p) => ({ id: p.id, full_name: p.full_name, equipe: p.equipe_id ? equipeNomById[p.equipe_id] ?? null : null, equipe_id: p.equipe_id ?? null }))
+      )
 
       const moisCourant = nowBenin().format('YYYY-MM-01')
       const [{ data: freq }, { data: justifs }] = await Promise.all([
@@ -116,38 +116,6 @@ export default function ManagementDashboard() {
             justifie: (justifs ?? []).some((j) => j.client_id === f.client_id && j.vm_id === f.vm_id)
           }))
       )
-
-      if (profile?.role === 'admin') {
-        const [{ data: superviseurs }, { data: se }, { data: duo }, { data: reporting }, { data: plans }, { data: prog }, { data: anim }] = await Promise.all([
-          supabase.from('profiles').select('id, full_name').eq('role', 'superviseur'),
-          supabase.from('superviseur_equipes').select('superviseur_id, equipes(nom)'),
-          supabase.from('rapports_duo').select('superviseur_id').gte('created_at', depuis30j),
-          supabase.from('reporting_hebdomadaire').select('visa_superviseur_id').gte('visa_horodatage', depuis30j).not('visa_superviseur_id', 'is', null),
-          supabase.from('plans_activites_mensuels').select('superviseur_id').gte('soumis_at', depuis30j),
-          supabase.from('programmes_hebdomadaires').select('valide_par').gte('valide_at', depuis30j).not('valide_par', 'is', null),
-          supabase.from('activites_animation').select('superviseur_id, type').gte('created_at', depuis30j)
-        ])
-        const rows: AnimationRow[] = (superviseurs ?? []).map((s) => {
-          const animSup = (anim ?? []).filter((a) => a.superviseur_id === s.id)
-          const compte = (t: string) => animSup.filter((a) => a.type === t).length
-          return {
-            superviseur_id: s.id,
-            full_name: s.full_name,
-            equipes: (se ?? []).filter((x: any) => x.superviseur_id === s.id).map((x: any) => x.equipes?.nom).filter(Boolean),
-            nb_duo: (duo ?? []).filter((d) => d.superviseur_id === s.id).length,
-            nb_reporting_vise: (reporting ?? []).filter((r) => r.visa_superviseur_id === s.id).length,
-            nb_plans_soumis: (plans ?? []).filter((p) => p.superviseur_id === s.id).length,
-            nb_programmes_suivis: (prog ?? []).filter((p) => p.valide_par === s.id).length,
-            nb_points_quotidiens: compte('POINT_QUOTIDIEN'),
-            nb_reunions: compte('REUNION_LUNDI') + compte('REUNION_MERCREDI'),
-            nb_challenges: compte('CHALLENGE'),
-            nb_formations: compte('FORMATION_CONTINUE'),
-            nb_coaching: compte('COACHING_TERRAIN'),
-            nb_argumentaires: compte('ARGUMENTAIRE_VM')
-          }
-        })
-        setAnimation(rows)
-      }
 
       setLoading(false)
     }
@@ -190,6 +158,7 @@ export default function ManagementDashboard() {
   const progressFiltre = equipeFilter ? progress.filter((p) => p.equipe_id === equipeFilter) : progress
   const sousVisitesFiltre = equipeFilter ? sousVisites.filter((s) => s.equipe_id === equipeFilter) : sousVisites
   const cloturesFiltre = equipeFilter ? clotures.filter((c) => vmEquipeById[c.vm_id] === equipeFilter) : clotures
+  const vmsSansPlanningFiltre = equipeFilter ? vmsSansPlanning.filter((v) => v.equipe_id === equipeFilter) : vmsSansPlanning
 
   const totalPrevues = progressFiltre.reduce((s, p) => s + p.prevues, 0)
   const totalRealisees = progressFiltre.reduce((s, p) => s + p.realisees, 0)
@@ -283,6 +252,22 @@ export default function ManagementDashboard() {
         </div>
       </Card>
 
+      {vmsSansPlanningFiltre.length > 0 && (
+        <Card className="border border-flame-200 bg-flame-50/50">
+          <p className="text-sm font-bold text-flame-700 flex items-center gap-2">
+            <IconAlert className="h-4 w-4" /> VM n'ayant pas encore commencé leur planning ({vmsSansPlanningFiltre.length})
+          </p>
+          <p className="text-xs text-ink-500 mb-4">Aucun programme, même en brouillon, pour la semaine prochaine</p>
+          <div className="flex flex-wrap gap-2">
+            {vmsSansPlanningFiltre.map((v) => (
+              <span key={v.id} className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-ink-700 border border-flame-200">
+                {v.full_name}{v.equipe && <span className="text-ink-400 font-normal"> · {v.equipe}</span>}
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {sousVisitesFiltre.length > 0 && (
         <Card>
           <p className="text-sm font-bold text-ink-800">Clients sous-visités ce mois</p>
@@ -356,51 +341,14 @@ export default function ManagementDashboard() {
       )}
 
       {profile?.role === 'admin' && (
-        <Card>
-          <p className="text-sm font-bold text-ink-800">Indicateur d'animation d'équipe (30 derniers jours)</p>
-          <p className="text-xs text-ink-400 mb-4">Duo terrain, reporting, plans, suivi des programmes, points/réunions, challenges, formation, coaching et argumentaires par superviseur</p>
-          {animation.length === 0 ? (
-            <p className="text-xs text-ink-400 py-2">Aucun superviseur enregistré pour l'instant.</p>
-          ) : (
-            <div className="overflow-x-auto -mx-5">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-ink-100 text-xs text-ink-500">
-                    <th className="px-5 py-2 text-left font-semibold">Superviseur</th>
-                    <th className="px-5 py-2 text-left font-semibold">Équipes</th>
-                    <th className="px-3 py-2 text-center font-semibold">Duo</th>
-                    <th className="px-3 py-2 text-center font-semibold">Reporting visés</th>
-                    <th className="px-3 py-2 text-center font-semibold">Plans soumis</th>
-                    <th className="px-3 py-2 text-center font-semibold">Programmes suivis</th>
-                    <th className="px-3 py-2 text-center font-semibold">Points quotidiens</th>
-                    <th className="px-3 py-2 text-center font-semibold">Réunions</th>
-                    <th className="px-3 py-2 text-center font-semibold">Challenges</th>
-                    <th className="px-3 py-2 text-center font-semibold">Formation</th>
-                    <th className="px-3 py-2 text-center font-semibold">Coaching</th>
-                    <th className="px-3 py-2 text-center font-semibold">Argumentaires</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ink-100">
-                  {animation.map((a) => (
-                    <tr key={a.superviseur_id}>
-                      <td className="px-5 py-2.5 font-semibold text-ink-800">{a.full_name}</td>
-                      <td className="px-5 py-2.5 text-ink-500">{a.equipes.join(', ') || '—'}</td>
-                      <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_duo}</td>
-                      <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_reporting_vise}</td>
-                      <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_plans_soumis}</td>
-                      <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_programmes_suivis}</td>
-                      <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_points_quotidiens}</td>
-                      <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_reunions}</td>
-                      <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_challenges}</td>
-                      <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_formations}</td>
-                      <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_coaching}</td>
-                      <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_argumentaires}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <Card className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-ink-800">Indicateurs d'animation</p>
+            <p className="text-xs text-ink-400">Duo terrain, reporting, plans, points/réunions, challenges, formation, coaching… par superviseur</p>
+          </div>
+          <Link to="/admin/indicateurs-animation">
+            <Button size="sm" variant="secondary">Voir le détail</Button>
+          </Link>
         </Card>
       )}
     </div>
