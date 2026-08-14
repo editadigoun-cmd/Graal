@@ -6,7 +6,10 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { IconChat, IconUsers } from '@/components/ui/icons'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
+import type { Database } from '@/types/database'
 import dayjs from 'dayjs'
+
+type Message = Database['public']['Tables']['messages']['Row']
 
 interface ConvSummary {
   id: string
@@ -15,6 +18,8 @@ interface ConvSummary {
   dernierMessage: string | null
   dernierAt: string | null
   autreNom: string
+  nonLus: number
+  noms: Record<string, string>
 }
 
 function apercuMessage(type: string, contenu: string | null) {
@@ -30,6 +35,15 @@ export default function Messages() {
   const [convs, setConvs] = useState<ConvSummary[]>([])
   const [loading, setLoading] = useState(true)
 
+  function trier(liste: ConvSummary[]): ConvSummary[] {
+    return [...liste].sort((a, b) => {
+      const forumA = a.type !== 'DIRECT' ? 1 : 0
+      const forumB = b.type !== 'DIRECT' ? 1 : 0
+      if (forumA !== forumB) return forumB - forumA
+      return dayjs(b.dernierAt).diff(dayjs(a.dernierAt))
+    })
+  }
+
   useEffect(() => {
     if (!session) return
     async function load() {
@@ -38,38 +52,65 @@ export default function Messages() {
       if (ids.length === 0) { setConvs([]); setLoading(false); return }
 
       const { data: conversations } = await supabase.from('conversations').select('*, conversation_participants(profile_id, profiles(full_name))').in('id', ids)
-      const { data: lastMessages } = await supabase.from('messages').select('*').in('conversation_id', ids).order('created_at', { ascending: false })
+      const { data: allMessages } = await supabase.from('messages').select('*').in('conversation_id', ids).order('created_at', { ascending: false })
+      const messageIds = (allMessages ?? []).map((m) => m.id)
+      const { data: lectures } = messageIds.length
+        ? await supabase.from('message_lectures').select('message_id').eq('profile_id', session!.user.id).in('message_id', messageIds)
+        : { data: [] }
+      const luSet = new Set((lectures ?? []).map((l) => l.message_id))
 
       const result: ConvSummary[] = (conversations ?? []).map((c: any) => {
-        const last = lastMessages?.find((m) => m.conversation_id === c.id)
+        const messagesConv = (allMessages ?? []).filter((m) => m.conversation_id === c.id)
+        const last = messagesConv[0]
         const autres = (c.conversation_participants ?? []).filter((p: any) => p.profile_id !== session!.user.id)
         const autreNom = c.nom || autres.map((p: any) => p.profiles?.full_name).join(', ') || 'Conversation'
+        const noms: Record<string, string> = Object.fromEntries(
+          (c.conversation_participants ?? []).map((p: any) => [p.profile_id, p.profiles?.full_name ?? 'Utilisateur'])
+        )
+        const nonLus = messagesConv.filter((m) => m.sender_id !== session!.user.id && !luSet.has(m.id)).length
 
         let dernierMessage: string | null = null
         if (last) {
           const apercu = apercuMessage(last.type, last.contenu)
           if (c.type !== 'DIRECT') {
-            const expediteur = last.sender_id === session!.user.id
-              ? 'Vous'
-              : (c.conversation_participants ?? []).find((p: any) => p.profile_id === last.sender_id)?.profiles?.full_name ?? 'Quelqu\'un'
+            const expediteur = last.sender_id === session!.user.id ? 'Vous' : (noms[last.sender_id] ?? 'Quelqu\'un')
             dernierMessage = `${expediteur} : ${apercu}`
           } else {
             dernierMessage = apercu
           }
         }
 
-        return { id: c.id, nom: c.nom, type: c.type, dernierMessage, dernierAt: last?.created_at ?? c.created_at, autreNom }
+        return { id: c.id, nom: c.nom, type: c.type, dernierMessage, dernierAt: last?.created_at ?? c.created_at, autreNom, nonLus, noms }
       })
-      result.sort((a, b) => {
-        const forumA = a.type !== 'DIRECT' ? 1 : 0
-        const forumB = b.type !== 'DIRECT' ? 1 : 0
-        if (forumA !== forumB) return forumB - forumA
-        return dayjs(b.dernierAt).diff(dayjs(a.dernierAt))
-      })
-      setConvs(result)
+      setConvs(trier(result))
       setLoading(false)
     }
     load()
+
+    const channel = supabase
+      .channel('messages-liste-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const m = payload.new as Message
+        setConvs((prev) => {
+          if (!prev.some((c) => c.id === m.conversation_id)) return prev
+          const next = prev.map((c) => {
+            if (c.id !== m.conversation_id) return c
+            const apercu = apercuMessage(m.type, m.contenu)
+            const expediteur = m.sender_id === session!.user.id ? 'Vous' : (c.noms[m.sender_id] ?? 'Quelqu\'un')
+            const dernierMessage = c.type !== 'DIRECT' ? `${expediteur} : ${apercu}` : apercu
+            return {
+              ...c,
+              dernierMessage,
+              dernierAt: m.created_at,
+              nonLus: m.sender_id !== session!.user.id ? c.nonLus + 1 : c.nonLus
+            }
+          })
+          return trier(next)
+        })
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [session])
 
   return (
@@ -96,10 +137,17 @@ export default function Messages() {
               <Avatar name={c.autreNom} size={48} />
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-ink-800 truncate">{c.autreNom}</p>
-              <p className="mt-0.5 text-xs text-ink-400 truncate">{c.dernierMessage ?? 'Nouvelle conversation'}</p>
+              <p className={`text-sm truncate ${c.nonLus > 0 ? 'font-bold text-ink-900' : 'font-semibold text-ink-800'}`}>{c.autreNom}</p>
+              <p className={`mt-0.5 text-xs truncate ${c.nonLus > 0 ? 'font-semibold text-ink-700' : 'text-ink-400'}`}>{c.dernierMessage ?? 'Nouvelle conversation'}</p>
             </div>
-            {c.dernierAt && <span className="text-[10px] text-ink-300 flex-shrink-0">{dayjs(c.dernierAt).format('HH:mm')}</span>}
+            <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
+              {c.dernierAt && <span className={`text-[10px] ${c.nonLus > 0 ? 'font-bold text-emerald-600' : 'text-ink-300'}`}>{dayjs(c.dernierAt).format('HH:mm')}</span>}
+              {c.nonLus > 0 && (
+                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-bold text-white">
+                  {c.nonLus > 99 ? '99+' : c.nonLus}
+                </span>
+              )}
+            </div>
           </Card>
         </Link>
       ))}

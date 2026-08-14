@@ -1,30 +1,48 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { IconPlus, IconPill, IconSearch, IconLock, IconCheckCircle } from '@/components/ui/icons'
+import { IconPlus, IconPill, IconSearch, IconLock, IconCheckCircle, IconDownload } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
+import { parseCsv } from '@/lib/csv'
 import type { Database } from '@/types/database'
 
 type Produit = Database['public']['Tables']['produits']['Row']
+type Equipe = Database['public']['Tables']['equipes']['Row']
 
 export default function ManagementProduits() {
   const [produits, setProduits] = useState<Produit[]>([])
+  const [equipes, setEquipes] = useState<Equipe[]>([])
+  const [equipeFiltre, setEquipeFiltre] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Produit | null>(null)
   const [nom, setNom] = useState('')
+  const [equipeChoisie, setEquipeChoisie] = useState('')
   const [saving, setSaving] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
+  const [importOpen, setImportOpen] = useState(false)
+  const [importEquipe, setImportEquipe] = useState('')
+  const [importNoms, setImportNoms] = useState<string[]>([])
+  const [importFichierNom, setImportFichierNom] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [importResultat, setImportResultat] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
   const charger = async () => {
     setLoading(true)
-    const { data } = await supabase.from('produits').select('*').order('nom')
-    setProduits(data ?? [])
+    const [{ data: p }, { data: e }] = await Promise.all([
+      supabase.from('produits').select('*').order('nom'),
+      supabase.from('equipes').select('*').order('nom')
+    ])
+    setProduits(p ?? [])
+    setEquipes(e ?? [])
+    setEquipeFiltre((cur) => cur ?? (e ?? [])[0]?.id ?? null)
     setLoading(false)
   }
 
@@ -32,12 +50,14 @@ export default function ManagementProduits() {
     charger()
   }, [])
 
-  const filtres = produits.filter((p) => p.nom.toLowerCase().includes(search.toLowerCase()))
-  const actifs = produits.filter((p) => p.actif).length
+  const produitsEquipe = produits.filter((p) => p.equipe_id === equipeFiltre)
+  const filtres = produitsEquipe.filter((p) => p.nom.toLowerCase().includes(search.toLowerCase()))
+  const actifs = produitsEquipe.filter((p) => p.actif).length
 
   const ouvrirAjout = () => {
     setEditing(null)
     setNom('')
+    setEquipeChoisie(equipeFiltre ?? equipes[0]?.id ?? '')
     setErreur(null)
     setModalOpen(true)
   }
@@ -45,26 +65,25 @@ export default function ManagementProduits() {
   const ouvrirModif = (p: Produit) => {
     setEditing(p)
     setNom(p.nom)
+    setEquipeChoisie(p.equipe_id)
     setErreur(null)
     setModalOpen(true)
   }
 
   const enregistrer = async () => {
     const valeur = nom.trim()
-    if (!valeur) {
-      setErreur('Le nom du produit est requis.')
-      return
-    }
+    if (!valeur) { setErreur('Le nom du produit est requis.'); return }
+    if (!equipeChoisie) { setErreur('L\'équipe est requise.'); return }
     setSaving(true)
     setErreur(null)
     const query = editing
-      ? supabase.from('produits').update({ nom: valeur }).eq('id', editing.id)
-      : supabase.from('produits').insert({ nom: valeur })
+      ? supabase.from('produits').update({ nom: valeur, equipe_id: equipeChoisie }).eq('id', editing.id)
+      : supabase.from('produits').insert({ nom: valeur, equipe_id: equipeChoisie })
     const { error } = await query
     setSaving(false)
     if (error) {
       setErreur(error.message.includes('duplicate') || error.message.includes('unique')
-        ? 'Un produit avec ce nom existe déjà.'
+        ? 'Ce produit existe déjà pour cette équipe.'
         : "Une erreur est survenue lors de l'enregistrement.")
       return
     }
@@ -77,22 +96,98 @@ export default function ManagementProduits() {
     charger()
   }
 
+  const ouvrirImport = () => {
+    setImportEquipe(equipeFiltre ?? equipes[0]?.id ?? '')
+    setImportNoms([])
+    setImportFichierNom('')
+    setImportResultat(null)
+    setImportOpen(true)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  function handleFichierImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportFichierNom(file.name)
+    setImportResultat(null)
+    const reader = new FileReader()
+    reader.onload = () => {
+      const rows = parseCsv(String(reader.result))
+      // Une seule colonne attendue (nom du produit) ; si un en-tête "nom" est présent, on l'ignore.
+      const noms = rows
+        .map((r) => (r[0] ?? '').trim())
+        .filter((v) => v && v.toLowerCase() !== 'nom')
+      setImportNoms(Array.from(new Set(noms)))
+    }
+    reader.readAsText(file, 'utf-8')
+  }
+
+  async function lancerImport() {
+    if (!importEquipe || importNoms.length === 0) return
+    setImporting(true)
+    setImportResultat(null)
+    const { data: existants } = await supabase.from('produits').select('nom').eq('equipe_id', importEquipe)
+    const existantsSet = new Set((existants ?? []).map((p) => p.nom.toLowerCase()))
+    const aInserer = importNoms.filter((n) => !existantsSet.has(n.toLowerCase()))
+
+    let inserts = 0
+    const erreurs: string[] = []
+    for (const n of aInserer) {
+      const { error } = await supabase.from('produits').insert({ nom: n, equipe_id: importEquipe })
+      if (error) erreurs.push(`${n} : ${error.message}`)
+      else inserts++
+    }
+
+    setImporting(false)
+    const ignores = importNoms.length - aInserer.length
+    setImportResultat(
+      `${inserts} produit(s) importé(s) sur ${importNoms.length}.` +
+      (ignores > 0 ? ` ${ignores} déjà existant(s) ignoré(s).` : '') +
+      (erreurs.length > 0 ? ` ${erreurs.length} erreur(s).` : '')
+    )
+    setImportNoms([])
+    setImportFichierNom('')
+    if (fileRef.current) fileRef.current.value = ''
+    if (inserts > 0) charger()
+  }
+
+  const nomEquipe = (id: string | null) => equipes.find((e) => e.id === id)?.nom ?? '—'
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-extrabold text-ink-800 font-display">Catalogue produits</h1>
-          <p className="text-sm text-ink-400 mt-0.5">Produits présentables lors des visites médicales</p>
+          <p className="text-sm text-ink-400 mt-0.5">Produits présentables lors des visites médicales, par équipe</p>
         </div>
-        <Button onClick={ouvrirAjout}>
-          <IconPlus className="h-4 w-4" /> Ajouter un produit
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={ouvrirImport}>
+            <IconDownload className="h-4 w-4" /> Importer CSV
+          </Button>
+          <Button onClick={ouvrirAjout}>
+            <IconPlus className="h-4 w-4" /> Ajouter un produit
+          </Button>
+        </div>
       </div>
 
+      {equipes.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {equipes.map((e) => (
+            <button
+              key={e.id}
+              onClick={() => setEquipeFiltre(e.id)}
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${equipeFiltre === e.id ? 'bg-royal-600 text-white' : 'bg-ink-100 text-ink-500 hover:bg-ink-200'}`}
+            >
+              {e.nom}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <StatCard label="Produits au catalogue" value={produits.length} tone="royal" icon={<IconPill className="h-4 w-4" />} />
+        <StatCard label={`Produits · ${nomEquipe(equipeFiltre)}`} value={produitsEquipe.length} tone="royal" icon={<IconPill className="h-4 w-4" />} />
         <StatCard label="Actifs" value={actifs} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
-        <StatCard label="Désactivés" value={produits.length - actifs} tone="flame" icon={<IconLock className="h-4 w-4" />} />
+        <StatCard label="Désactivés" value={produitsEquipe.length - actifs} tone="flame" icon={<IconLock className="h-4 w-4" />} />
       </div>
 
       <Card className="p-4">
@@ -166,10 +261,67 @@ export default function ManagementProduits() {
               autoFocus
             />
           </div>
+          <div>
+            <label className="text-xs font-semibold text-ink-500">Équipe</label>
+            <select
+              value={equipeChoisie}
+              onChange={(e) => setEquipeChoisie(e.target.value)}
+              className="mt-1 w-full rounded-xl2 border border-ink-100 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-royal-300"
+            >
+              <option value="">— Choisir —</option>
+              {equipes.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+            </select>
+          </div>
           {erreur && <p className="text-xs font-semibold text-red-500">{erreur}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setModalOpen(false)}>Annuler</Button>
             <Button onClick={enregistrer} disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={importOpen} onClose={() => setImportOpen(false)} title="Importer des produits (CSV)" description="Un produit par ligne, avec ou sans en-tête « nom »">
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-ink-500">Équipe de destination</label>
+            <select
+              value={importEquipe}
+              onChange={(e) => setImportEquipe(e.target.value)}
+              className="mt-1 w-full rounded-xl2 border border-ink-100 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-royal-300"
+            >
+              {equipes.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-ink-500">Fichier CSV</label>
+            <input
+              ref={fileRef} type="file" accept=".csv,text/csv" onChange={handleFichierImport}
+              className="mt-1 block w-full text-sm text-ink-600 file:mr-4 file:rounded-xl file:border-0 file:bg-royal-50 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-royal-700 hover:file:bg-royal-100"
+            />
+          </div>
+
+          {importNoms.length > 0 && (
+            <div className="rounded-xl2 border border-ink-100 bg-ink-50/60 p-3">
+              <p className="text-xs font-semibold text-ink-600 mb-1.5">
+                {importFichierNom} · {importNoms.length} produit(s) détecté(s)
+              </p>
+              <div className="max-h-32 overflow-y-auto text-xs text-ink-500 space-y-0.5">
+                {importNoms.slice(0, 20).map((n, i) => <p key={i}>{n}</p>)}
+                {importNoms.length > 20 && <p className="italic text-ink-400">… et {importNoms.length - 20} de plus</p>}
+              </div>
+            </div>
+          )}
+
+          {importResultat && (
+            <p className="text-xs rounded-xl px-3.5 py-2.5 bg-emerald-50 text-emerald-700">{importResultat}</p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setImportOpen(false)}>Fermer</Button>
+            <Button onClick={lancerImport} loading={importing} disabled={!importEquipe || importNoms.length === 0}>
+              Importer {importNoms.length > 0 ? `(${importNoms.length})` : ''}
+            </Button>
           </div>
         </div>
       </Modal>

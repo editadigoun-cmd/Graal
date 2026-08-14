@@ -251,6 +251,7 @@ function MedicalFields({ onSubmit, saving, hideCard }: {
   saving: boolean
   hideCard?: boolean
 }) {
+  const { profile } = useAuth()
   const [produitsCatalogue, setProduitsCatalogue] = useState<Produit[]>([])
   const [cachetProspect, setCachetProspect] = useState(false)
   const [cachetCentre, setCachetCentre] = useState(false)
@@ -260,8 +261,10 @@ function MedicalFields({ onSubmit, saving, hideCard }: {
   const [prescriptions, setPrescriptions] = useState(0)
 
   useEffect(() => {
-    supabase.from('produits').select('*').eq('actif', true).order('nom').then(({ data }) => setProduitsCatalogue(data ?? []))
-  }, [])
+    if (!profile?.equipe_id) return
+    supabase.from('produits').select('*').eq('actif', true).eq('equipe_id', profile.equipe_id).order('nom')
+      .then(({ data }) => setProduitsCatalogue(data ?? []))
+  }, [profile?.equipe_id])
 
   const toggleProduit = (id: string) => setProduits((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
 

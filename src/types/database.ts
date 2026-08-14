@@ -883,22 +883,33 @@ export type Database = {
         Row: {
           actif: boolean
           created_at: string
+          equipe_id: string
           id: string
           nom: string
         }
         Insert: {
           actif?: boolean
           created_at?: string
+          equipe_id: string
           id?: string
           nom: string
         }
         Update: {
           actif?: boolean
           created_at?: string
+          equipe_id?: string
           id?: string
           nom?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "produits_equipe_id_fkey"
+            columns: ["equipe_id"]
+            isOneToOne: false
+            referencedRelation: "equipes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
