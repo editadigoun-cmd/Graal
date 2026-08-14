@@ -30,6 +30,7 @@ import ManagementImportPortefeuille from '@/routes/management/ImportPortefeuille
 import ManagementClients from '@/routes/management/Clients'
 import ManagementProduits from '@/routes/management/Produits'
 import ManagementAnimationEquipe from '@/routes/management/AnimationEquipe'
+import ManagementIndicateursAnimation from '@/routes/management/IndicateursAnimation'
 
 function ConfigError() {
   return (
@@ -120,6 +121,7 @@ export default function App() {
             <Route path="plan-activites" element={<ManagementPlanActivites />} />
             <Route path="rapports-duo" element={<ManagementRapportsDuo />} />
             <Route path="animation-equipe" element={<ManagementAnimationEquipe />} />
+            <Route path="indicateurs-animation" element={<RequireAdmin><ManagementIndicateursAnimation /></RequireAdmin>} />
             <Route path="import-portefeuille" element={<RequireAdmin><ManagementImportPortefeuille /></RequireAdmin>} />
             <Route path="parametres" element={<RequireAdmin><ManagementParametres /></RequireAdmin>} />
             <Route path="profil" element={<ManagementProfil />} />

@@ -19,6 +19,7 @@ const nav = [
   { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard, end: false, adminOnly: false },
   { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconStethoscope, end: false, adminOnly: false },
   { to: '/admin/animation-equipe', label: 'Animation d\'équipe', icon: IconTrendingUp, end: false, adminOnly: false },
+  { to: '/admin/indicateurs-animation', label: "Indicateurs d'animation", icon: IconTrendingUp, end: false, adminOnly: true },
   { to: '/admin/import-portefeuille', label: 'Import portefeuille', icon: IconDownload, end: false, adminOnly: true },
   { to: '/admin/activite', label: 'Activité', icon: IconActivity, end: false, adminOnly: false },
   { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings, end: false, adminOnly: true },
@@ -45,7 +46,7 @@ export function ManagementShell() {
             <p className="text-[10px] font-semibold text-ink-400 tracking-wide">MEDICAL SOLUTIONS</p>
           </div>
         </div>
-        <nav className="space-y-1 flex-1 overflow-y-auto">
+        <nav className="space-y-1 flex-1 overflow-y-auto styled-scrollbar pr-1">
           {navVisible.map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end}>
               {({ isActive }) => (
@@ -127,7 +128,7 @@ export function ManagementShell() {
                     <IconX className="h-5 w-5" />
                   </button>
                 </div>
-                <nav className="space-y-1 flex-1 overflow-y-auto">
+                <nav className="space-y-1 flex-1 overflow-y-auto styled-scrollbar pr-1">
                   {navVisible.map(({ to, label, icon: Icon, end }) => (
                     <NavLink key={to} to={to} end={end} onClick={() => setMenuOpen(false)}>
                       {({ isActive }) => (
