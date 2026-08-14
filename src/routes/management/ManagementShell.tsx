@@ -13,6 +13,7 @@ const nav = [
   { to: '/admin', label: 'Tableau de bord', icon: IconHome, end: true, adminOnly: false },
   { to: '/admin/programmes', label: 'Programmes', icon: IconCalendar, end: false, adminOnly: false },
   { to: '/admin/messages', label: 'Messages', icon: IconChat, end: false, adminOnly: false },
+  { to: '/admin/suivi-terrain', label: 'Suivi terrain', icon: IconMapPin, end: false, adminOnly: false },
   { to: '/admin/reporting', label: 'Reporting', icon: IconChat, end: false, adminOnly: false },
   { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers, end: false, adminOnly: false },
   { to: '/admin/clients', label: 'Clients', icon: IconMapPin, end: false, adminOnly: true },
