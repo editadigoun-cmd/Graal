@@ -956,6 +956,7 @@ export type Database = {
       programmes_hebdomadaires: {
         Row: {
           created_at: string
+          delai_supplementaire_jusqu_a: string | null
           id: string
           mode_pharmacie_uniquement: boolean
           semaine_debut: string
@@ -968,6 +969,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          delai_supplementaire_jusqu_a?: string | null
           id?: string
           mode_pharmacie_uniquement?: boolean
           semaine_debut: string
@@ -980,6 +982,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          delai_supplementaire_jusqu_a?: string | null
           id?: string
           mode_pharmacie_uniquement?: boolean
           semaine_debut?: string
@@ -1598,6 +1601,10 @@ export type Database = {
       current_secteur: {
         Args: never
         Returns: Database["public"]["Enums"]["secteur_code"]
+      }
+      accorder_delai_supplementaire_programme: {
+        Args: { p_nouvelle_limite: string; p_programme_id: string }
+        Returns: undefined
       }
       default_frequence: {
         Args: { p: Database["public"]["Enums"]["potentiel_client"] }
