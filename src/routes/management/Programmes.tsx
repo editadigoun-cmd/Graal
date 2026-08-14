@@ -29,6 +29,7 @@ interface BrouillonRow {
   semaine_debut: string
   mode_pharmacie_uniquement: boolean
   vm_id: string
+  delai_supplementaire_jusqu_a: string | null
   profiles: { full_name: string } | null
 }
 
@@ -66,6 +67,8 @@ export default function ManagementProgrammes() {
   const [detailLignes, setDetailLignes] = useState<LigneRow[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
 
+  const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
+
   async function load() {
     const semaineProchaine = isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD')
     const semaineCourante = isoWeekMonday().format('YYYY-MM-DD')
@@ -78,7 +81,7 @@ export default function ManagementProgrammes() {
         .limit(30),
       supabase
         .from('programmes_hebdomadaires')
-        .select('id, semaine_debut, mode_pharmacie_uniquement, vm_id, profiles!programmes_hebdomadaires_vm_id_fkey(full_name)')
+        .select('id, semaine_debut, mode_pharmacie_uniquement, vm_id, delai_supplementaire_jusqu_a, profiles!programmes_hebdomadaires_vm_id_fkey(full_name)')
         .eq('statut', 'BROUILLON')
         .in('semaine_debut', [semaineCourante, semaineProchaine]),
       supabase.from('fusions_secteurs').select('*').order('created_at', { ascending: false }).limit(10)
@@ -102,6 +105,20 @@ export default function ManagementProgrammes() {
   }, [])
 
   const deadlinePassee = (semaineDebut: string) => nowBenin().isAfter(deadlineSoumission(semaineDebut))
+  const delaiActif = (b: BrouillonRow) => !!b.delai_supplementaire_jusqu_a && dayjs(b.delai_supplementaire_jusqu_a).isAfter(nowBenin())
+
+  async function accorderDelai(programmeId: string) {
+    const valeur = delaiValeur[programmeId]
+    if (!valeur) return
+    setBusy(programmeId)
+    setForceMsg(null)
+    const { error } = await supabase.rpc('accorder_delai_supplementaire_programme', {
+      p_programme_id: programmeId, p_nouvelle_limite: dayjs(valeur).toISOString()
+    })
+    setBusy(null)
+    if (error) setForceMsg({ type: 'error', text: error.message })
+    else { setForceMsg({ type: 'success', text: 'Délai supplémentaire accordé.' }); load() }
+  }
 
   async function ouvrirDetail(p: ProgrammeRow) {
     setDetail(p)
@@ -193,19 +210,41 @@ export default function ManagementProgrammes() {
           </p>
           <div className="space-y-2">
             {brouillonsEnRetard.map((b) => (
-              <Card key={b.id} className="flex items-center justify-between border border-flame-200 bg-flame-50/50">
-                <div>
-                  <p className="text-sm font-semibold text-ink-800">{b.profiles?.full_name}</p>
-                  <p className="text-xs text-ink-500">
-                    Semaine du {dayjs(b.semaine_debut).format('DD/MM/YYYY')} — resté en brouillon, le VM n'a pas pu soumettre à temps.
-                  </p>
+              <Card key={b.id} className="border border-flame-200 bg-flame-50/50">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-ink-800">{b.profiles?.full_name}</p>
+                    <p className="text-xs text-ink-500">
+                      Semaine du {dayjs(b.semaine_debut).format('DD/MM/YYYY')} — resté en brouillon, le VM n'a pas pu soumettre à temps.
+                    </p>
+                  </div>
+                  {profile?.role === 'admin' ? (
+                    <Button size="sm" variant="secondary" loading={busy === b.id} icon={<IconSend className="h-3.5 w-3.5" />} onClick={() => forcerSoumission(b.id)}>
+                      Soumettre en son nom
+                    </Button>
+                  ) : (
+                    <span className="text-[11px] text-ink-400">Contactez l'administrateur</span>
+                  )}
                 </div>
-                {profile?.role === 'admin' ? (
-                  <Button size="sm" variant="secondary" loading={busy === b.id} icon={<IconSend className="h-3.5 w-3.5" />} onClick={() => forcerSoumission(b.id)}>
-                    Soumettre en son nom
-                  </Button>
-                ) : (
-                  <span className="text-[11px] text-ink-400">Contactez l'administrateur</span>
+                {profile?.role === 'admin' && (
+                  delaiActif(b) ? (
+                    <p className="mt-3 text-xs font-semibold text-emerald-700 border-t border-flame-200 pt-3">
+                      Délai supplémentaire accordé jusqu'au {dayjs(b.delai_supplementaire_jusqu_a).format('DD/MM/YYYY HH:mm')} — le VM peut encore soumettre lui-même.
+                    </p>
+                  ) : (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-flame-200 pt-3">
+                      <label className="text-xs text-ink-500">Ou donner un délai supplémentaire jusqu'au :</label>
+                      <input
+                        type="datetime-local"
+                        value={delaiValeur[b.id] ?? ''}
+                        onChange={(e) => setDelaiValeur((cur) => ({ ...cur, [b.id]: e.target.value }))}
+                        className="rounded-xl border border-ink-200 px-3 py-1.5 text-xs outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+                      />
+                      <Button size="sm" variant="secondary" loading={busy === b.id} disabled={!delaiValeur[b.id]} onClick={() => accorderDelai(b.id)}>
+                        Accorder
+                      </Button>
+                    </div>
+                  )
                 )}
               </Card>
             ))}
