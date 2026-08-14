@@ -16,7 +16,7 @@ type Equipe = Database['public']['Tables']['equipes']['Row']
 export default function ManagementProduits() {
   const [produits, setProduits] = useState<Produit[]>([])
   const [equipes, setEquipes] = useState<Equipe[]>([])
-  const [equipeFiltre, setEquipeFiltre] = useState<string | null>(null)
+  const [equipeFiltre, setEquipeFiltre] = useState<string>('TOUS')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -42,7 +42,6 @@ export default function ManagementProduits() {
     ])
     setProduits(p ?? [])
     setEquipes(e ?? [])
-    setEquipeFiltre((cur) => cur ?? (e ?? [])[0]?.id ?? null)
     setLoading(false)
   }
 
@@ -50,14 +49,14 @@ export default function ManagementProduits() {
     charger()
   }, [])
 
-  const produitsEquipe = produits.filter((p) => p.equipe_id === equipeFiltre)
+  const produitsEquipe = equipeFiltre === 'TOUS' ? produits : produits.filter((p) => p.equipe_id === equipeFiltre)
   const filtres = produitsEquipe.filter((p) => p.nom.toLowerCase().includes(search.toLowerCase()))
   const actifs = produitsEquipe.filter((p) => p.actif).length
 
   const ouvrirAjout = () => {
     setEditing(null)
     setNom('')
-    setEquipeChoisie(equipeFiltre ?? equipes[0]?.id ?? '')
+    setEquipeChoisie(equipeFiltre !== 'TOUS' ? equipeFiltre : equipes[0]?.id ?? '')
     setErreur(null)
     setModalOpen(true)
   }
@@ -97,7 +96,7 @@ export default function ManagementProduits() {
   }
 
   const ouvrirImport = () => {
-    setImportEquipe(equipeFiltre ?? equipes[0]?.id ?? '')
+    setImportEquipe(equipeFiltre !== 'TOUS' ? equipeFiltre : equipes[0]?.id ?? '')
     setImportNoms([])
     setImportFichierNom('')
     setImportResultat(null)
@@ -172,6 +171,12 @@ export default function ManagementProduits() {
 
       {equipes.length > 1 && (
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setEquipeFiltre('TOUS')}
+            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${equipeFiltre === 'TOUS' ? 'bg-royal-600 text-white' : 'bg-ink-100 text-ink-500 hover:bg-ink-200'}`}
+          >
+            Tous
+          </button>
           {equipes.map((e) => (
             <button
               key={e.id}
@@ -185,7 +190,7 @@ export default function ManagementProduits() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <StatCard label={`Produits · ${nomEquipe(equipeFiltre)}`} value={produitsEquipe.length} tone="royal" icon={<IconPill className="h-4 w-4" />} />
+        <StatCard label={`Produits · ${equipeFiltre === 'TOUS' ? 'Toutes équipes' : nomEquipe(equipeFiltre)}`} value={produitsEquipe.length} tone="royal" icon={<IconPill className="h-4 w-4" />} />
         <StatCard label="Actifs" value={actifs} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
         <StatCard label="Désactivés" value={produitsEquipe.length - actifs} tone="flame" icon={<IconLock className="h-4 w-4" />} />
       </div>
@@ -214,6 +219,7 @@ export default function ManagementProduits() {
             <thead>
               <tr className="border-b border-ink-100 text-left text-xs font-semibold text-ink-400 uppercase tracking-wide">
                 <th className="px-5 py-3">Produit</th>
+                {equipeFiltre === 'TOUS' && <th className="px-5 py-3">Équipe</th>}
                 <th className="px-5 py-3">Statut</th>
                 <th className="px-5 py-3 text-right">Actions</th>
               </tr>
@@ -222,6 +228,7 @@ export default function ManagementProduits() {
               {filtres.map((p) => (
                 <tr key={p.id} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50">
                   <td className="px-5 py-3 font-semibold text-ink-700">{p.nom}</td>
+                  {equipeFiltre === 'TOUS' && <td className="px-5 py-3 text-ink-500">{nomEquipe(p.equipe_id)}</td>}
                   <td className="px-5 py-3">
                     <Badge tone={p.actif ? 'success' : 'neutral'}>{p.actif ? 'Actif' : 'Désactivé'}</Badge>
                   </td>

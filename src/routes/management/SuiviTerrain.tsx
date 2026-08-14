@@ -3,7 +3,8 @@ import { Card } from '@/components/ui/Card'
 import { Badge, PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { IconMapPin, IconCheckCircle, IconClock, IconAlert } from '@/components/ui/icons'
+import { TrajetCarte, type PointTrajet } from '@/components/ui/TrajetCarte'
+import { IconMapPin, IconCheckCircle, IconClock, IconAlert, IconMoon } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { todayBenin } from '@/lib/time'
@@ -16,6 +17,8 @@ type Visite = Database['public']['Tables']['visites']['Row'] & {
   visite_produits: { produits: { nom: string } | null }[]
 }
 type Manquant = { programme_ligne_id: string; commentaire: string | null; motifs_non_visite: { libelle: string } | null }
+type ClotureRow = Database['public']['Tables']['clotures_journalieres']['Row']
+type GardeRow = Database['public']['Tables']['gardes']['Row']
 
 const STATUT_TONE: Record<string, 'success' | 'warning' | 'info' | 'neutral'> = {
   REALISEE: 'success',
@@ -37,6 +40,8 @@ export default function SuiviTerrain() {
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [visites, setVisites] = useState<Visite[]>([])
   const [manquants, setManquants] = useState<Manquant[]>([])
+  const [cloture, setCloture] = useState<ClotureRow | null>(null)
+  const [garde, setGarde] = useState<GardeRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingJour, setLoadingJour] = useState(false)
 
@@ -70,13 +75,17 @@ export default function SuiviTerrain() {
     if (!vmId) return
     async function loadJour() {
       setLoadingJour(true)
-      const [{ data: lignesData }, { data: visitesData }] = await Promise.all([
+      const [{ data: lignesData }, { data: visitesData }, { data: clotureData }, { data: gardeData }] = await Promise.all([
         supabase.from('v_lignes_avec_statut').select('*').eq('vm_id', vmId).eq('date_visite', date).order('type_visite'),
         supabase.from('visites').select('*, clients(nom, potentiel, specialite, centre, secteur), visite_produits(produits(nom))')
-          .eq('vm_id', vmId).eq('jour', date)
+          .eq('vm_id', vmId).eq('jour', date),
+        supabase.from('clotures_journalieres').select('*').eq('vm_id', vmId).eq('jour', date).maybeSingle(),
+        supabase.from('gardes').select('*').eq('vm_id', vmId).eq('jour', date).maybeSingle()
       ])
       setLignes(lignesData ?? [])
       setVisites((visitesData as unknown as Visite[]) ?? [])
+      setCloture(clotureData ?? null)
+      setGarde(gardeData ?? null)
 
       const ligneIds = (lignesData ?? []).map((l) => l.programme_ligne_id).filter((id): id is string => !!id)
       if (ligneIds.length > 0) {
@@ -98,10 +107,22 @@ export default function SuiviTerrain() {
   const visiteParId = Object.fromEntries(visites.map((v) => [v.id, v]))
   const manquantParLigne = Object.fromEntries(manquants.map((m) => [m.programme_ligne_id, m]))
   const horsProgramme = visites.filter((v) => v.hors_programme)
+  const visitesGarde = visites.filter((v) => v.garde_id)
 
   const total = lignes.length
   const realisees = lignes.filter((l) => l.statut_reel === 'REALISEE').length
   const nonFaites = lignes.filter((l) => l.statut_reel === 'NON_FAITE').length
+
+  const pointsTrajet: PointTrajet[] = [
+    ...[...visites].sort((a, b) => a.horodatage.localeCompare(b.horodatage)).map((v) => ({
+      id: v.id, lat: v.latitude, lng: v.longitude,
+      label: v.clients?.nom ?? 'Client', heure: dayjs(v.horodatage).format('HH:mm'),
+      type: (v.garde_id ? 'garde' : 'visite') as PointTrajet['type']
+    })),
+    ...(cloture?.photo_latitude != null && cloture.photo_longitude != null
+      ? [{ id: 'cloture', lat: cloture.photo_latitude, lng: cloture.photo_longitude, label: 'Clôture de journée', heure: cloture.heure_cloture ? dayjs(cloture.heure_cloture).format('HH:mm') : '', type: 'cloture' as const }]
+      : [])
+  ]
 
   function mapsUrl(lat: number, lng: number) {
     return `https://www.google.com/maps?q=${lat},${lng}`
@@ -179,6 +200,20 @@ export default function SuiviTerrain() {
                 <StatCard label="Non faites" value={nonFaites} tone="flame" icon={<IconAlert className="h-4 w-4" />} />
               </div>
 
+              {pointsTrajet.length > 0 && (
+                <Card className="p-3">
+                  <div className="mb-2 flex items-center justify-between px-1">
+                    <p className="text-sm font-bold text-ink-800">Zones parcourues</p>
+                    <div className="flex items-center gap-3 text-[10px] text-ink-400">
+                      <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#1d4ed8]" /> Visite</span>
+                      <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#8b5cf6]" /> Garde</span>
+                      <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#f97316]" /> Clôture</span>
+                    </div>
+                  </div>
+                  <TrajetCarte points={pointsTrajet} />
+                </Card>
+              )}
+
               <div className="space-y-2">
                 {lignes.length === 0 && horsProgramme.length === 0 && (
                   <Card className="text-sm text-ink-400 text-center py-8">Aucune visite prévue ni réalisée ce jour pour ce VM.</Card>
@@ -229,6 +264,36 @@ export default function SuiviTerrain() {
                         {v.motif_hors_programme_commentaire && (
                           <p className="mt-2 text-xs text-ink-500">Motif : {v.motif_hors_programme_commentaire}</p>
                         )}
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(visitesGarde.length > 0 || garde) && (
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-sm font-bold text-ink-600 flex items-center gap-1.5"><IconMoon className="h-4 w-4 text-royal-500" /> Garde ({visitesGarde.length})</p>
+                    {garde && (
+                      <Badge tone={garde.statut === 'TERMINEE' ? 'success' : 'info'}>
+                        {garde.statut === 'TERMINEE' ? `Terminée${garde.terminee_at ? ' à ' + dayjs(garde.terminee_at).format('HH:mm') : ''}` : 'En cours'}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {visitesGarde.map((v) => (
+                      <Card key={v.id}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-ink-800 truncate">{v.clients?.nom}</p>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              {v.clients?.potentiel && <PotentielBadge potentiel={v.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
+                              <span className="text-[11px] text-ink-400">{v.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
+                            </div>
+                          </div>
+                          <Badge tone="info">Garde</Badge>
+                        </div>
+                        <DetailVisite v={v} />
                       </Card>
                     ))}
                   </div>

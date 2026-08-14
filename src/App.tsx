@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider'
 import Splash from '@/routes/Splash'
@@ -10,6 +11,7 @@ import Planning from '@/routes/vm/Planning'
 import Visites from '@/routes/vm/Visites'
 import VisiteDetail from '@/routes/vm/VisiteDetail'
 import Cloture from '@/routes/vm/Cloture'
+import Garde from '@/routes/vm/Garde'
 import Portefeuille from '@/routes/vm/Portefeuille'
 import ClientDetail from '@/routes/vm/ClientDetail'
 import Messages from '@/routes/vm/Messages'
@@ -31,7 +33,8 @@ import ManagementClients from '@/routes/management/Clients'
 import ManagementProduits from '@/routes/management/Produits'
 import ManagementAnimationEquipe from '@/routes/management/AnimationEquipe'
 import ManagementIndicateursAnimation from '@/routes/management/IndicateursAnimation'
-import ManagementSuiviTerrain from '@/routes/management/SuiviTerrain'
+// Chargé à la demande : embarque Leaflet (~150 Ko), inutile pour les VM sur mobile.
+const ManagementSuiviTerrain = lazy(() => import('@/routes/management/SuiviTerrain'))
 
 function ConfigError() {
   return (
@@ -102,6 +105,7 @@ export default function App() {
             <Route path="visites" element={<Visites />} />
             <Route path="visites/:ligneId" element={<VisiteDetail />} />
             <Route path="cloture" element={<Cloture />} />
+            <Route path="garde" element={<Garde />} />
             <Route path="portefeuille" element={<Portefeuille />} />
             <Route path="portefeuille/:clientId" element={<ClientDetail />} />
             <Route path="messages" element={<Messages />} />
@@ -127,7 +131,7 @@ export default function App() {
             <Route path="parametres" element={<RequireAdmin><ManagementParametres /></RequireAdmin>} />
             <Route path="messages" element={<Messages />} />
             <Route path="messages/:conversationId" element={<Conversation />} />
-            <Route path="suivi-terrain" element={<ManagementSuiviTerrain />} />
+            <Route path="suivi-terrain" element={<Suspense fallback={null}><ManagementSuiviTerrain /></Suspense>} />
             <Route path="profil" element={<ManagementProfil />} />
           </Route>
 

@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
+import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { StatCard } from '@/components/ui/StatCard'
+import { IconUsers, IconCheckCircle, IconAlert } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { nowBenin } from '@/lib/time'
+
+const QUOTA_DUO_MENSUEL = 15
 
 interface AnimationRow {
   superviseur_id: string
   full_name: string
   equipes: string[]
   nb_duo: number
+  nb_duo_mois: number
   nb_reporting_vise: number
   nb_plans_soumis: number
   nb_programmes_suivis: number
@@ -35,10 +41,12 @@ export default function IndicateursAnimation() {
     async function load() {
       setLoading(true)
       const depuis = nowBenin().subtract(periodeJours, 'day').toISOString()
-      const [{ data: superviseurs }, { data: se }, { data: duo }, { data: reporting }, { data: plans }, { data: prog }, { data: anim }] = await Promise.all([
+      const debutMois = nowBenin().startOf('month').toISOString()
+      const [{ data: superviseurs }, { data: se }, { data: duo }, { data: duoMois }, { data: reporting }, { data: plans }, { data: prog }, { data: anim }] = await Promise.all([
         supabase.from('profiles').select('id, full_name').eq('role', 'superviseur'),
         supabase.from('superviseur_equipes').select('superviseur_id, equipes(nom)'),
         supabase.from('rapports_duo').select('superviseur_id').gte('created_at', depuis),
+        supabase.from('rapports_duo').select('superviseur_id').gte('created_at', debutMois),
         supabase.from('reporting_hebdomadaire').select('visa_superviseur_id').gte('visa_horodatage', depuis).not('visa_superviseur_id', 'is', null),
         supabase.from('plans_activites_mensuels').select('superviseur_id').gte('soumis_at', depuis),
         supabase.from('programmes_hebdomadaires').select('valide_par').gte('valide_at', depuis).not('valide_par', 'is', null),
@@ -52,6 +60,7 @@ export default function IndicateursAnimation() {
           full_name: s.full_name,
           equipes: (se ?? []).filter((x: any) => x.superviseur_id === s.id).map((x: any) => x.equipes?.nom).filter(Boolean),
           nb_duo: (duo ?? []).filter((d) => d.superviseur_id === s.id).length,
+          nb_duo_mois: (duoMois ?? []).filter((d) => d.superviseur_id === s.id).length,
           nb_reporting_vise: (reporting ?? []).filter((r) => r.visa_superviseur_id === s.id).length,
           nb_plans_soumis: (plans ?? []).filter((p) => p.superviseur_id === s.id).length,
           nb_programmes_suivis: (prog ?? []).filter((p) => p.valide_par === s.id).length,
@@ -84,6 +93,22 @@ export default function IndicateursAnimation() {
         </select>
       </div>
 
+      {!loading && animation.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <StatCard label="Superviseurs" value={animation.length} tone="ink" icon={<IconUsers className="h-4 w-4" />} />
+          <StatCard
+            label={`Quota duo atteint (≥${QUOTA_DUO_MENSUEL}/mois)`}
+            value={animation.filter((a) => a.nb_duo_mois >= QUOTA_DUO_MENSUEL).length}
+            tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />}
+          />
+          <StatCard
+            label="En retard sur le quota"
+            value={animation.filter((a) => a.nb_duo_mois < QUOTA_DUO_MENSUEL).length}
+            tone="flame" icon={<IconAlert className="h-4 w-4" />}
+          />
+        </div>
+      )}
+
       {loading ? (
         <Skeleton className="h-64" />
       ) : (
@@ -97,6 +122,7 @@ export default function IndicateursAnimation() {
                   <tr className="border-b border-ink-100 text-xs text-ink-500">
                     <th className="px-5 py-2 text-left font-semibold">Superviseur</th>
                     <th className="px-5 py-2 text-left font-semibold">Équipes</th>
+                    <th className="px-3 py-2 text-center font-semibold">Quota duo (mois en cours)</th>
                     <th className="px-3 py-2 text-center font-semibold">Duo</th>
                     <th className="px-3 py-2 text-center font-semibold">Reporting visés</th>
                     <th className="px-3 py-2 text-center font-semibold">Plans soumis</th>
@@ -114,6 +140,11 @@ export default function IndicateursAnimation() {
                     <tr key={a.superviseur_id}>
                       <td className="px-5 py-2.5 font-semibold text-ink-800">{a.full_name}</td>
                       <td className="px-5 py-2.5 text-ink-500">{a.equipes.join(', ') || '—'}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        <Badge tone={a.nb_duo_mois >= QUOTA_DUO_MENSUEL ? 'success' : 'danger'}>
+                          {a.nb_duo_mois}/{QUOTA_DUO_MENSUEL}
+                        </Badge>
+                      </td>
                       <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_duo}</td>
                       <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_reporting_vise}</td>
                       <td className="px-3 py-2.5 text-center text-ink-700">{a.nb_plans_soumis}</td>
