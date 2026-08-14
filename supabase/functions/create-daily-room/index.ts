@@ -65,17 +65,33 @@ Deno.serve(async (req) => {
     const roomName = `appel-${appel_id}`
     const expUnix = Math.floor(Date.now() / 1000) + 6 * 3600 // salle valable 6h après la création
 
-    const dailyRes = await fetch('https://api.daily.co/v1/rooms', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${api_key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: roomName,
-        properties: { enable_recording: 'cloud', exp: expUnix, enable_chat: true }
+    async function createRoom(withRecording: boolean) {
+      return await fetch('https://api.daily.co/v1/rooms', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${api_key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: roomName,
+          properties: withRecording
+            ? { enable_recording: 'cloud', exp: expUnix, enable_chat: true }
+            : { exp: expUnix, enable_chat: true }
+        })
       })
-    })
+    }
+
+    // L'enregistrement cloud automatique nécessite un palier payant Daily.co — si le compte
+    // configuré ne le supporte pas, on retente sans plutôt que de bloquer complètement
+    // l'appel (mieux vaut un appel sans enregistrement qu'aucun appel).
+    let dailyRes = await createRoom(true)
+    let recordingActif = true
     if (!dailyRes.ok) {
       const body = await dailyRes.text()
-      return jsonError(`Échec de création de la salle d'appel : ${body}`, 502)
+      if (dailyRes.status === 400 && body.includes('enable_recording')) {
+        recordingActif = false
+        dailyRes = await createRoom(false)
+      }
+      if (!dailyRes.ok) {
+        return jsonError(`Échec de création de la salle d'appel : ${body}`, 502)
+      }
     }
     const room = await dailyRes.json() as { name: string; url?: string }
     const roomUrl = room.url ?? `https://${domain}/${room.name}`
@@ -86,7 +102,11 @@ Deno.serve(async (req) => {
       .eq('id', appel_id)
     if (updateError) return jsonError(updateError.message, 500)
 
-    return new Response(JSON.stringify({ url: roomUrl }), {
+    return new Response(JSON.stringify({
+      url: roomUrl,
+      recording_actif: recordingActif,
+      ...(recordingActif ? {} : { avertissement: "Enregistrement automatique indisponible : le palier Daily.co actuel ne le permet pas. L'appel fonctionne normalement, mais ne sera pas enregistré." })
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   } catch (e) {

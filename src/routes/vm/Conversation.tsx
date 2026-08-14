@@ -177,6 +177,7 @@ export default function Conversation() {
     const { data, error } = await supabase.functions.invoke('create-daily-room', { body: { appel_id: appelId } })
     setJoiningId(null)
     if (error || !data?.url) { setErreur(data?.error ?? error?.message ?? "Impossible de rejoindre l'appel."); return }
+    if (data.avertissement) setErreur(data.avertissement)
     window.open(data.url, '_blank', 'noopener,noreferrer')
     loadAppels()
   }
