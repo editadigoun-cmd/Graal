@@ -22,11 +22,50 @@ function formatDuree(s: number) {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
+const NB_BARRES = 32
+
+// Décode le fichier audio pour en extraire l'amplitude par tranche, afin d'afficher une vague
+// statique façon WhatsApp au lieu d'une simple barre de progression linéaire.
+function useWaveform(url: string, bars = NB_BARRES) {
+  const [peaks, setPeaks] = useState<number[] | null>(null)
+
+  useEffect(() => {
+    let annule = false
+    setPeaks(null)
+    fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((buf) => {
+        const AudioCtx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+        const ctx = new AudioCtx()
+        return ctx.decodeAudioData(buf).finally(() => ctx.close())
+      })
+      .then((audioBuffer) => {
+        if (annule) return
+        const data = audioBuffer.getChannelData(0)
+        const blockSize = Math.max(1, Math.floor(data.length / bars))
+        const result: number[] = []
+        for (let i = 0; i < bars; i++) {
+          let somme = 0
+          const debut = i * blockSize
+          for (let j = 0; j < blockSize && debut + j < data.length; j++) somme += Math.abs(data[debut + j])
+          result.push(somme / blockSize)
+        }
+        const max = Math.max(...result, 0.01)
+        setPeaks(result.map((v) => Math.max(0.12, v / max)))
+      })
+      .catch(() => setPeaks(null))
+    return () => { annule = true }
+  }, [url, bars])
+
+  return peaks
+}
+
 function AudioBubble({ url, mine }: { url: string; mine: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const [playing, setPlaying] = useState(false)
   const [current, setCurrent] = useState(0)
   const [duration, setDuration] = useState(0)
+  const peaks = useWaveform(url)
 
   function toggle() {
     const audio = audioRef.current
@@ -35,10 +74,20 @@ function AudioBubble({ url, mine }: { url: string; mine: boolean }) {
     else audio.play()
   }
 
-  const progress = duration > 0 ? (current / duration) * 100 : 0
+  function chercher(e: React.MouseEvent<HTMLDivElement>) {
+    const audio = audioRef.current
+    if (!audio || !duration) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    audio.currentTime = fraction * duration
+    setCurrent(audio.currentTime)
+  }
+
+  const progress = duration > 0 ? current / duration : 0
+  const barres = peaks ?? Array.from({ length: NB_BARRES }, () => 0.25)
 
   return (
-    <div className="flex items-center gap-3 min-w-[190px]">
+    <div className="flex items-center gap-3 min-w-[210px]">
       <audio
         ref={audioRef} src={url} preload="metadata"
         onPlay={() => setPlaying(true)}
@@ -55,11 +104,69 @@ function AudioBubble({ url, mine }: { url: string; mine: boolean }) {
         {playing ? <IconPause className="h-4 w-4" /> : <IconPlay className="h-4 w-4 ml-0.5" />}
       </button>
       <div className="flex-1 min-w-0">
-        <div className={`h-1 rounded-full overflow-hidden ${mine ? 'bg-white/30' : 'bg-ink-200'}`}>
-          <div className={`h-full rounded-full ${mine ? 'bg-white' : 'bg-royal-500'}`} style={{ width: `${progress}%` }} />
+        <div className="flex h-6 cursor-pointer items-center gap-[2px]" onClick={chercher}>
+          {barres.map((h, i) => {
+            const joue = i / barres.length < progress
+            return (
+              <span
+                key={i}
+                className={`w-[3px] flex-shrink-0 rounded-full transition-colors ${joue ? (mine ? 'bg-white' : 'bg-royal-500') : (mine ? 'bg-white/35' : 'bg-ink-200')}`}
+                style={{ height: `${Math.max(15, h * 100)}%` }}
+              />
+            )
+          })}
         </div>
         <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-ink-400'}`}>{formatDuree(playing || current > 0 ? current : duration)}</p>
       </div>
+    </div>
+  )
+}
+
+// Vague animée réagissant en direct au niveau du micro pendant l'enregistrement (façon
+// WhatsApp), via l'amplitude du flux audio (Web Audio API).
+function RecordingWaveform({ stream }: { stream: MediaStream }) {
+  const NB = 24
+  const [niveaux, setNiveaux] = useState<number[]>(() => Array(NB).fill(0.15))
+
+  useEffect(() => {
+    const AudioCtx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    const ctx = new AudioCtx()
+    const source = ctx.createMediaStreamSource(stream)
+    const analyser = ctx.createAnalyser()
+    analyser.fftSize = 256
+    source.connect(analyser)
+    const data = new Uint8Array(analyser.frequencyBinCount)
+    let raf = 0
+    let compteur = 0
+
+    function tick() {
+      compteur++
+      if (compteur % 2 === 0) {
+        analyser.getByteTimeDomainData(data)
+        let somme = 0
+        for (let i = 0; i < data.length; i++) {
+          const v = (data[i] - 128) / 128
+          somme += v * v
+        }
+        const rms = Math.sqrt(somme / data.length)
+        setNiveaux((prev) => [...prev.slice(1), Math.min(1, rms * 4.5)])
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    tick()
+
+    return () => {
+      cancelAnimationFrame(raf)
+      source.disconnect()
+      ctx.close()
+    }
+  }, [stream])
+
+  return (
+    <div className="flex flex-1 items-center gap-[2px]">
+      {niveaux.map((v, i) => (
+        <span key={i} className="w-[3px] flex-shrink-0 rounded-full bg-flame-500 transition-[height]" style={{ height: `${Math.max(15, v * 100)}%` }} />
+      ))}
     </div>
   )
 }
@@ -80,6 +187,7 @@ export default function Conversation() {
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({})
   const [envoiEnCours, setEnvoiEnCours] = useState(false)
   const [enregistrement, setEnregistrement] = useState(false)
+  const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -103,10 +211,20 @@ export default function Conversation() {
     || (profile?.role === 'superviseur' && convType === 'EQUIPE' && !!equipeId && supervisedIds.includes(equipeId))
   const peutVoirEnregistrements = profile?.role === 'admin' || profile?.role === 'superviseur'
 
+  async function marquerLu(msgs: Message[]) {
+    if (!session) return
+    const aMarquer = msgs.filter((m) => m.sender_id !== session.user.id)
+    if (aMarquer.length === 0) return
+    await supabase.from('message_lectures').upsert(
+      aMarquer.map((m) => ({ message_id: m.id, profile_id: session.user.id })),
+      { onConflict: 'message_id,profile_id', ignoreDuplicates: true }
+    )
+  }
+
   useEffect(() => {
     if (!conversationId) return
     supabase.from('messages').select('*').eq('conversation_id', conversationId).order('created_at')
-      .then(({ data }) => setMessages(data ?? []))
+      .then(({ data }) => { setMessages(data ?? []); marquerLu(data ?? []) })
 
     supabase.from('conversations').select('*, conversation_participants(profile_id, profiles(full_name))').eq('id', conversationId).single()
       .then(({ data }: any) => {
@@ -125,7 +243,11 @@ export default function Conversation() {
     const channel = supabase
       .channel(`conv-${conversationId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => setMessages((m) => [...m, payload.new as Message]))
+        (payload) => {
+          const message = payload.new as Message
+          setMessages((m) => [...m, message])
+          marquerLu([message])
+        })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -243,6 +365,7 @@ export default function Conversation() {
     if (enregistrement) {
       mediaRecorderRef.current?.stop()
       setEnregistrement(false)
+      setRecordingStream(null)
       return
     }
     setErreur(null)
@@ -253,6 +376,7 @@ export default function Conversation() {
       recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
       recorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop())
+        setRecordingStream(null)
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
         if (!session || !conversationId) return
         setEnvoiEnCours(true)
@@ -267,6 +391,7 @@ export default function Conversation() {
       }
       recorder.start()
       mediaRecorderRef.current = recorder
+      setRecordingStream(stream)
       setEnregistrement(true)
     } catch {
       setErreur("Microphone inaccessible — vérifiez les autorisations de l'appareil.")
@@ -411,8 +536,9 @@ export default function Conversation() {
           <IconPaperclip className="h-5 w-5" />
         </button>
         {enregistrement ? (
-          <div className="flex-1 flex items-center gap-2 rounded-full border border-flame-300 bg-flame-50 px-4 py-2.5 text-sm text-flame-600">
-            <span className="h-2 w-2 rounded-full bg-flame-500 animate-pulse" /> Enregistrement en cours…
+          <div className="flex-1 flex h-10 items-center gap-2 rounded-full border border-flame-300 bg-flame-50 px-4 text-sm text-flame-600">
+            <span className="h-2 w-2 flex-shrink-0 rounded-full bg-flame-500 animate-pulse" />
+            {recordingStream ? <RecordingWaveform stream={recordingStream} /> : <span>Enregistrement en cours…</span>}
           </div>
         ) : (
           <input
