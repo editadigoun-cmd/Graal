@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { IconChat } from '@/components/ui/icons'
+import { IconChat, IconUsers } from '@/components/ui/icons'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import dayjs from 'dayjs'
@@ -18,7 +18,8 @@ interface ConvSummary {
 }
 
 export default function Messages() {
-  const { session } = useAuth()
+  const { session, profile } = useAuth()
+  const base = profile?.role === 'vm' ? '/app/messages' : '/admin/messages'
   const [convs, setConvs] = useState<ConvSummary[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -38,7 +39,12 @@ export default function Messages() {
         const autreNom = c.nom || autres.map((p: any) => p.profiles?.full_name).join(', ') || 'Conversation'
         return { id: c.id, nom: c.nom, type: c.type, dernierMessage: last?.contenu ?? null, dernierAt: last?.created_at ?? c.created_at, autreNom }
       })
-      result.sort((a, b) => dayjs(b.dernierAt).diff(dayjs(a.dernierAt)))
+      result.sort((a, b) => {
+        const forumA = a.type !== 'DIRECT' ? 1 : 0
+        const forumB = b.type !== 'DIRECT' ? 1 : 0
+        if (forumA !== forumB) return forumB - forumA
+        return dayjs(b.dernierAt).diff(dayjs(a.dernierAt))
+      })
       setConvs(result)
       setLoading(false)
     }
@@ -59,9 +65,15 @@ export default function Messages() {
       )}
 
       {convs.map((c) => (
-        <Link key={c.id} to={`/app/messages/${c.id}`}>
+        <Link key={c.id} to={`${base}/${c.id}`}>
           <Card className="flex items-center gap-3 py-3">
-            <Avatar name={c.autreNom} size={44} />
+            {c.type !== 'DIRECT' ? (
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-royal-100 text-royal-600">
+                <IconUsers className="h-5 w-5" />
+              </div>
+            ) : (
+              <Avatar name={c.autreNom} size={44} />
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-ink-800 truncate">{c.autreNom}</p>
               <p className="text-xs text-ink-400 truncate">{c.dernierMessage ?? 'Nouvelle conversation'}</p>

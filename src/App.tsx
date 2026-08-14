@@ -124,6 +124,8 @@ export default function App() {
             <Route path="indicateurs-animation" element={<RequireAdmin><ManagementIndicateursAnimation /></RequireAdmin>} />
             <Route path="import-portefeuille" element={<RequireAdmin><ManagementImportPortefeuille /></RequireAdmin>} />
             <Route path="parametres" element={<RequireAdmin><ManagementParametres /></RequireAdmin>} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="messages/:conversationId" element={<Conversation />} />
             <Route path="profil" element={<ManagementProfil />} />
           </Route>
 
