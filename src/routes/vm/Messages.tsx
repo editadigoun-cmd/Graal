@@ -73,10 +73,10 @@ export default function Messages() {
   }, [session])
 
   return (
-    <div className="space-y-4 mt-2 pb-4">
+    <div className="space-y-6 mt-2 pb-4">
       <h1 className="text-lg font-bold text-ink-800 font-display">Messages</h1>
 
-      {loading && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
+      {loading && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
 
       {!loading && convs.length === 0 && (
         <Card className="flex flex-col items-center py-12 text-center">
@@ -87,7 +87,7 @@ export default function Messages() {
 
       {convs.map((c) => (
         <Link key={c.id} to={`${base}/${c.id}`}>
-          <Card className="flex items-center gap-4 py-4">
+          <Card className="flex items-center gap-4 py-5">
             {c.type !== 'DIRECT' ? (
               <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-royal-100 text-royal-600">
                 <IconUsers className="h-5 w-5" />
