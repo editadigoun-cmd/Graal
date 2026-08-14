@@ -12,7 +12,8 @@ type Message = Database['public']['Tables']['messages']['Row']
 export default function Conversation() {
   const { conversationId } = useParams()
   const { session, profile } = useAuth()
-  const base = profile?.role === 'vm' ? '/app/messages' : '/admin/messages'
+  const estVm = profile?.role === 'vm'
+  const base = estVm ? '/app/messages' : '/admin/messages'
   const [messages, setMessages] = useState<Message[]>([])
   const [texte, setTexte] = useState('')
   const [titre, setTitre] = useState('Conversation')
@@ -131,7 +132,7 @@ export default function Conversation() {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col graal-surface">
+    <div className="fixed inset-0 z-30 flex flex-col graal-surface">
       <div className="flex items-center gap-2 border-b border-ink-100/60 bg-white/70 px-4 py-3 backdrop-blur pt-[calc(env(safe-area-inset-top)+0.75rem)]">
         <Link to={base} className="rounded-full p-1.5 hover:bg-ink-100"><IconChevronLeft className="h-5 w-5" /></Link>
         <p className="font-bold text-ink-800">{titre}</p>
@@ -179,7 +180,7 @@ export default function Conversation() {
         </div>
       )}
 
-      <div className="flex items-center gap-2 bg-white/80 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur">
+      <div className={`flex items-center gap-2 bg-white/80 px-3 py-3 backdrop-blur ${estVm ? 'pb-[calc(env(safe-area-inset-bottom)+5.5rem)]' : 'pb-[calc(env(safe-area-inset-bottom)+0.75rem)]'}`}>
         <input ref={fileInputRef} type="file" className="hidden" onChange={onFichierChoisi} />
         <button
           onClick={() => fileInputRef.current?.click()} disabled={envoiEnCours || enregistrement}
