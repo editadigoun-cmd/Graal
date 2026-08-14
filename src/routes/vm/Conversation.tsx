@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { IconChevronLeft, IconSend, IconPaperclip, IconMic, IconX, IconDownload, IconClipboard, IconAlert, IconPlay, IconPause, IconPhone, IconPlus } from '@/components/ui/icons'
+import { IconChevronLeft, IconSend, IconPaperclip, IconMic, IconX, IconDownload, IconClipboard, IconAlert, IconPlay, IconPause, IconPhone, IconPhoneOff, IconPlus } from '@/components/ui/icons'
+import { CallOverlay } from '@/components/calls/CallOverlay'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { BENIN_TZ, nowBenin } from '@/lib/time'
@@ -88,6 +89,8 @@ export default function Conversation() {
   const [appels, setAppels] = useState<Appel[]>([])
   const [enregistrements, setEnregistrements] = useState<Record<string, Enregistrement[]>>({})
   const [joiningId, setJoiningId] = useState<string | null>(null)
+  const [endingId, setEndingId] = useState<string | null>(null)
+  const [activeCall, setActiveCall] = useState<{ appelId: string; url: string } | null>(null)
   const [showSchedule, setShowSchedule] = useState(false)
   const [scheduleTitre, setScheduleTitre] = useState('')
   const [scheduleMotif, setScheduleMotif] = useState('')
@@ -178,7 +181,16 @@ export default function Conversation() {
     setJoiningId(null)
     if (error || !data?.url) { setErreur(data?.error ?? error?.message ?? "Impossible de rejoindre l'appel."); return }
     if (data.avertissement) setErreur(data.avertissement)
-    window.open(data.url, '_blank', 'noopener,noreferrer')
+    setActiveCall({ appelId, url: data.url })
+    loadAppels()
+  }
+
+  async function terminerAppel(appelId: string) {
+    setEndingId(appelId)
+    setErreur(null)
+    const { error } = await supabase.from('appels_programmes').update({ statut: 'TERMINE' }).eq('id', appelId)
+    setEndingId(null)
+    if (error) { setErreur(error.message); return }
     loadAppels()
   }
 
@@ -286,36 +298,59 @@ export default function Conversation() {
             <p className="text-[11px] text-ink-400">Aucun appel programmé.</p>
           ) : (
             <div className="space-y-1.5">
-              {appels.filter((a) => a.statut === 'PROGRAMME' || a.statut === 'EN_COURS').map((a) => (
-                <div key={a.id} className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-ink-800 truncate">{a.titre}</p>
-                    <p className="text-[10px] text-ink-400 truncate">
-                      {dayjs(a.date_heure).format('DD/MM/YYYY HH:mm')}{a.motif ? ` · ${a.motif}` : ''}
-                    </p>
+              {appels.filter((a) => a.statut === 'PROGRAMME' || a.statut === 'EN_COURS').map((a) => {
+                const peutTerminer = a.statut === 'EN_COURS' && (profile?.role === 'admin' || a.programme_par === session?.user.id)
+                return (
+                  <div key={a.id} className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-ink-800 truncate">{a.titre}</p>
+                      <p className="text-[10px] text-ink-400 truncate">
+                        {dayjs(a.date_heure).format('DD/MM/YYYY HH:mm')}{a.motif ? ` · ${a.motif}` : ''}
+                        {a.statut === 'EN_COURS' && <span className="ml-1 font-semibold text-emerald-600">· en cours</span>}
+                      </p>
+                    </div>
+                    <div className="flex flex-shrink-0 items-center gap-1.5">
+                      {peutTerminer && (
+                        <button
+                          onClick={() => terminerAppel(a.id)} disabled={endingId === a.id}
+                          title="Terminer l'appel pour tout le monde"
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-flame-50 text-flame-600 transition disabled:opacity-40"
+                        >
+                          <IconPhoneOff className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <Button size="sm" loading={joiningId === a.id} icon={<IconPhone className="h-3 w-3" />} onClick={() => rejoindre(a.id)}>
+                        Rejoindre
+                      </Button>
+                    </div>
                   </div>
-                  <Button size="sm" loading={joiningId === a.id} icon={<IconPhone className="h-3 w-3" />} onClick={() => rejoindre(a.id)}>
-                    Rejoindre
-                  </Button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
 
           {peutVoirEnregistrements && appels.some((a) => a.statut === 'TERMINE') && (
             <div className="border-t border-ink-100 pt-2 space-y-1">
               <p className="text-[11px] font-semibold text-ink-500">Enregistrements</p>
-              {appels.filter((a) => a.statut === 'TERMINE').map((a) => (
-                <div key={a.id} className="flex items-center justify-between gap-2 text-[11px] text-ink-500">
-                  <span className="truncate">{a.titre} — {dayjs(a.date_heure).format('DD/MM/YYYY')}</span>
-                  <div className="flex flex-shrink-0 gap-2">
-                    {(enregistrements[a.id] ?? []).length === 0 && <span className="text-ink-300 italic">en attente</span>}
-                    {(enregistrements[a.id] ?? []).map((e) => (
-                      <a key={e.id} href={e.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-royal-600 underline">Écouter</a>
-                    ))}
+              {appels.filter((a) => a.statut === 'TERMINE').map((a) => {
+                const enrs = enregistrements[a.id] ?? []
+                return (
+                  <div key={a.id} className="flex items-center justify-between gap-2 text-[11px] text-ink-500">
+                    <span className="truncate">{a.titre} — {dayjs(a.date_heure).format('DD/MM/YYYY')}</span>
+                    <div className="flex flex-shrink-0 gap-2">
+                      {enrs.length === 0 && a.recording_actif === false && (
+                        <span className="text-ink-300 italic">non enregistré</span>
+                      )}
+                      {enrs.length === 0 && a.recording_actif !== false && (
+                        <span className="text-ink-300 italic">en attente</span>
+                      )}
+                      {enrs.map((e) => (
+                        <a key={e.id} href={e.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-royal-600 underline">Écouter</a>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -444,6 +479,14 @@ export default function Conversation() {
           </Button>
         </div>
       </Modal>
+
+      {activeCall && (
+        <CallOverlay
+          roomUrl={activeCall.url}
+          userName={profile?.full_name ?? 'Utilisateur'}
+          onLeave={() => { setActiveCall(null); loadAppels() }}
+        />
+      )}
     </div>
   )
 }

@@ -120,3 +120,9 @@ export const IconPause = (p: IconProps) => (
 export const IconPhone = (p: IconProps) => (
   <svg {...base} {...p}><path d="M5 4.5h3.5l1.5 4-2 1.5a11 11 0 0 0 5 5l1.5-2 4 1.5V18a1.5 1.5 0 0 1-1.6 1.5C10.5 19 5 13.5 4.5 6.6A1.5 1.5 0 0 1 5 4.5Z" /></svg>
 )
+export const IconPhoneOff = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M5 4.5h3.5l1.5 4-2 1.5a11 11 0 0 0 5 5l1.5-2 4 1.5V18a1.5 1.5 0 0 1-1.6 1.5 15.6 15.6 0 0 1-3.9-.9" /><path d="M3 3l18 18" /></svg>
+)
+export const IconMicOff = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M9 5.5A3 3 0 0 1 15 7v4c0 .4 0 .8-.1 1.1M12 14a3 3 0 0 1-3-3v-1" /><path d="M5.5 11a6.5 6.5 0 0 0 9.3 5.9M12 17.5V21" /><path d="M3 3l18 18" /></svg>
+)
