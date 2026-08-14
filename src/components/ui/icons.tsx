@@ -111,3 +111,9 @@ export const IconMenu = (p: IconProps) => (
 export const IconEye = (p: IconProps) => (
   <svg {...base} {...p}><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="3" /></svg>
 )
+export const IconPlay = (p: IconProps) => (
+  <svg {...base} fill="currentColor" stroke="none" {...p}><path d="M7 4.5v15l13-7.5-13-7.5Z" /></svg>
+)
+export const IconPause = (p: IconProps) => (
+  <svg {...base} fill="currentColor" stroke="none" {...p}><rect x="6" y="4.5" width="4.5" height="15" rx="1" /><rect x="13.5" y="4.5" width="4.5" height="15" rx="1" /></svg>
+)
