@@ -126,3 +126,12 @@ export const IconPhoneOff = (p: IconProps) => (
 export const IconMicOff = (p: IconProps) => (
   <svg {...base} {...p}><path d="M9 5.5A3 3 0 0 1 15 7v4c0 .4 0 .8-.1 1.1M12 14a3 3 0 0 1-3-3v-1" /><path d="M5.5 11a6.5 6.5 0 0 0 9.3 5.9M12 17.5V21" /><path d="M3 3l18 18" /></svg>
 )
+export const IconVideo = (p: IconProps) => (
+  <svg {...base} {...p}><rect x="3" y="6.5" width="12.5" height="11" rx="2.5" /><path d="M15.5 10.5l5-3v9l-5-3Z" /></svg>
+)
+export const IconVideoOff = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M15.5 10.5l5-3v9l-5-3M3 8.5V15a2.5 2.5 0 0 0 2.5 2.5H13" /><path d="M15.5 6.5H5.5A2.5 2.5 0 0 0 3 9v0" /><path d="M3 3l18 18" /></svg>
+)
+export const IconScreenShare = (p: IconProps) => (
+  <svg {...base} {...p}><rect x="3" y="4.5" width="18" height="12" rx="2" /><path d="M12 21v-4.5" /><path d="M8.5 21h7" /><path d="M12 8v5M9.5 10.5 12 8l2.5 2.5" /></svg>
+)
