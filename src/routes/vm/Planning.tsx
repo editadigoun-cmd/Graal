@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -17,6 +17,14 @@ import dayjs from 'dayjs'
 type Jour = Database['public']['Enums']['jour_semaine']
 type TypeVisite = Database['public']['Enums']['type_visite']
 
+interface Seuils {
+  minMedical: number
+  minPharmacie: number
+  maxFaibleJeudiPct: number
+}
+
+const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50 }
+
 export default function Planning() {
   const { programme, lignes, portefeuille, loading, error, setError, reload } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
@@ -26,6 +34,7 @@ export default function Planning() {
   const [ajoutEnCours, setAjoutEnCours] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [resultat, setResultat] = useState<{ statut: string; message?: string; conformite?: unknown[] } | null>(null)
+  const [seuils, setSeuils] = useState<Seuils>(SEUILS_DEFAUT)
   const [, forceTick] = useState(0)
 
   const semaineDebut = targetSemaineDebut()
@@ -37,8 +46,23 @@ export default function Planning() {
     return () => clearInterval(t)
   }, [])
 
+  useEffect(() => {
+    supabase.from('parametres').select('key, value')
+      .in('key', ['visites_minimum_medical_jour', 'visites_minimum_pharmacie_jour', 'seuil_faible_jeudi_pourcentage_max'])
+      .then(({ data }) => {
+        if (!data) return
+        const val = (k: string) => Number(data.find((p) => p.key === k)?.value)
+        setSeuils({
+          minMedical: val('visites_minimum_medical_jour') || SEUILS_DEFAUT.minMedical,
+          minPharmacie: val('visites_minimum_pharmacie_jour') || SEUILS_DEFAUT.minPharmacie,
+          maxFaibleJeudiPct: val('seuil_faible_jeudi_pourcentage_max') || SEUILS_DEFAUT.maxFaibleJeudiPct
+        })
+      })
+  }, [])
+
   const lignesJour = lignes.filter((l) => l.jour === jourActif)
   const clientIdsUtilises = new Set(lignes.map((l) => l.client_id))
+  const pharmacieUniquement = !!programme?.mode_pharmacie_uniquement
 
   const candidats = portefeuille.filter((c) => {
     if (!picking) return false
@@ -47,6 +71,45 @@ export default function Planning() {
     if (recherche && !normalizeText(c.nom).includes(normalizeText(recherche))) return false
     return true
   })
+
+  // Jeudi : la part de clients FAIBLE potentiel ne doit pas dépasser seuils.maxFaibleJeudiPct —
+  // on bloque la sélection de nouveaux clients FAIBLE dès que l'ajouter dépasserait le seuil,
+  // au lieu de laisser le VM tout construire puis découvrir le refus à la soumission.
+  const lignesJeudi = lignes.filter((l) => l.jour === 'JEUDI')
+  const jeudiTotalActuel = lignesJeudi.length
+  const jeudiFaibleActuel = lignesJeudi.filter((l) => l.clients?.potentiel === 'FAIBLE').length
+  const selectionArray = Array.from(selection)
+  const selectionFaibleCount = selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === 'FAIBLE').length
+  const jeudiTotalProjete = jeudiTotalActuel + selectionArray.length
+  const jeudiFaibleProjete = jeudiFaibleActuel + selectionFaibleCount
+
+  function faibleJeudiBloque(candidatId: string, potentiel: string) {
+    if (jourActif !== 'JEUDI' || potentiel !== 'FAIBLE' || selection.has(candidatId)) return false
+    const total = jeudiTotalProjete + 1
+    const faible = jeudiFaibleProjete + 1
+    return (faible / total) * 100 > seuils.maxFaibleJeudiPct
+  }
+
+  const parJour = Object.fromEntries(JOURS.map((j) => {
+    const ljour = lignes.filter((l) => l.jour === j)
+    return [j, {
+      medical: ljour.filter((l) => l.type_visite === 'MEDICAL').length,
+      pharmacie: ljour.filter((l) => l.type_visite === 'PHARMACIE').length
+    }]
+  })) as Record<Jour, { medical: number; pharmacie: number }>
+
+  // En mode "pharmacie uniquement", le serveur (soumettre_programme_hebdomadaire) n'exige ni
+  // couverture des 5 jours ni minimums quotidiens — seulement un programme non vide et le
+  // ratio FAIBLE du jeudi. Le checklist client doit refléter exactement cette règle pour ne
+  // pas bloquer une soumission que le serveur accepterait.
+  const jourOk = (j: Jour) => pharmacieUniquement
+    ? true
+    : parJour[j].medical >= seuils.minMedical && parJour[j].pharmacie >= seuils.minPharmacie
+  const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
+  const jeudiRatioOk = jeudiTotalActuel === 0 || (jeudiFaibleActuel / jeudiTotalActuel) * 100 <= seuils.maxFaibleJeudiPct
+  const prêtPourSoumission = pharmacieUniquement
+    ? lignes.length > 0 && jeudiRatioOk
+    : joursCouverts === 5 && JOURS.every(jourOk) && jeudiRatioOk
 
   function ouvrirPicker(type: TypeVisite) {
     setPicking(type)
@@ -131,19 +194,72 @@ export default function Planning() {
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
         {JOURS.map((j) => {
           const count = lignes.filter((l) => l.jour === j).length
+          const ok = pharmacieUniquement ? count > 0 : jourOk(j)
           return (
             <button
               key={j} onClick={() => setJourActif(j)}
-              className={`flex-shrink-0 rounded-2xl px-4 py-2.5 text-sm font-semibold transition ${
+              className={`flex-shrink-0 flex items-center gap-1 rounded-2xl px-4 py-2.5 text-sm font-semibold transition ${
                 jourActif === j ? 'bg-royal-600 text-white shadow-soft' : 'bg-white text-ink-500 border border-ink-200'
               }`}
             >
               {JOUR_LABEL[j]}
-              <span className={`ml-1.5 text-[10px] ${jourActif === j ? 'text-white/70' : 'text-ink-300'}`}>{count}</span>
+              <span className={`text-[10px] ${jourActif === j ? 'text-white/70' : 'text-ink-300'}`}>{count}</span>
+              {ok && <IconCheckCircle className={`h-3 w-3 ${jourActif === j ? 'text-white' : 'text-emerald-500'}`} />}
             </button>
           )
         })}
       </div>
+
+      {!verrouille && (
+        <Card>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-ink-600">Progression — {JOUR_LABEL[jourActif]}</p>
+            <p className="text-[11px] text-ink-400">{joursCouverts}/5 jours couverts</p>
+          </div>
+          <div className={`grid ${pharmacieUniquement ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
+            {!pharmacieUniquement && (
+              <div>
+                <div className="flex items-center justify-between text-[11px] mb-1">
+                  <span className="text-ink-500">Médical</span>
+                  <span className={parJour[jourActif].medical >= seuils.minMedical ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
+                    {parJour[jourActif].medical}/{seuils.minMedical}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                  <div className={`h-full rounded-full ${parJour[jourActif].medical >= seuils.minMedical ? 'bg-emerald-500' : 'bg-royal-400'}`}
+                    style={{ width: `${Math.min(100, (parJour[jourActif].medical / seuils.minMedical) * 100)}%` }} />
+                </div>
+              </div>
+            )}
+            <div>
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-ink-500">Pharmacie</span>
+                <span className={parJour[jourActif].pharmacie >= seuils.minPharmacie ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
+                  {parJour[jourActif].pharmacie}/{seuils.minPharmacie}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                <div className={`h-full rounded-full ${parJour[jourActif].pharmacie >= seuils.minPharmacie ? 'bg-emerald-500' : 'bg-royal-400'}`}
+                  style={{ width: `${Math.min(100, (parJour[jourActif].pharmacie / seuils.minPharmacie) * 100)}%` }} />
+              </div>
+            </div>
+          </div>
+          {jourActif === 'JEUDI' && (
+            <div className="mt-3 pt-3 border-t border-ink-100">
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-ink-500">Clients FAIBLE potentiel</span>
+                <span className={jeudiRatioOk ? 'text-emerald-600 font-semibold' : 'text-flame-600 font-semibold'}>
+                  {jeudiFaibleActuel}/{jeudiTotalActuel || 0} (max {seuils.maxFaibleJeudiPct}%)
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                <div className={`h-full rounded-full ${jeudiRatioOk ? 'bg-emerald-500' : 'bg-flame-500'}`}
+                  style={{ width: `${jeudiTotalActuel ? Math.min(100, (jeudiFaibleActuel / jeudiTotalActuel) * 100) : 0}%` }} />
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
       {error && (
         <div className="flex items-start gap-2 rounded-xl bg-red-50 p-3 text-xs text-red-600">
@@ -186,9 +302,37 @@ export default function Planning() {
       </div>
 
       {!verrouille && (
-        <Button fullWidth loading={submitting} onClick={soumettre} disabled={!countdown}>
-          Soumettre le programme
-        </Button>
+        <>
+          {countdown && !prêtPourSoumission && (
+            <Card className="bg-flame-50/60 border border-flame-200">
+              <p className="text-xs font-bold text-flame-700 mb-2">À compléter avant de soumettre :</p>
+              <ul className="space-y-1">
+                {pharmacieUniquement ? (
+                  lignes.length === 0 && (
+                    <li className="text-xs text-flame-700">• Programmer au moins une pharmacie</li>
+                  )
+                ) : (
+                  <>
+                    {joursCouverts < 5 && (
+                      <li className="text-xs text-flame-700">• Programmer au moins un client chaque jour ({joursCouverts}/5 jours couverts)</li>
+                    )}
+                    {JOURS.filter((j) => !jourOk(j)).map((j) => (
+                      <li key={j} className="text-xs text-flame-700">
+                        • {JOUR_LABEL[j]} : {parJour[j].medical}/{seuils.minMedical} médical, {parJour[j].pharmacie}/{seuils.minPharmacie} pharmacie
+                      </li>
+                    ))}
+                  </>
+                )}
+                {!jeudiRatioOk && (
+                  <li className="text-xs text-flame-700">• Jeudi : trop de clients FAIBLE potentiel (max {seuils.maxFaibleJeudiPct}%)</li>
+                )}
+              </ul>
+            </Card>
+          )}
+          <Button fullWidth loading={submitting} onClick={soumettre} disabled={!countdown || !prêtPourSoumission}>
+            Soumettre le programme
+          </Button>
+        </>
       )}
 
       {resultat && (
@@ -225,10 +369,15 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
+                  const bloque = faibleJeudiBloque(c.id, c.potentiel)
                   return (
                     <button
-                      key={c.id} onClick={() => toggleSelection(c.id)}
-                      className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition ${selected ? 'border-royal-400 bg-royal-50' : 'border-ink-100 hover:bg-ink-50'}`}
+                      key={c.id} onClick={() => !bloque && toggleSelection(c.id)}
+                      disabled={bloque}
+                      className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition ${
+                        bloque ? 'border-ink-100 bg-ink-50 opacity-50 cursor-not-allowed'
+                          : selected ? 'border-royal-400 bg-royal-50' : 'border-ink-100 hover:bg-ink-50'
+                      }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border ${selected ? 'border-royal-600 bg-royal-600' : 'border-ink-300'}`}>
@@ -236,7 +385,9 @@ export default function Planning() {
                         </span>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-ink-800 truncate">{c.nom}</p>
-                          <p className="text-[11px] text-ink-400 truncate">{c.centre || c.specialite}</p>
+                          <p className="text-[11px] text-ink-400 truncate">
+                            {bloque ? `Max ${seuils.maxFaibleJeudiPct}% de clients FAIBLE le jeudi atteint` : c.centre || c.specialite}
+                          </p>
                         </div>
                       </div>
                       <PotentielBadge potentiel={c.potentiel} compact />
