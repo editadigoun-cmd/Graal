@@ -135,3 +135,6 @@ export const IconVideoOff = (p: IconProps) => (
 export const IconScreenShare = (p: IconProps) => (
   <svg {...base} {...p}><rect x="3" y="4.5" width="18" height="12" rx="2" /><path d="M12 21v-4.5" /><path d="M8.5 21h7" /><path d="M12 8v5M9.5 10.5 12 8l2.5 2.5" /></svg>
 )
+export const IconMoon = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" /></svg>
+)

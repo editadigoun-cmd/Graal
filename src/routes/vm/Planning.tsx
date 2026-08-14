@@ -162,6 +162,25 @@ export default function Planning() {
   if (loading) return <div className="space-y-3 mt-2"><Skeleton className="h-24" /><Skeleton className="h-64" /></div>
 
   const verrouille = programme && programme.statut !== 'BROUILLON'
+  const estValide = programme?.statut === 'VALIDE' || programme?.statut === 'VERROUILLE'
+
+  if (estValide) {
+    return (
+      <div className="space-y-4 mt-2 pb-4">
+        <div>
+          <h1 className="text-lg font-bold text-ink-800 font-display">Planning de la semaine</h1>
+          <p className="text-xs text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
+        </div>
+        <div className="mt-10 flex flex-col items-center text-center px-4">
+          <div className="rounded-full bg-emerald-50 p-4"><IconCheckCircle className="h-10 w-10 text-emerald-600" /></div>
+          <p className="mt-4 text-lg font-bold text-ink-800 font-display">Programme validé</p>
+          <p className="mt-1 text-sm text-ink-400 max-w-xs">
+            Votre superviseur a validé votre programme de la semaine. Retrouvez vos visites du jour dans l'onglet Visites.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4 mt-2 pb-4">

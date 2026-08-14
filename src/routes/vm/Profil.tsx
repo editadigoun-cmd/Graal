@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Avatar } from '@/components/ui/Avatar'
 import { CircularProgress } from '@/components/ui/CircularProgress'
+import { Switch } from '@/components/ui/Switch'
+import { AvatarUpload } from '@/components/ui/AvatarUpload'
 import { IconLogout, IconUsers, IconMapPin, IconLock, IconBell } from '@/components/ui/icons'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
@@ -72,7 +73,7 @@ export default function Profil() {
   return (
     <div className="space-y-4 mt-2 pb-4">
       <Card className="flex flex-col items-center text-center py-7">
-        <Avatar name={profile.full_name} url={profile.avatar_url} size={76} />
+        <AvatarUpload size={76} />
         <p className="mt-3 text-lg font-bold text-ink-800 font-display">{profile.full_name}</p>
         <p className="text-xs text-ink-400 capitalize">{profile.role === 'vm' ? 'Visiteur médical' : profile.role}</p>
         <div className="mt-4"><CircularProgress value={scoreMensuel} label="score mensuel" size={92} tone={scoreMensuel >= 90 ? 'emerald' : 'flame'} /></div>
@@ -112,12 +113,7 @@ export default function Profil() {
               <p className="text-[11px] text-ink-400">Face ID / empreinte sur cet appareil</p>
             </div>
           </div>
-          <button
-            onClick={toggleBiometric}
-            className={`h-7 w-12 rounded-full transition-colors relative ${bioEnrolled ? 'bg-emerald-500' : 'bg-ink-200'}`}
-          >
-            <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${bioEnrolled ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
+          <Switch checked={bioEnrolled} onChange={toggleBiometric} label="Déverrouillage biométrique" />
         </Card>
       )}
 
@@ -131,13 +127,7 @@ export default function Profil() {
                 <p className="text-[11px] text-ink-400">Rappels et alertes même app fermée</p>
               </div>
             </div>
-            <button
-              onClick={togglePush}
-              disabled={pushBusy}
-              className={`h-7 w-12 rounded-full transition-colors relative ${pushEnabled ? 'bg-emerald-500' : 'bg-ink-200'}`}
-            >
-              <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-            </button>
+            <Switch checked={pushEnabled} onChange={togglePush} loading={pushBusy} label="Notifications push" />
           </div>
           {pushError && <p className="mt-2 text-[11px] text-red-500">{pushError}</p>}
         </Card>

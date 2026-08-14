@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
 
     const { data: lignes } = await supabase
       .from('programme_lignes')
-      .select('id, jour, type_visite, ordre, clients(nom, categorie, potentiel)')
+      .select('id, jour, type_visite, ordre, clients(nom, centre, categorie, potentiel)')
       .eq('programme_id', programme.id)
       .eq('jour', jourSemaine)
       .order('ordre')
@@ -92,14 +92,14 @@ Deno.serve(async (req) => {
     y -= 30
 
     y = drawTable(page, font, bold, y, 'VOLET MÉDICAL', [
-      'Client programmé', 'Catégorie', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions'
-    ], [140, 60, 65, 60, 100, 80, 70], medical, 20)
+      'Client programmé', 'Centre', 'Catégorie', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions'
+    ], [90, 70, 45, 55, 50, 90, 65, 50], medical, Math.min(medical.length + 2, 11))
 
     y -= 20
 
     drawTable(page, font, bold, y, 'VOLET PHARMACIE', [
-      'Pharmacie programmée', 'Catégorie', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle'
-    ], [150, 70, 90, 90, 150], pharmacie, 5)
+      'Pharmacie programmée', 'Centre', 'Catégorie', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle'
+    ], [110, 70, 50, 90, 90, 105], pharmacie, Math.min(pharmacie.length + 2, 6))
 
     const bytes = await pdf.save()
     return new Response(bytes, {
@@ -119,7 +119,8 @@ function drawTable(page: any, font: any, bold: any, startY: number, title: strin
   let y = startY
   page.drawText(title, { x: x0, y, size: 11, font: bold, color: ROYAL })
   y -= 16
-  const rowHeight = 18
+  // Lignes volontairement hautes : le VM y appose le cachet du client lors de la visite.
+  const rowHeight = 34
   let x = x0
   headers.forEach((h, i) => {
     page.drawRectangle({ x, y: y - 16, width: widths[i], height: 16, color: ROYAL })
@@ -133,11 +134,13 @@ function drawTable(page: any, font: any, bold: any, startY: number, title: strin
     x = x0
     const ligne = rows[r]
     const nom = ligne?.clients?.nom ?? ''
+    const centre = ligne?.clients?.centre ?? ''
     const categorie = ligne?.clients?.potentiel ?? ligne?.clients?.categorie ?? ''
-    const cells = headers.length === 7 ? [nom, categorie, '', '', '', '', ''] : [nom, categorie, '', '', '']
+    const nbExtra = headers.length - 3
+    const cells = [nom, centre, categorie, ...Array(nbExtra).fill('')]
     cells.forEach((c, i) => {
       page.drawRectangle({ x, y: y - rowHeight, width: widths[i], height: rowHeight, borderColor: rgb(0.85, 0.87, 0.9), borderWidth: 0.5 })
-      if (c) page.drawText(String(c), { x: x + 3, y: y - rowHeight + 5, size: 7.5, font })
+      if (c) page.drawText(String(c), { x: x + 3, y: y - rowHeight + rowHeight - 12, size: 7.5, font })
       x += widths[i]
     })
     y -= rowHeight

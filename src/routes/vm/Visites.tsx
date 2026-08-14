@@ -1,20 +1,32 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { IconCheckCircle, IconChevronRight, IconAlert, IconDownload } from '@/components/ui/icons'
+import { IconCheckCircle, IconChevronRight, IconAlert, IconDownload, IconMoon } from '@/components/ui/icons'
 import { useVisitesDuJour } from '@/features/data/useVisitesDuJour'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { supabase } from '@/lib/supabase'
 import { nowBenin, todayBenin } from '@/lib/time'
 import { ouvrirFicheJour } from '@/lib/pdf'
+import dayjs from 'dayjs'
 
 export default function Visites() {
+  const { session } = useAuth()
   const { lignes, loading } = useVisitesDuJour()
   const [exporting, setExporting] = useState(false)
+  const [cloture, setCloture] = useState<{ statut: string; heure_cloture: string | null } | null | undefined>(undefined)
   const restantes = lignes.filter((l) => l.statut_reel === 'EN_ATTENTE')
   const faites = lignes.filter((l) => l.statut_reel !== 'EN_ATTENTE')
+
+  useEffect(() => {
+    if (!session) return
+    supabase.from('clotures_journalieres').select('statut, heure_cloture')
+      .eq('vm_id', session.user.id).eq('jour', todayBenin().format('YYYY-MM-DD')).maybeSingle()
+      .then(({ data }) => setCloture(data ?? null))
+  }, [session])
 
   async function exporterFiche() {
     setExporting(true)
@@ -25,6 +37,34 @@ export default function Visites() {
     } finally {
       setExporting(false)
     }
+  }
+
+  const estCloturee = cloture?.statut === 'CLOTUREE' || cloture?.statut === 'CLOTUREE_FORCEE'
+
+  if (estCloturee) {
+    return (
+      <div className="space-y-4 mt-2 pb-4">
+        <div className="mt-6 flex flex-col items-center text-center px-4">
+          <div className="rounded-full bg-emerald-50 p-4"><IconCheckCircle className="h-10 w-10 text-emerald-600" /></div>
+          <p className="mt-4 text-lg font-bold text-ink-800 font-display">Journée déjà clôturée</p>
+          <p className="mt-1 text-sm text-ink-400 max-w-xs">
+            {cloture?.heure_cloture ? `Clôturée à ${dayjs(cloture.heure_cloture).format('HH:mm')}. ` : ''}
+            Vos résultats alimentent votre score de performance. À demain !
+          </p>
+        </div>
+
+        <Link to="/app/garde">
+          <div className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-royal-300 bg-royal-50 p-4">
+            <IconMoon className="h-5 w-5 text-royal-600 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-royal-700">Visite de garde</p>
+              <p className="text-[11px] text-royal-600/80">Client de votre portefeuille visité en heures de garde</p>
+            </div>
+            <IconChevronRight className="h-4 w-4 text-royal-500" />
+          </div>
+        </Link>
+      </div>
+    )
   }
 
   return (

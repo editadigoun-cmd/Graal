@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { IconCamera, IconCheckCircle, IconAlert } from '@/components/ui/icons'
+import { IconCamera, IconCheckCircle, IconAlert, IconMoon, IconChevronRight } from '@/components/ui/icons'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useVisitesDuJour } from '@/features/data/useVisitesDuJour'
@@ -124,11 +124,21 @@ export default function Cloture() {
 
   if (done) {
     return (
-      <div className="mt-10 flex flex-col items-center text-center">
-        <div className="rounded-full bg-emerald-50 p-4"><IconCheckCircle className="h-10 w-10 text-emerald-600" /></div>
-        <p className="mt-4 text-lg font-bold text-ink-800 font-display">Journée clôturée</p>
-        <p className="mt-1 text-sm text-ink-400">Vos résultats alimentent votre score de performance.</p>
-        <Button className="mt-6" onClick={() => navigate('/app')}>Retour à l'accueil</Button>
+      <div className="space-y-4">
+        <div className="mt-10 flex flex-col items-center text-center">
+          <div className="rounded-full bg-emerald-50 p-4"><IconCheckCircle className="h-10 w-10 text-emerald-600" /></div>
+          <p className="mt-4 text-lg font-bold text-ink-800 font-display">Journée clôturée</p>
+          <p className="mt-1 text-sm text-ink-400">Vos résultats alimentent votre score de performance.</p>
+          <Button className="mt-6" onClick={() => navigate('/app')}>Retour à l'accueil</Button>
+        </div>
+        <button onClick={() => navigate('/app/garde')} className="flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-royal-300 bg-royal-50 p-4 text-left">
+          <IconMoon className="h-5 w-5 text-royal-600 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-royal-700">Visite de garde</p>
+            <p className="text-[11px] text-royal-600/80">Client de votre portefeuille visité en heures de garde</p>
+          </div>
+          <IconChevronRight className="h-4 w-4 text-royal-500" />
+        </button>
       </div>
     )
   }

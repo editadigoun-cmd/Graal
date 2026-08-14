@@ -526,6 +526,53 @@ export type Database = {
           },
         ]
       }
+      gardes: {
+        Row: {
+          created_at: string
+          demarree_at: string
+          id: string
+          jour: string
+          photo_latitude: number | null
+          photo_longitude: number | null
+          photo_path: string | null
+          statut: Database["public"]["Enums"]["statut_garde"]
+          terminee_at: string | null
+          vm_id: string
+        }
+        Insert: {
+          created_at?: string
+          demarree_at?: string
+          id?: string
+          jour: string
+          photo_latitude?: number | null
+          photo_longitude?: number | null
+          photo_path?: string | null
+          statut?: Database["public"]["Enums"]["statut_garde"]
+          terminee_at?: string | null
+          vm_id: string
+        }
+        Update: {
+          created_at?: string
+          demarree_at?: string
+          id?: string
+          jour?: string
+          photo_latitude?: number | null
+          photo_longitude?: number | null
+          photo_path?: string | null
+          statut?: Database["public"]["Enums"]["statut_garde"]
+          terminee_at?: string | null
+          vm_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gardes_vm_id_fkey"
+            columns: ["vm_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imports_portefeuille: {
         Row: {
           created_at: string
@@ -1425,6 +1472,7 @@ export type Database = {
           client_id: string
           commande_obtenue: string | null
           created_at: string
+          garde_id: string | null
           horodatage: string
           hors_programme: boolean
           id: string
@@ -1449,6 +1497,7 @@ export type Database = {
           client_id: string
           commande_obtenue?: string | null
           created_at?: string
+          garde_id?: string | null
           horodatage?: string
           hors_programme?: boolean
           id?: string
@@ -1473,6 +1522,7 @@ export type Database = {
           client_id?: string
           commande_obtenue?: string | null
           created_at?: string
+          garde_id?: string | null
           horodatage?: string
           hors_programme?: boolean
           id?: string
@@ -1505,6 +1555,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_client_frequence"
             referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "visites_garde_id_fkey"
+            columns: ["garde_id"]
+            isOneToOne: false
+            referencedRelation: "gardes"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "visites_motif_hors_programme_id_fkey"
@@ -1701,6 +1758,14 @@ export type Database = {
         }
         Returns: Json
       }
+      terminer_garde: {
+        Args: {
+          p_photo_latitude: number
+          p_photo_longitude: number
+          p_photo_path: string
+        }
+        Returns: Json
+      }
       coord_plausible: {
         Args: { p_lat: number; p_lon: number }
         Returns: boolean
@@ -1824,6 +1889,7 @@ export type Database = {
         | "DISPENSAIRE"
         | "PHARMACIE"
       statut_cloture: "EN_ATTENTE" | "CLOTUREE" | "CLOTUREE_FORCEE"
+      statut_garde: "EN_COURS" | "TERMINEE"
       statut_programme: "BROUILLON" | "SOUMIS" | "VALIDE" | "VERROUILLE"
       statut_visite: "REALISEE" | "HORS_PROGRAMME" | "NON_FAITE"
       stock_niveau: "RUPTURE" | "FAIBLE" | "CORRECT" | "BON"
@@ -1980,6 +2046,7 @@ export const Constants = {
         "PHARMACIE",
       ],
       statut_cloture: ["EN_ATTENTE", "CLOTUREE", "CLOTUREE_FORCEE"],
+      statut_garde: ["EN_COURS", "TERMINEE"],
       statut_programme: ["BROUILLON", "SOUMIS", "VALIDE", "VERROUILLE"],
       statut_visite: ["REALISEE", "HORS_PROGRAMME", "NON_FAITE"],
       stock_niveau: ["RUPTURE", "FAIBLE", "CORRECT", "BON"],

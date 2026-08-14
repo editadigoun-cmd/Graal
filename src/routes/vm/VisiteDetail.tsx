@@ -34,7 +34,7 @@ export default function VisiteDetail() {
   return <ProgrammeForm ligneId={ligneId!} />
 }
 
-function GeoHeader() {
+export function GeoHeader() {
   const geo = useGeolocation()
   return (
     <div className="flex items-center gap-4 rounded-2xl bg-ink-50 px-4 py-2.5 text-[11px] text-ink-500">
@@ -222,7 +222,7 @@ function HorsProgrammeForm() {
   )
 }
 
-function Header({ client, onBack }: { client: Database['public']['Tables']['clients']['Row'] | null; onBack: () => void }) {
+export function Header({ client, onBack }: { client: Database['public']['Tables']['clients']['Row'] | null; onBack: () => void }) {
   return (
     <div className="flex items-center gap-2">
       <button onClick={onBack} className="rounded-full p-1.5 hover:bg-ink-100"><IconChevronLeft className="h-5 w-5" /></button>
@@ -234,11 +234,11 @@ function Header({ client, onBack }: { client: Database['public']['Tables']['clie
   )
 }
 
-const selectClass = 'w-full rounded-2xl border border-ink-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100'
-function FieldLabel({ children, className }: { children: React.ReactNode; className?: string }) {
+export const selectClass = 'w-full rounded-2xl border border-ink-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100'
+export function FieldLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return <label className={`mb-1.5 block text-xs font-semibold text-ink-500 ${className ?? ''}`}>{children}</label>
 }
-function ErrorBanner({ message }: { message: string }) {
+export function ErrorBanner({ message }: { message: string }) {
   return (
     <div className="flex items-start gap-2 rounded-xl bg-red-50 p-3 text-xs text-red-600">
       <IconAlert className="h-4 w-4 flex-shrink-0 mt-0.5" /><span>{message}</span>
@@ -246,7 +246,7 @@ function ErrorBanner({ message }: { message: string }) {
   )
 }
 
-function MedicalFields({ onSubmit, saving, hideCard }: {
+export function MedicalFields({ onSubmit, saving, hideCard }: {
   onSubmit: (fields: Record<string, unknown>, produits: string[]) => void
   saving: boolean
   hideCard?: boolean
@@ -318,7 +318,7 @@ function MedicalFields({ onSubmit, saving, hideCard }: {
   )
 }
 
-function PharmacieFields({ onSubmit, saving, hideCard }: {
+export function PharmacieFields({ onSubmit, saving, hideCard }: {
   onSubmit: (fields: Record<string, unknown>, produits: string[]) => void
   saving: boolean
   hideCard?: boolean
@@ -360,7 +360,7 @@ function PharmacieFields({ onSubmit, saving, hideCard }: {
   )
 }
 
-function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+export function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button onClick={() => onChange(!checked)} className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${checked ? 'border-royal-300 bg-royal-50 text-royal-700' : 'border-ink-200 text-ink-500'}`}>
       <span className={`flex h-4 w-4 items-center justify-center rounded-md border ${checked ? 'border-royal-600 bg-royal-600' : 'border-ink-300'}`}>
