@@ -35,14 +35,8 @@ Deno.serve(async (req) => {
     if (!valid) return new Response('invalid signature', { status: 401 })
 
     const event = JSON.parse(rawBody)
-    if (event.type !== 'recording.ready-to-download') {
-      return new Response('ignored', { status: 200 })
-    }
-
     const roomName = event.payload?.room_name as string | undefined
-    const downloadLink = (event.payload?.download_link ?? event.payload?.downloadUrl ?? event.payload?.url) as string | undefined
-    const duration = event.payload?.duration as number | undefined
-    if (!roomName || !downloadLink) return new Response('payload incomplet, ignoré', { status: 200 })
+    if (!roomName) return new Response('payload incomplet, ignoré', { status: 200 })
 
     const { data: appel } = await serviceClient
       .from('appels_programmes')
@@ -51,10 +45,22 @@ Deno.serve(async (req) => {
       .maybeSingle()
     if (!appel) return new Response('appel introuvable pour cette salle', { status: 200 })
 
-    await serviceClient.from('appel_enregistrements').insert({
-      appel_id: appel.id, url: downloadLink, duree_secondes: duration ?? null
-    })
-    await serviceClient.from('appels_programmes').update({ statut: 'TERMINE' }).eq('id', appel.id)
+    if (event.type === 'recording.ready-to-download') {
+      const downloadLink = (event.payload?.download_link ?? event.payload?.downloadUrl ?? event.payload?.url) as string | undefined
+      const duration = event.payload?.duration as number | undefined
+      if (!downloadLink) return new Response('lien manquant, ignoré', { status: 200 })
+      await serviceClient.from('appel_enregistrements').insert({
+        appel_id: appel.id, url: downloadLink, duree_secondes: duration ?? null
+      })
+      await serviceClient.from('appels_programmes').update({ statut: 'TERMINE' }).eq('id', appel.id)
+    } else if (event.type === 'meeting.ended') {
+      // Marque l'appel terminé même sans enregistrement (ex : palier Daily.co sans
+      // enregistrement cloud) — sinon "Rejoindre" resterait affiché indéfiniment.
+      await serviceClient.from('appels_programmes').update({ statut: 'TERMINE' })
+        .eq('id', appel.id).eq('statut', 'EN_COURS')
+    } else {
+      return new Response('ignored', { status: 200 })
+    }
 
     return new Response('ok', { status: 200 })
   } catch (e) {

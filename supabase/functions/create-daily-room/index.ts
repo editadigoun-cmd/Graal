@@ -38,15 +38,20 @@ Deno.serve(async (req) => {
     // null — donc pas besoin de re-vérifier l'appartenance manuellement.
     const { data: appel, error: appelError } = await userClient
       .from('appels_programmes')
-      .select('id, daily_room_url, statut')
+      .select('id, daily_room_url, statut, recording_actif')
       .eq('id', appel_id)
       .maybeSingle()
     if (appelError) return jsonError(appelError.message, 500)
     if (!appel) return jsonError("Appel introuvable ou non autorisé", 404)
     if (appel.statut === 'ANNULE') return jsonError('Cet appel a été annulé.', 400)
+    if (appel.statut === 'TERMINE') return jsonError('Cet appel est déjà terminé.', 400)
 
     if (appel.daily_room_url) {
-      return new Response(JSON.stringify({ url: appel.daily_room_url }), {
+      return new Response(JSON.stringify({
+        url: appel.daily_room_url,
+        recording_actif: appel.recording_actif,
+        ...(appel.recording_actif === false ? { avertissement: "Cet appel n'est pas enregistré (fonctionnalité indisponible sur le palier Daily.co actuel)." } : {})
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
@@ -98,7 +103,7 @@ Deno.serve(async (req) => {
 
     const { error: updateError } = await serviceClient
       .from('appels_programmes')
-      .update({ daily_room_name: room.name, daily_room_url: roomUrl, statut: 'EN_COURS' })
+      .update({ daily_room_name: room.name, daily_room_url: roomUrl, statut: 'EN_COURS', recording_actif: recordingActif })
       .eq('id', appel_id)
     if (updateError) return jsonError(updateError.message, 500)
 

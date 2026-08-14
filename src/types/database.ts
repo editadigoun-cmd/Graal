@@ -82,6 +82,7 @@ export type Database = {
           rappel_1h_envoye: boolean
           rappel_30min_envoye: boolean
           rappel_5min_envoye: boolean
+          recording_actif: boolean | null
           statut: string
           titre: string
         }
@@ -97,6 +98,7 @@ export type Database = {
           rappel_1h_envoye?: boolean
           rappel_30min_envoye?: boolean
           rappel_5min_envoye?: boolean
+          recording_actif?: boolean | null
           statut?: string
           titre: string
         }
@@ -112,6 +114,7 @@ export type Database = {
           rappel_1h_envoye?: boolean
           rappel_30min_envoye?: boolean
           rappel_5min_envoye?: boolean
+          recording_actif?: boolean | null
           statut?: string
           titre?: string
         }
