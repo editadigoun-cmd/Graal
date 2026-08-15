@@ -3,8 +3,9 @@ import { Card } from '@/components/ui/Card'
 import { Badge, PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
+import { Button } from '@/components/ui/Button'
 import { TrajetCarte, type PointTrajet } from '@/components/ui/TrajetCarte'
-import { IconMapPin, IconCheckCircle, IconClock, IconAlert, IconMoon } from '@/components/ui/icons'
+import { IconMapPin, IconCheckCircle, IconClock, IconAlert, IconMoon, IconCamera } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { todayBenin } from '@/lib/time'
@@ -44,6 +45,7 @@ export default function SuiviTerrain() {
   const [garde, setGarde] = useState<GardeRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingJour, setLoadingJour] = useState(false)
+  const [photoBusy, setPhotoBusy] = useState(false)
 
   const isAdmin = profile?.role === 'admin'
 
@@ -128,6 +130,14 @@ export default function SuiviTerrain() {
     return `https://www.google.com/maps?q=${lat},${lng}`
   }
 
+  async function voirPhotoCloture() {
+    if (!cloture?.photo_path) return
+    setPhotoBusy(true)
+    const { data, error } = await supabase.storage.from('fiches-papier').createSignedUrl(cloture.photo_path, 3600)
+    setPhotoBusy(false)
+    if (!error && data) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  }
+
   function DetailVisite({ v }: { v: Visite }) {
     const produits = v.visite_produits.map((p) => p.produits?.nom).filter(Boolean)
     return (
@@ -199,6 +209,26 @@ export default function SuiviTerrain() {
                 <StatCard label="Réalisées" value={realisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
                 <StatCard label="Non faites" value={nonFaites} tone="flame" icon={<IconAlert className="h-4 w-4" />} />
               </div>
+
+              {cloture && (
+                <Card className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-ink-800">Fiche de clôture</p>
+                    <p className="text-xs text-ink-400">
+                      {cloture.heure_cloture ? `Clôturée à ${dayjs(cloture.heure_cloture).format('HH:mm')}` : 'Clôture enregistrée'}
+                      {cloture.en_retard && ' · en retard'}
+                      {cloture.statut === 'CLOTUREE_FORCEE' && ' · clôture forcée'}
+                    </p>
+                  </div>
+                  {cloture.photo_path ? (
+                    <Button size="sm" variant="secondary" loading={photoBusy} icon={<IconCamera className="h-3.5 w-3.5" />} onClick={voirPhotoCloture}>
+                      Voir la photo
+                    </Button>
+                  ) : (
+                    <span className="text-[10px] text-ink-400 shrink-0">Sans photo</span>
+                  )}
+                </Card>
+              )}
 
               {pointsTrajet.length > 0 && (
                 <Card className="p-3">
