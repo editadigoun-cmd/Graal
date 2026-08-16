@@ -119,9 +119,9 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { email, full_name, role, secteur, equipe_id, resend } = body as {
+    const { email, full_name, role, secteur, equipe_id, zone_id, resend } = body as {
       email: string; full_name: string; role: 'vm' | 'superviseur' | 'admin'
-      secteur?: 'A' | 'B' | null; equipe_id?: string | null; resend?: boolean
+      secteur?: 'A' | 'B' | null; equipe_id?: string | null; zone_id?: string | null; resend?: boolean
     }
 
     if (!email) return json({ error: 'Email obligatoire.' }, 400)
@@ -129,8 +129,8 @@ Deno.serve(async (req) => {
       if (!full_name || !role) {
         return json({ error: 'Email, nom complet et rôle sont obligatoires.' }, 400)
       }
-      if (role === 'vm' && (!secteur || !equipe_id)) {
-        return json({ error: 'Un VM doit avoir un secteur et une équipe.' }, 400)
+      if (role === 'vm' && (!secteur || !equipe_id || !zone_id)) {
+        return json({ error: 'Un VM doit avoir un secteur, une équipe et une zone.' }, 400)
       }
     }
 
@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
       return json({ error: `Un compte existe déjà avec cet email (${existing.full_name}).` }, 409)
     }
 
-    const metadata = { full_name, role, secteur: secteur ?? null, equipe_id: equipe_id ?? null }
+    const metadata = { full_name, role, secteur: secteur ?? null, equipe_id: equipe_id ?? null, zone_id: zone_id ?? null }
 
     if (brevoKey || resendKey) {
       // Génère le lien d'invitation sans passer par le mailer intégré de Supabase, puis
