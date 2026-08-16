@@ -69,6 +69,79 @@ export type Database = {
           },
         ]
       }
+      activity_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string
+          created_at: string
+          entity_label: string | null
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string
+          created_at?: string
+          entity_label?: string | null
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string
+          created_at?: string
+          entity_label?: string | null
+          entity_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appel_enregistrements: {
+        Row: {
+          appel_id: string
+          created_at: string
+          daily_recording_id: string | null
+          duree_secondes: number | null
+          id: string
+          url: string
+        }
+        Insert: {
+          appel_id: string
+          created_at?: string
+          daily_recording_id?: string | null
+          duree_secondes?: number | null
+          id?: string
+          url: string
+        }
+        Update: {
+          appel_id?: string
+          created_at?: string
+          daily_recording_id?: string | null
+          duree_secondes?: number | null
+          id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appel_enregistrements_appel_id_fkey"
+            columns: ["appel_id"]
+            isOneToOne: false
+            referencedRelation: "appels_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appels_programmes: {
         Row: {
           conversation_id: string
@@ -129,79 +202,6 @@ export type Database = {
           {
             foreignKeyName: "appels_programmes_programme_par_fkey"
             columns: ["programme_par"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      appel_enregistrements: {
-        Row: {
-          appel_id: string
-          created_at: string
-          daily_recording_id: string | null
-          duree_secondes: number | null
-          id: string
-          url: string
-        }
-        Insert: {
-          appel_id: string
-          created_at?: string
-          daily_recording_id?: string | null
-          duree_secondes?: number | null
-          id?: string
-          url: string
-        }
-        Update: {
-          appel_id?: string
-          created_at?: string
-          daily_recording_id?: string | null
-          duree_secondes?: number | null
-          id?: string
-          url?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "appel_enregistrements_appel_id_fkey"
-            columns: ["appel_id"]
-            isOneToOne: false
-            referencedRelation: "appels_programmes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      activity_log: {
-        Row: {
-          action: string
-          actor_id: string | null
-          actor_name: string
-          created_at: string
-          entity_label: string | null
-          entity_type: string
-          id: string
-        }
-        Insert: {
-          action: string
-          actor_id?: string | null
-          actor_name?: string
-          created_at?: string
-          entity_label?: string | null
-          entity_type: string
-          id?: string
-        }
-        Update: {
-          action?: string
-          actor_id?: string | null
-          actor_name?: string
-          created_at?: string
-          entity_label?: string | null
-          entity_type?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "activity_log_actor_id_fkey"
-            columns: ["actor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -971,6 +971,7 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           secteur: Database["public"]["Enums"]["secteur_code"] | null
           updated_at: string
+          zone_id: string | null
         }
         Insert: {
           actif?: boolean
@@ -984,6 +985,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           secteur?: Database["public"]["Enums"]["secteur_code"] | null
           updated_at?: string
+          zone_id?: string | null
         }
         Update: {
           actif?: boolean
@@ -997,6 +999,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           secteur?: Database["public"]["Enums"]["secteur_code"] | null
           updated_at?: string
+          zone_id?: string | null
         }
         Relationships: [
           {
@@ -1004,6 +1007,13 @@ export type Database = {
             columns: ["equipe_id"]
             isOneToOne: false
             referencedRelation: "equipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
             referencedColumns: ["id"]
           },
         ]
@@ -1593,6 +1603,27 @@ export type Database = {
           },
         ]
       }
+      zones: {
+        Row: {
+          actif: boolean
+          created_at: string
+          id: string
+          nom: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          nom: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          nom?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       v_client_frequence: {
@@ -1736,6 +1767,14 @@ export type Database = {
       }
     }
     Functions: {
+      __get_daily_config: {
+        Args: never
+        Returns: {
+          api_key: string
+          domain: string
+          webhook_secret: string
+        }[]
+      }
       __get_push_config: {
         Args: never
         Returns: {
@@ -1744,6 +1783,10 @@ export type Database = {
           trigger_secret: string
         }[]
       }
+      accorder_delai_supplementaire_programme: {
+        Args: { p_nouvelle_limite: string; p_programme_id: string }
+        Returns: undefined
+      }
       benin_now: { Args: never; Returns: string }
       benin_today: { Args: never; Returns: string }
       cible_pour_specialite: {
@@ -1751,14 +1794,6 @@ export type Database = {
         Returns: string
       }
       cloturer_journee: {
-        Args: {
-          p_photo_latitude: number
-          p_photo_longitude: number
-          p_photo_path: string
-        }
-        Returns: Json
-      }
-      terminer_garde: {
         Args: {
           p_photo_latitude: number
           p_photo_longitude: number
@@ -1779,10 +1814,6 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["secteur_code"]
       }
-      accorder_delai_supplementaire_programme: {
-        Args: { p_nouvelle_limite: string; p_programme_id: string }
-        Returns: undefined
-      }
       default_frequence: {
         Args: { p: Database["public"]["Enums"]["potentiel_client"] }
         Returns: number
@@ -1799,6 +1830,7 @@ export type Database = {
         Args: { p_actif: boolean; p_programme_id: string }
         Returns: undefined
       }
+      envoyer_rappels_appels: { Args: never; Returns: undefined }
       forcer_clotures_du_jour: { Args: never; Returns: undefined }
       fusion_active: {
         Args: {
@@ -1809,6 +1841,10 @@ export type Database = {
       }
       get_parametre: { Args: { p_key: string }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
+      is_conversation_participant: {
+        Args: { p_conversation_id: string }
+        Returns: boolean
+      }
       is_superviseur: { Args: never; Returns: boolean }
       is_vm_in_my_scope: { Args: { target_vm: string }; Returns: boolean }
       jour_offset: {
@@ -1867,10 +1903,19 @@ export type Database = {
         Returns: Json
       }
       supervised_equipe_ids: { Args: never; Returns: string[] }
+      terminer_garde: {
+        Args: {
+          p_photo_latitude: number
+          p_photo_longitude: number
+          p_photo_path: string
+        }
+        Returns: Json
+      }
       valider_programme_hebdomadaire: {
         Args: { p_programme_id: string }
         Returns: undefined
       }
+      verifier_enregistrements_appels: { Args: never; Returns: undefined }
       verrouiller_programmes_semaine: { Args: never; Returns: undefined }
     }
     Enums: {
