@@ -337,7 +337,9 @@ export default function Conversation() {
     if (!texte.trim() || !session || !conversationId) return
     const contenu = texte
     setTexte('')
-    await supabase.from('messages').insert({ conversation_id: conversationId, sender_id: session.user.id, contenu, type: 'text' })
+    setErreur(null)
+    const { error } = await supabase.from('messages').insert({ conversation_id: conversationId, sender_id: session.user.id, contenu, type: 'text' })
+    if (error) { setErreur(error.message); setTexte(contenu) }
   }
 
   async function envoyerFichier(file: File) {

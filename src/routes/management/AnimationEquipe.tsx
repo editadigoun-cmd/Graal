@@ -37,6 +37,7 @@ export default function ManagementAnimationEquipe() {
   const [vmId, setVmId] = useState('')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
 
   const isAdmin = profile?.role === 'admin'
 
@@ -75,16 +76,16 @@ export default function ManagementAnimationEquipe() {
     if (!profile || !equipeId) return
     if (besoinVm && !vmId) return
     setSaving(true)
+    setErreur(null)
     const { error } = await supabase.from('activites_animation').insert({
       superviseur_id: profile.id, equipe_id: equipeId, vm_id: besoinVm ? vmId : null,
       type, notes: notes || null
     })
     setSaving(false)
-    if (!error) {
-      setNotes('')
-      setVmId('')
-      load()
-    }
+    if (error) { setErreur(error.message); return }
+    setNotes('')
+    setVmId('')
+    load()
   }
 
   if (loading) return <div className="space-y-3"><Skeleton className="h-64" /><Skeleton className="h-40" /></div>
@@ -131,9 +132,12 @@ export default function ManagementAnimationEquipe() {
                 className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
             </div>
           </div>
-          <Button className="mt-4" size="sm" loading={saving} disabled={besoinVm && !vmId} onClick={enregistrer}>
-            Enregistrer
-          </Button>
+          <div className="mt-4 flex items-center gap-3">
+            <Button size="sm" loading={saving} disabled={besoinVm && !vmId} onClick={enregistrer}>
+              Enregistrer
+            </Button>
+            {erreur && <p className="text-xs font-semibold text-red-600">{erreur}</p>}
+          </div>
         </Card>
       )}
 

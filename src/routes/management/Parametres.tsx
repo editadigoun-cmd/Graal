@@ -69,6 +69,7 @@ export default function ManagementParametres() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState(GROUPS[0].title)
 
   useEffect(() => {
@@ -80,7 +81,8 @@ export default function ManagementParametres() {
 
   async function sauvegarderGroupe(group: Group) {
     setSaving(group.title)
-    await Promise.all(
+    setSaveError(null)
+    const resultats = await Promise.all(
       group.fields.map(({ key }) => {
         const raw = valeurs[key] ?? ''
         const isNumeric = !Number.isNaN(Number(raw)) && raw.trim() !== ''
@@ -89,6 +91,8 @@ export default function ManagementParametres() {
       })
     )
     setSaving(null)
+    const erreur = resultats.find((r) => r.error)?.error
+    if (erreur) { setSaveError(erreur.message); return }
     setSaved(group.title)
     setTimeout(() => setSaved(null), 2000)
   }
@@ -165,6 +169,7 @@ export default function ManagementParametres() {
             >
               {saved === group.title ? 'Enregistré' : 'Enregistrer cette section'}
             </Button>
+            {saveError && <p className="text-xs font-semibold text-red-600">{saveError}</p>}
           </div>
         </Card>
       </div>

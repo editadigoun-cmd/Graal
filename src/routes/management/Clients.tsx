@@ -178,7 +178,8 @@ export default function ManagementClients() {
   }
 
   async function toggleActif(c: Client) {
-    await supabase.from('clients').update({ actif: !c.actif }).eq('id', c.id)
+    const { error } = await supabase.from('clients').update({ actif: !c.actif }).eq('id', c.id)
+    if (error) setBulkMsg({ type: 'error', text: error.message })
     load()
   }
 

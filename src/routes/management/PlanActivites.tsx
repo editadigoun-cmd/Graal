@@ -69,10 +69,12 @@ export default function ManagementPlanActivites() {
     setSaving(true)
     setNotice(null)
     const existant = plans.find((p) => p.equipe_id === equipeId && p.mois === mois)
-    const payload = { equipe_id: equipeId, superviseur_id: profile.id, mois, contenu: { texte } }
-    const { error } = existant
-      ? await supabase.from('plans_activites_mensuels').update(payload).eq('id', existant.id)
-      : await supabase.from('plans_activites_mensuels').insert(payload)
+    const payload: Database['public']['Tables']['plans_activites_mensuels']['Insert'] = {
+      id: existant?.id, equipe_id: equipeId, superviseur_id: profile.id, mois, contenu: { texte }
+    }
+    // upsert plutôt que select-puis-insert/update : deux superviseurs (ou deux onglets) soumettant
+    // en même temps pour la même équipe/mois ne se heurtent alors plus à la contrainte unique.
+    const { error } = await supabase.from('plans_activites_mensuels').upsert(payload, { onConflict: 'equipe_id,mois' })
     setSaving(false)
     if (error) setNotice({ type: 'error', text: error.message })
     else {

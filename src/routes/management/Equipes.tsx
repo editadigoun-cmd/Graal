@@ -71,28 +71,33 @@ export default function ManagementEquipes() {
   }
 
   async function changerZone(profileId: string, zoneId: string) {
-    await supabase.from('profiles').update({ zone_id: zoneId || null }).eq('id', profileId)
+    const { error } = await supabase.from('profiles').update({ zone_id: zoneId || null }).eq('id', profileId)
+    if (error) setNotice({ type: 'error', text: error.message })
     load()
   }
 
   async function assignerEquipe(superviseurId: string, equipeId: string) {
     if (!equipeId) return
-    await supabase.from('superviseur_equipes').insert({ superviseur_id: superviseurId, equipe_id: equipeId })
+    const { error } = await supabase.from('superviseur_equipes').insert({ superviseur_id: superviseurId, equipe_id: equipeId })
+    if (error) setNotice({ type: 'error', text: error.message })
     load()
   }
 
   async function retirerEquipe(superviseurId: string, equipeId: string) {
-    await supabase.from('superviseur_equipes').delete().eq('superviseur_id', superviseurId).eq('equipe_id', equipeId)
+    const { error } = await supabase.from('superviseur_equipes').delete().eq('superviseur_id', superviseurId).eq('equipe_id', equipeId)
+    if (error) setNotice({ type: 'error', text: error.message })
     load()
   }
 
   async function changerEquipe(profileId: string, equipeId: string) {
-    await supabase.from('profiles').update({ equipe_id: equipeId || null }).eq('id', profileId)
+    const { error } = await supabase.from('profiles').update({ equipe_id: equipeId || null }).eq('id', profileId)
+    if (error) setNotice({ type: 'error', text: error.message })
     load()
   }
 
   async function changerSecteur(profileId: string, secteur: string) {
-    await supabase.from('profiles').update({ secteur: (secteur || null) as 'A' | 'B' | null }).eq('id', profileId)
+    const { error } = await supabase.from('profiles').update({ secteur: (secteur || null) as 'A' | 'B' | null }).eq('id', profileId)
+    if (error) setNotice({ type: 'error', text: error.message })
     load()
   }
 
@@ -347,27 +352,38 @@ export default function ManagementEquipes() {
                           <span className="text-xs text-ink-600">{p.equipe_id ? equipeNomById[p.equipe_id] ?? '—' : '—'}</span>
                         )
                       ) : p.role === 'superviseur' ? (
-                        <div className="flex flex-wrap items-center gap-1.5 max-w-[220px]">
-                          {superviseurEquipes.filter((se) => se.superviseur_id === p.id).map((se) => (
-                            <button
-                              key={se.equipe_id}
-                              onClick={() => retirerEquipe(p.id, se.equipe_id)}
-                              title="Retirer cette équipe"
-                              className="inline-flex items-center gap-1 rounded-full bg-royal-50 px-2 py-0.5 text-[10px] font-semibold text-royal-700 hover:bg-red-50 hover:text-red-600 transition"
+                        isAdmin ? (
+                          <div className="flex flex-wrap items-center gap-1.5 max-w-[220px]">
+                            {superviseurEquipes.filter((se) => se.superviseur_id === p.id).map((se) => (
+                              <button
+                                key={se.equipe_id}
+                                onClick={() => retirerEquipe(p.id, se.equipe_id)}
+                                title="Retirer cette équipe"
+                                className="inline-flex items-center gap-1 rounded-full bg-royal-50 px-2 py-0.5 text-[10px] font-semibold text-royal-700 hover:bg-red-50 hover:text-red-600 transition"
+                              >
+                                {equipeNomById[se.equipe_id]} <IconX className="h-2.5 w-2.5" />
+                              </button>
+                            ))}
+                            <select
+                              value="" onChange={(e) => assignerEquipe(p.id, e.target.value)}
+                              className="rounded-lg border border-ink-200 bg-white px-1.5 py-0.5 text-[10px]"
                             >
-                              {equipeNomById[se.equipe_id]} <IconX className="h-2.5 w-2.5" />
-                            </button>
-                          ))}
-                          <select
-                            value="" onChange={(e) => assignerEquipe(p.id, e.target.value)}
-                            className="rounded-lg border border-ink-200 bg-white px-1.5 py-0.5 text-[10px]"
-                          >
-                            <option value="">+ ajouter…</option>
-                            {equipes
-                              .filter((e2) => !superviseurEquipes.some((se) => se.superviseur_id === p.id && se.equipe_id === e2.id))
-                              .map((e2) => <option key={e2.id} value={e2.id}>{e2.nom}</option>)}
-                          </select>
-                        </div>
+                              <option value="">+ ajouter…</option>
+                              {equipes
+                                .filter((e2) => !superviseurEquipes.some((se) => se.superviseur_id === p.id && se.equipe_id === e2.id))
+                                .map((e2) => <option key={e2.id} value={e2.id}>{e2.nom}</option>)}
+                            </select>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-1.5 max-w-[220px]">
+                            {superviseurEquipes.filter((se) => se.superviseur_id === p.id).map((se) => (
+                              <span key={se.equipe_id} className="inline-flex items-center rounded-full bg-royal-50 px-2 py-0.5 text-[10px] font-semibold text-royal-700">
+                                {equipeNomById[se.equipe_id]}
+                              </span>
+                            ))}
+                            {superviseurEquipes.filter((se) => se.superviseur_id === p.id).length === 0 && <span className="text-xs text-ink-400">—</span>}
+                          </div>
+                        )
                       ) : (
                         <span className="text-xs text-ink-400">—</span>
                       )}
