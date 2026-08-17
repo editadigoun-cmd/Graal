@@ -36,11 +36,26 @@ export function usePlanning() {
       const { data: created, error: createError } = await supabase
         .from('programmes_hebdomadaires').insert({ vm_id: vmId, semaine_debut: semaineDebut }).select('*').single()
       if (createError) {
-        setError(createError.message)
-        setLoading(false)
-        return
+        if (createError.code === '23505') {
+          // Course concurrente (ex. rechargement de session ou deux onglets) : un autre appel a
+          // déjà créé la ligne entre le SELECT et l'INSERT — on la relit simplement.
+          const { data: existing, error: refetchError } = await supabase
+            .from('programmes_hebdomadaires').select('*')
+            .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).single()
+          if (refetchError) {
+            setError(refetchError.message)
+            setLoading(false)
+            return
+          }
+          prog = existing
+        } else {
+          setError(createError.message)
+          setLoading(false)
+          return
+        }
+      } else {
+        prog = created
       }
-      prog = created
     }
     setProgramme(prog)
 
