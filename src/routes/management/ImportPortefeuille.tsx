@@ -7,10 +7,15 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { normalizeText } from '@/lib/text'
 import { parseCsv } from '@/lib/csv'
+import type { Database } from '@/types/database'
 
-const SPECIALITES = ['GENERALISTE', 'GYNECOLOGUE', 'PEDIATRE', 'CARDIOLOGUE', 'RHUMATOLOGUE', 'ORL', 'AUTRE_SPECIALITE', 'MATERNITE', 'DISPENSAIRE', 'PHARMACIE']
-const POTENTIELS = ['GROS', 'MOYEN', 'FAIBLE']
-const SECTEURS = ['A', 'B']
+type Specialite = Database['public']['Enums']['specialite_client']
+type Potentiel = Database['public']['Enums']['potentiel_client']
+type Secteur = Database['public']['Enums']['secteur_code']
+
+const SPECIALITES: string[] = ['GENERALISTE', 'GYNECOLOGUE', 'PEDIATRE', 'CARDIOLOGUE', 'RHUMATOLOGUE', 'ORL', 'AUTRE_SPECIALITE', 'MATERNITE', 'DISPENSAIRE', 'PHARMACIE'] satisfies Specialite[]
+const POTENTIELS: string[] = ['GROS', 'MOYEN', 'FAIBLE'] satisfies Potentiel[]
+const SECTEURS: string[] = ['A', 'B'] satisfies Secteur[]
 
 // Le fichier peut contenir soit le code (GENERALISTE), soit le libellé français avec
 // accents (Généraliste) : les deux doivent être acceptés, insensibles à la casse/accents.
@@ -137,8 +142,8 @@ export default function ManagementImportPortefeuille() {
 
     for (const l of valides) {
       const { data: client, error } = await supabase.from('clients').insert({
-        nom: l.nom, centre: l.centre || null, specialite: l.specialite as any, potentiel: l.potentiel as any,
-        categorie: l.categorie || null, secteur: l.secteur as any, jour_heure_habituel: l.jour_heure || null,
+        nom: l.nom, centre: l.centre || null, specialite: l.specialite as Specialite, potentiel: l.potentiel as Potentiel,
+        categorie: l.categorie || null, secteur: l.secteur as Secteur, jour_heure_habituel: l.jour_heure || null,
         contacts: l.contacts || null, observations: l.observations || null,
         frequence_visite_mensuelle: l.frequence ? Number(l.frequence) : undefined
       }).select('id').single()

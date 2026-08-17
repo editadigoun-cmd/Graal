@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import clsx from 'clsx'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Avatar } from '@/components/ui/Avatar'
-import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser, IconClipboard, IconStethoscope, IconDownload, IconMapPin, IconPill, IconTrendingUp, IconMenu, IconX } from '@/components/ui/icons'
+import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser, IconClipboard, IconStethoscope, IconDownload, IconMapPin, IconPill, IconTrendingUp, IconBarChart, IconMenu, IconX } from '@/components/ui/icons'
 import logoFull from '@/assets/logo-full.svg'
 import logoMark from '@/assets/logo-mark.svg'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
@@ -14,7 +14,7 @@ const nav = [
   { to: '/admin/programmes', label: 'Programmes', icon: IconCalendar, end: false, adminOnly: false },
   { to: '/admin/messages', label: 'Messages', icon: IconChat, end: false, adminOnly: false },
   { to: '/admin/suivi-terrain', label: 'Suivi terrain', icon: IconMapPin, end: false, adminOnly: false },
-  { to: '/admin/reporting', label: 'Reporting', icon: IconChat, end: false, adminOnly: false },
+  { to: '/admin/reporting', label: 'Reporting', icon: IconBarChart, end: false, adminOnly: false },
   { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers, end: false, adminOnly: false },
   { to: '/admin/clients', label: 'Clients', icon: IconMapPin, end: false, adminOnly: true },
   { to: '/admin/produits', label: 'Produits', icon: IconPill, end: false, adminOnly: true },

@@ -58,7 +58,7 @@ export default function Garde() {
     if (g) {
       const { data: v } = await supabase.from('visites').select('*, clients(nom, centre, potentiel)')
         .eq('garde_id', g.id).order('horodatage', { ascending: false })
-      setVisites((v as any) ?? [])
+      setVisites((v as unknown as VisiteAvecClient[]) ?? [])
     } else {
       setVisites([])
     }

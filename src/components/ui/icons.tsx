@@ -141,3 +141,6 @@ export const IconMoon = (p: IconProps) => (
 export const IconPictureInPicture = (p: IconProps) => (
   <svg {...base} {...p}><rect x="3" y="4.5" width="18" height="15" rx="2" /><rect x="12" y="12" width="7" height="5" rx="1.2" fill="currentColor" stroke="none" /></svg>
 )
+export const IconBarChart = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M4 20V10M10 20V4M16 20v-7M21 20H3" /></svg>
+)

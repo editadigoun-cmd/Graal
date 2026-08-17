@@ -1,16 +1,15 @@
 import { Link } from 'react-router-dom'
 import { Avatar } from './Avatar'
-import { IconBell, IconSearch } from './icons'
+import { IconBell } from './icons'
 import { nowBenin } from '@/lib/time'
 
 interface TopBarProps {
   name: string
   avatarUrl?: string | null
   notificationsCount?: number
-  onSearchClick?: () => void
 }
 
-export function TopBar({ name, avatarUrl, notificationsCount = 0, onSearchClick }: TopBarProps) {
+export function TopBar({ name, avatarUrl, notificationsCount = 0 }: TopBarProps) {
   const hour = nowBenin().hour()
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir'
   const firstName = name.split(' ')[0]
@@ -25,12 +24,6 @@ export function TopBar({ name, avatarUrl, notificationsCount = 0, onSearchClick 
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <button
-          onClick={onSearchClick}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/70 text-ink-500 shadow-softer backdrop-blur active:scale-95 transition"
-        >
-          <IconSearch className="h-5 w-5" />
-        </button>
         <Link
           to="/app/notifications"
           className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/70 text-ink-500 shadow-softer backdrop-blur active:scale-95 transition"
