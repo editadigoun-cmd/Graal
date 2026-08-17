@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import clsx from 'clsx'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Avatar } from '@/components/ui/Avatar'
-import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser, IconClipboard, IconStethoscope, IconDownload, IconMapPin, IconPill, IconTrendingUp, IconBarChart, IconMenu, IconX } from '@/components/ui/icons'
+import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser, IconClipboard, IconStethoscope, IconMapPin, IconPill, IconTrendingUp, IconBarChart, IconMenu, IconX } from '@/components/ui/icons'
 import logoFull from '@/assets/logo-full.svg'
 import logoMark from '@/assets/logo-mark.svg'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
@@ -22,7 +22,6 @@ const nav = [
   { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconStethoscope, end: false, adminOnly: false },
   { to: '/admin/animation-equipe', label: 'Animation d\'équipe', icon: IconTrendingUp, end: false, adminOnly: false },
   { to: '/admin/indicateurs-animation', label: "Indicateurs d'animation", icon: IconTrendingUp, end: false, adminOnly: true },
-  { to: '/admin/import-portefeuille', label: 'Import portefeuille', icon: IconDownload, end: false, adminOnly: true },
   { to: '/admin/activite', label: 'Activité', icon: IconActivity, end: false, adminOnly: false },
   { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings, end: false, adminOnly: true },
   { to: '/admin/profil', label: 'Mon profil', icon: IconUser, end: false, adminOnly: false }

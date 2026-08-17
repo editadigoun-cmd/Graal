@@ -64,7 +64,11 @@ function autoDetecter(header: string[]): Mapping {
   return mapping
 }
 
-export default function ManagementImportPortefeuille() {
+interface ImportPortefeuilleAssistantProps {
+  onImported: () => void
+}
+
+export default function ImportPortefeuilleAssistant({ onImported }: ImportPortefeuilleAssistantProps) {
   const { profile } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const [etape, setEtape] = useState<'upload' | 'mappage' | 'apercu'>('upload')
@@ -173,6 +177,7 @@ export default function ManagementImportPortefeuille() {
       text: `${inserts} client(s) importé(s) sur ${lignes.length} ligne(s).${erreursExec.length > 0 ? ` ${erreursExec.length} erreur(s) : ${erreursExec.slice(0, 3).join(' · ')}${erreursExec.length > 3 ? '…' : ''}` : ''}`
     })
     recommencer()
+    if (inserts > 0) onImported()
   }
 
   const valides = lignes.filter((l) => l.erreurs.length === 0).length
@@ -181,11 +186,6 @@ export default function ManagementImportPortefeuille() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-ink-800 font-display">Import du portefeuille clients</h1>
-        <p className="text-sm text-ink-400">Chargement initial ou mise à jour périodique depuis un fichier CSV</p>
-      </div>
-
       {etape === 'upload' && (
         <Card>
           <div className="flex items-start gap-2 mb-4">

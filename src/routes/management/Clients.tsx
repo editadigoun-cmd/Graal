@@ -5,8 +5,9 @@ import { Modal } from '@/components/ui/Modal'
 import { Badge, PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { IconPlus, IconUsers, IconSearch, IconLock, IconCheckCircle, IconCheck, IconX } from '@/components/ui/icons'
+import { IconPlus, IconUsers, IconSearch, IconLock, IconCheckCircle, IconCheck, IconX, IconDownload } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
+import ImportPortefeuilleAssistant from '@/routes/management/ImportPortefeuille'
 import type { Database } from '@/types/database'
 
 type Client = Database['public']['Tables']['clients']['Row']
@@ -32,6 +33,7 @@ export default function ManagementClients() {
   const [vms, setVms] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -195,7 +197,10 @@ export default function ManagementClients() {
           <h1 className="text-xl font-bold text-ink-800 font-display">Portefeuille clients</h1>
           <p className="text-sm text-ink-400">Ajout, modification et affectation des clients aux visiteurs médicaux</p>
         </div>
-        <Button size="sm" icon={<IconPlus className="h-4 w-4" />} onClick={ouvrirAjout}>Ajouter un client</Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="secondary" icon={<IconDownload className="h-4 w-4" />} onClick={() => setImportOpen(true)}>Importer</Button>
+          <Button size="sm" icon={<IconPlus className="h-4 w-4" />} onClick={ouvrirAjout}>Ajouter un client</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -472,6 +477,15 @@ export default function ManagementClients() {
             <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Annuler</Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={importOpen} onClose={() => setImportOpen(false)}
+        title="Importer le portefeuille clients"
+        description="Chargement initial ou mise à jour périodique depuis un fichier CSV, en 3 étapes : import, mappage des colonnes puis vérification."
+        maxWidth="max-w-3xl"
+      >
+        <ImportPortefeuilleAssistant onImported={load} />
       </Modal>
     </div>
   )
