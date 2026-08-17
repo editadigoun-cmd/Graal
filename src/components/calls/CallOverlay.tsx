@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import type { MutableRefObject } from 'react'
 import Daily from '@daily-co/daily-js'
 import type { DailyCall, DailyParticipant, DailyEventObjectAppMessage } from '@daily-co/daily-js'
 import {
-  IconMic, IconMicOff, IconPhoneOff, IconVideo, IconVideoOff, IconScreenShare, IconChat, IconSend, IconX
+  IconMic, IconMicOff, IconPhoneOff, IconVideo, IconVideoOff, IconScreenShare, IconChat, IconSend, IconX,
+  IconPictureInPicture
 } from '@/components/ui/icons'
 
 interface ParticipantInfo {
@@ -34,16 +36,33 @@ function formatDuree(s: number) {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
-function VideoTile({ track, mirror, className }: { track: MediaStreamTrack | null; mirror?: boolean; className?: string }) {
-  const ref = useRef<HTMLVideoElement>(null)
+interface VideoTileProps {
+  track: MediaStreamTrack | null
+  mirror?: boolean
+  className?: string
+  // Expose l'élément <video> au parent (pour déclencher le Picture-in-Picture dessus) et/ou
+  // demande au navigateur de basculer automatiquement en PIP quand l'onglet passe en arrière-plan.
+  videoRef?: MutableRefObject<HTMLVideoElement | null>
+  autoPip?: boolean
+}
+
+function VideoTile({ track, mirror, className, videoRef, autoPip }: VideoTileProps) {
+  const ref = useRef<HTMLVideoElement | null>(null)
   useEffect(() => {
     const el = ref.current
     if (!el) return
     el.srcObject = track ? new MediaStream([track]) : null
   }, [track])
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (autoPip) el.setAttribute('autopictureinpicture', '')
+    else el.removeAttribute('autopictureinpicture')
+  }, [autoPip])
   return (
     <video
-      ref={ref} autoPlay playsInline muted
+      ref={(el) => { ref.current = el; if (videoRef) videoRef.current = el }}
+      autoPlay playsInline muted
       className={`${className ?? ''} ${mirror ? 'scale-x-[-1]' : ''} bg-ink-900 object-cover`}
     />
   )
@@ -67,6 +86,7 @@ export function CallOverlay({ roomUrl, userName, onLeave }: CallOverlayProps) {
   const [erreur, setErreur] = useState<string | null>(null)
   const [duree, setDuree] = useState(0)
   const chatFinRef = useRef<HTMLDivElement>(null)
+  const pipVideoRef = useRef<HTMLVideoElement | null>(null)
 
   useEffect(() => {
     const call = Daily.createCallObject()
@@ -149,6 +169,45 @@ export function CallOverlay({ roomUrl, userName, onLeave }: CallOverlayProps) {
 
   useEffect(() => { chatFinRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages.length])
 
+  // Media Session : signale au système que l'appel est un média "actif" (comme une lecture
+  // audio), ce qui pousse les navigateurs mobiles à ne pas suspendre l'onglet quand l'app passe
+  // en arrière-plan, et affiche des contrôles d'appel (raccrocher, micro, caméra) sur l'écran
+  // verrouillé / dans les notifications système. Toutes les actions sont optionnelles côté
+  // navigateur : on ignore silencieusement celles qui ne sont pas supportées.
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    const ms = navigator.mediaSession
+    if (statut === 'connecte') {
+      ms.metadata = new MediaMetadata({ title: 'Appel GRAAL en cours', artist: userName })
+      ms.playbackState = 'playing'
+    }
+    // 'hangup' / 'togglemicrophone' / 'togglecamera' sont des actions dédiées aux applis
+    // d'appel, absentes du type MediaSessionAction du lib.dom.d.ts installé — on force donc
+    // le typage plutôt que d'élargir le type public de setActionHandler.
+    const handlers: [string, MediaSessionActionHandler][] = [
+      ['hangup', () => raccrocher()],
+      ['togglemicrophone', () => toggleMic()],
+      ['togglecamera', () => toggleCamera()]
+    ]
+    for (const [action, handler] of handlers) {
+      try { ms.setActionHandler(action as MediaSessionAction, handler) } catch { /* action non supportée par ce navigateur */ }
+    }
+    return () => {
+      for (const [action] of handlers) {
+        try { ms.setActionHandler(action as MediaSessionAction, null) } catch { /* ignore */ }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statut, micMuted, camOn])
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    return () => {
+      navigator.mediaSession.playbackState = 'none'
+      navigator.mediaSession.metadata = null
+    }
+  }, [])
+
   function toggleMic() {
     const call = callRef.current
     if (!call) return
@@ -196,9 +255,24 @@ export function CallOverlay({ roomUrl, userName, onLeave }: CallOverlayProps) {
     onLeave()
   }
 
+  // Bascule la vidéo affichée (partage d'écran, sinon le premier participant distant avec
+  // caméra) en Picture-in-Picture, pour qu'elle reste visible même en changeant d'app.
+  async function togglePip() {
+    const el = pipVideoRef.current
+    if (!el) return
+    try {
+      if (document.pictureInPictureElement) await document.exitPictureInPicture()
+      else if (document.pictureInPictureEnabled) await el.requestPictureInPicture()
+    } catch { /* PIP refusé ou non supporté : on ignore silencieusement */ }
+  }
+
   const partageDistant = participants.find((p) => !p.local && p.screenTrack)
   const monPartage = participants.find((p) => p.local && p.screenTrack)
   const ecranActif = partageDistant?.screenTrack ?? monPartage?.screenTrack ?? null
+  const pipParticipant = !ecranActif
+    ? participants.find((p) => !p.local && p.videoTrack) ?? participants.find((p) => p.videoTrack) ?? null
+    : null
+  const pipDisponible = typeof document !== 'undefined' && document.pictureInPictureEnabled && (!!ecranActif || !!pipParticipant)
 
   return (
     <div className="fixed inset-0 z-[70] flex bg-gradient-to-b from-royal-900 via-royal-800 to-ink-900 text-white">
@@ -218,7 +292,7 @@ export function CallOverlay({ roomUrl, userName, onLeave }: CallOverlayProps) {
           {ecranActif ? (
             <div className="flex h-full w-full flex-col gap-3">
               <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10">
-                <VideoTile track={ecranActif} className="h-full w-full" />
+                <VideoTile track={ecranActif} className="h-full w-full" videoRef={pipVideoRef} autoPip />
               </div>
               <div className="flex flex-shrink-0 gap-2 overflow-x-auto pb-1">
                 {participants.map((p) => (
@@ -229,7 +303,11 @@ export function CallOverlay({ roomUrl, userName, onLeave }: CallOverlayProps) {
           ) : (
             <div className="grid w-full max-w-3xl auto-rows-fr grid-cols-2 gap-3 sm:grid-cols-3">
               {participants.map((p) => (
-                <ParticipantTuile key={p.id} p={p} taille="grande" />
+                <ParticipantTuile
+                  key={p.id} p={p} taille="grande"
+                  videoRef={pipParticipant?.id === p.id ? pipVideoRef : undefined}
+                  autoPip={pipParticipant?.id === p.id}
+                />
               ))}
               {participants.length === 0 && statut === 'connexion' && (
                 <p className="col-span-full text-center text-sm text-white/50">Connexion à la salle d'appel…</p>
@@ -260,6 +338,16 @@ export function CallOverlay({ roomUrl, userName, onLeave }: CallOverlayProps) {
           >
             <IconScreenShare className="h-5 w-5" />
           </button>
+          {pipDisponible && (
+            <button
+              onClick={togglePip}
+              title="Garder la vidéo visible en changeant d'app"
+              className="flex items-center justify-center rounded-full bg-white/15 text-white transition active:scale-95"
+              style={{ height: 52, width: 52 }}
+            >
+              <IconPictureInPicture className="h-5 w-5" />
+            </button>
+          )}
           <button
             onClick={ouvrirChat}
             className="relative flex items-center justify-center rounded-full bg-white/15 text-white transition active:scale-95"
@@ -318,12 +406,19 @@ export function CallOverlay({ roomUrl, userName, onLeave }: CallOverlayProps) {
   )
 }
 
-function ParticipantTuile({ p, taille }: { p: ParticipantInfo; taille: 'petite' | 'grande' }) {
+interface ParticipantTuileProps {
+  p: ParticipantInfo
+  taille: 'petite' | 'grande'
+  videoRef?: MutableRefObject<HTMLVideoElement | null>
+  autoPip?: boolean
+}
+
+function ParticipantTuile({ p, taille, videoRef, autoPip }: ParticipantTuileProps) {
   const dims = taille === 'petite' ? 'h-20 w-28' : 'aspect-square w-full'
   return (
     <div className={`relative flex flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/5 ${dims}`}>
       {p.videoTrack ? (
-        <VideoTile track={p.videoTrack} mirror={p.local} className="h-full w-full" />
+        <VideoTile track={p.videoTrack} mirror={p.local} className="h-full w-full" videoRef={videoRef} autoPip={autoPip} />
       ) : (
         <div className={`flex items-center justify-center rounded-full bg-white/10 font-bold ${taille === 'petite' ? 'h-9 w-9 text-sm' : 'h-16 w-16 text-2xl'}`}>
           {p.name.slice(0, 1).toUpperCase()}
