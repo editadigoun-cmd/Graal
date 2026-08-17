@@ -25,6 +25,7 @@ export default function ManagementProduits() {
   const [equipeChoisie, setEquipeChoisie] = useState('')
   const [saving, setSaving] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [listMsg, setListMsg] = useState<string | null>(null)
 
   const [importOpen, setImportOpen] = useState(false)
   const [importEquipe, setImportEquipe] = useState('')
@@ -91,7 +92,9 @@ export default function ManagementProduits() {
   }
 
   const toggleActif = async (p: Produit) => {
-    await supabase.from('produits').update({ actif: !p.actif }).eq('id', p.id)
+    setListMsg(null)
+    const { error } = await supabase.from('produits').update({ actif: !p.actif }).eq('id', p.id)
+    if (error) setListMsg(error.message)
     charger()
   }
 
@@ -194,6 +197,8 @@ export default function ManagementProduits() {
         <StatCard label="Actifs" value={actifs} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
         <StatCard label="Désactivés" value={produitsEquipe.length - actifs} tone="flame" icon={<IconLock className="h-4 w-4" />} />
       </div>
+
+      {listMsg && <p className="text-xs font-semibold text-red-500">{listMsg}</p>}
 
       <Card className="p-4">
         <div className="relative">

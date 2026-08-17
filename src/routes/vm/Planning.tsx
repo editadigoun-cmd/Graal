@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -41,7 +41,7 @@ export default function Planning() {
   const deadline = deadlineSoumission(semaineDebut)
   const countdown = formatCountdown(deadline)
 
-  useMemo(() => {
+  useEffect(() => {
     const t = setInterval(() => forceTick((n) => n + 1), 1000)
     return () => clearInterval(t)
   }, [])

@@ -1787,6 +1787,10 @@ export type Database = {
         Args: { p_nouvelle_limite: string; p_programme_id: string }
         Returns: undefined
       }
+      accorder_derogation_doublon_client: {
+        Args: { p_client_id: string; p_motif?: string; p_programme_id: string }
+        Returns: string
+      }
       benin_now: { Args: never; Returns: string }
       benin_today: { Args: never; Returns: string }
       cible_pour_specialite: {

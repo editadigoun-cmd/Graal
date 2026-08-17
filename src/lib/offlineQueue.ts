@@ -1,6 +1,6 @@
-// File d'attente hors-ligne pour la saisie de visite (le seul geste terrain qui doit rester
-// possible sans réseau — la clôture, elle, exige un upload de photo et reste en ligne).
-// Persistée en localStorage : suffisant pour de petits objets JSON, contrairement aux photos.
+// File d'attente hors-ligne pour la saisie de visite. Persistée en localStorage : suffisant pour
+// de petits objets JSON — la clôture a sa propre file (offlineCloture.ts), en IndexedDB, car elle
+// doit aussi conserver la photo (blob).
 
 export interface VisiteEnAttente {
   localId: string

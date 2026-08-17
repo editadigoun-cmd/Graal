@@ -69,6 +69,12 @@ export default function ManagementProgrammes() {
 
   const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
 
+  const [derogProgrammeId, setDerogProgrammeId] = useState('')
+  const [derogClients, setDerogClients] = useState<{ id: string; nom: string }[]>([])
+  const [derogClientId, setDerogClientId] = useState('')
+  const [derogMotif, setDerogMotif] = useState('')
+  const [derogBusy, setDerogBusy] = useState(false)
+
   async function load() {
     const semaineProchaine = isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD')
     const semaineCourante = isoWeekMonday().format('YYYY-MM-DD')
@@ -146,16 +152,20 @@ export default function ManagementProgrammes() {
 
   async function valider(id: string) {
     setBusy(id)
+    setForceMsg(null)
     const { error } = await supabase.rpc('valider_programme_hebdomadaire', { p_programme_id: id })
     setBusy(null)
-    if (!error) load()
+    if (error) setForceMsg({ type: 'error', text: error.message })
+    else load()
   }
 
   async function rejeter(id: string) {
     setBusy(id)
+    setForceMsg(null)
     const { error } = await supabase.rpc('rejeter_programme_hebdomadaire', { p_programme_id: id, p_motif: 'À revoir avec votre superviseur.' })
     setBusy(null)
-    if (!error) load()
+    if (error) setForceMsg({ type: 'error', text: error.message })
+    else load()
   }
 
   async function togglePharmacieUniquement(programmeId: string, actif: boolean) {
@@ -163,6 +173,32 @@ export default function ManagementProgrammes() {
     await supabase.rpc('definir_mode_pharmacie_uniquement', { p_programme_id: programmeId, p_actif: !actif })
     setBusy(null)
     load()
+  }
+
+  async function choisirProgrammeDerogation(programmeId: string) {
+    setDerogProgrammeId(programmeId)
+    setDerogClientId('')
+    setDerogClients([])
+    const vmId = brouillons.find((b) => b.id === programmeId)?.vm_id
+    if (!vmId) return
+    const { data } = await supabase.from('portefeuille').select('clients(id, nom)').eq('vm_id', vmId).order('client_id')
+    setDerogClients(((data ?? []) as unknown as { clients: { id: string; nom: string } | null }[])
+      .map((r) => r.clients).filter((c): c is { id: string; nom: string } => !!c))
+  }
+
+  async function accorderDerogation() {
+    if (!derogProgrammeId || !derogClientId) return
+    setDerogBusy(true)
+    setForceMsg(null)
+    const { error } = await supabase.rpc('accorder_derogation_doublon_client', {
+      p_programme_id: derogProgrammeId, p_client_id: derogClientId, p_motif: derogMotif || undefined
+    })
+    setDerogBusy(false)
+    if (error) setForceMsg({ type: 'error', text: error.message })
+    else {
+      setForceMsg({ type: 'success', text: 'Dérogation accordée : ce client peut désormais être programmé deux fois cette semaine.' })
+      setDerogProgrammeId(''); setDerogClientId(''); setDerogMotif(''); setDerogClients([])
+    }
   }
 
   function togglePotentiel(p: Potentiel) {
@@ -202,6 +238,12 @@ export default function ManagementProgrammes() {
         <h1 className="text-xl font-bold text-ink-800 font-display">Validation des programmes</h1>
         <p className="text-sm text-ink-400">Programmes hebdomadaires soumis par les visiteurs médicaux</p>
       </div>
+
+      {forceMsg && (
+        <p className={`text-xs rounded-xl px-3.5 py-2.5 ${forceMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+          {forceMsg.text}
+        </p>
+      )}
 
       {brouillonsEnRetard.length > 0 && (
         <div>
@@ -249,11 +291,6 @@ export default function ManagementProgrammes() {
               </Card>
             ))}
           </div>
-          {forceMsg && (
-            <p className={`mt-2 text-xs rounded-xl px-3.5 py-2.5 ${forceMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-              {forceMsg.text}
-            </p>
-          )}
         </div>
       )}
 
@@ -415,6 +452,55 @@ export default function ManagementProgrammes() {
           )}
         </Card>
       </div>
+
+      {profile?.role === 'admin' && (
+        <Card>
+          <div className="flex items-center gap-2 mb-1">
+            <IconCheckCircle className="h-4 w-4 text-royal-600" />
+            <p className="text-sm font-bold text-ink-800">Dérogation doublon client</p>
+          </div>
+          <p className="text-xs text-ink-400 mb-4">
+            Autorise exceptionnellement un client à être programmé deux fois dans la même semaine pour un VM.
+          </p>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-ink-500">Programme (VM · semaine)</label>
+              <select
+                value={derogProgrammeId} onChange={(e) => choisirProgrammeDerogation(e.target.value)}
+                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+              >
+                <option value="">Sélectionner…</option>
+                {brouillons.map((b) => (
+                  <option key={b.id} value={b.id}>{b.profiles?.full_name} · {dayjs(b.semaine_debut).format('DD/MM/YYYY')}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-ink-500">Client</label>
+              <select
+                value={derogClientId} onChange={(e) => setDerogClientId(e.target.value)}
+                disabled={!derogProgrammeId} required
+                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100 disabled:opacity-50"
+              >
+                <option value="">Sélectionner…</option>
+                {derogClients.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-ink-500">Motif (optionnel)</label>
+              <input
+                value={derogMotif} onChange={(e) => setDerogMotif(e.target.value)}
+                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+              />
+            </div>
+          </div>
+          <div className="mt-3">
+            <Button size="sm" loading={derogBusy} disabled={!derogProgrammeId || !derogClientId} onClick={accorderDerogation}>
+              Accorder la dérogation
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Modal
         open={detail !== null}

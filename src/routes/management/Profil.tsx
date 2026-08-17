@@ -17,6 +17,7 @@ export default function ManagementProfil() {
   const [phone, setPhone] = useState('')
   const [savingInfo, setSavingInfo] = useState(false)
   const [infoSaved, setInfoSaved] = useState(false)
+  const [infoError, setInfoError] = useState('')
 
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
@@ -59,7 +60,9 @@ export default function ManagementProfil() {
   async function enregistrerInfos() {
     if (!profile) return
     setSavingInfo(true)
-    await supabase.from('profiles').update({ full_name: fullName, phone: phone || null }).eq('id', profile.id)
+    setInfoError('')
+    const { error } = await supabase.from('profiles').update({ full_name: fullName, phone: phone || null }).eq('id', profile.id)
+    if (error) { setSavingInfo(false); setInfoError(error.message); return }
     await refreshProfile()
     setSavingInfo(false)
     setInfoSaved(true)
@@ -150,9 +153,12 @@ export default function ManagementProfil() {
                 <input disabled value={session?.user.email ?? ''} className="w-full rounded-xl border border-ink-100 bg-ink-50 px-3.5 py-2.5 text-sm text-ink-400" />
               </div>
             </div>
-            <Button className="mt-4" size="sm" loading={savingInfo} variant={infoSaved ? 'success' : 'primary'} icon={<IconCheck className="h-4 w-4" />} onClick={enregistrerInfos}>
-              {infoSaved ? 'Enregistré' : 'Enregistrer'}
-            </Button>
+            <div className="mt-4 flex items-center gap-3">
+              <Button size="sm" loading={savingInfo} variant={infoSaved ? 'success' : 'primary'} icon={<IconCheck className="h-4 w-4" />} onClick={enregistrerInfos}>
+                {infoSaved ? 'Enregistré' : 'Enregistrer'}
+              </Button>
+              {infoError && <p className="text-xs font-semibold text-red-600">{infoError}</p>}
+            </div>
           </Card>
 
           <Card>

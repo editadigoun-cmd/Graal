@@ -28,7 +28,6 @@ import ManagementProfil from '@/routes/management/Profil'
 import ManagementActivite from '@/routes/management/Activite'
 import ManagementPlanActivites from '@/routes/management/PlanActivites'
 import ManagementRapportsDuo from '@/routes/management/RapportsDuo'
-import ManagementImportPortefeuille from '@/routes/management/ImportPortefeuille'
 import ManagementClients from '@/routes/management/Clients'
 import ManagementProduits from '@/routes/management/Produits'
 import ManagementAnimationEquipe from '@/routes/management/AnimationEquipe'
@@ -127,7 +126,6 @@ export default function App() {
             <Route path="rapports-duo" element={<ManagementRapportsDuo />} />
             <Route path="animation-equipe" element={<ManagementAnimationEquipe />} />
             <Route path="indicateurs-animation" element={<RequireAdmin><ManagementIndicateursAnimation /></RequireAdmin>} />
-            <Route path="import-portefeuille" element={<RequireAdmin><ManagementImportPortefeuille /></RequireAdmin>} />
             <Route path="parametres" element={<RequireAdmin><ManagementParametres /></RequireAdmin>} />
             <Route path="messages" element={<Messages />} />
             <Route path="messages/:conversationId" element={<Conversation />} />
