@@ -138,3 +138,6 @@ export const IconScreenShare = (p: IconProps) => (
 export const IconMoon = (p: IconProps) => (
   <svg {...base} {...p}><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" /></svg>
 )
+export const IconPictureInPicture = (p: IconProps) => (
+  <svg {...base} {...p}><rect x="3" y="4.5" width="18" height="15" rx="2" /><rect x="12" y="12" width="7" height="5" rx="1.2" fill="currentColor" stroke="none" /></svg>
+)
