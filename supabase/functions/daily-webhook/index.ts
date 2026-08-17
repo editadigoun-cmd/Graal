@@ -23,7 +23,7 @@ function bytesToBase64(bytes: Uint8Array): string {
 }
 
 async function verifySignature(rawBody: string, timestamp: string | null, signatureHeader: string | null, secretBase64: string | null): Promise<boolean> {
-  if (!secretBase64) return true // pas de secret configuré : on accepte (à sécuriser dès que possible)
+  if (!secretBase64) return false // pas de secret configuré : on refuse plutôt que d'accepter des requêtes non signées
   if (!timestamp || !signatureHeader) return false
   const key = await crypto.subtle.importKey(
     'raw', base64ToBytes(secretBase64), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
