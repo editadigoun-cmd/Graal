@@ -573,6 +573,27 @@ export type Database = {
           },
         ]
       }
+      grossistes: {
+        Row: {
+          actif: boolean
+          created_at: string
+          id: string
+          nom: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          nom: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          nom?: string
+        }
+        Relationships: []
+      }
       imports_portefeuille: {
         Row: {
           created_at: string
@@ -665,6 +686,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      laboratoires: {
+        Row: {
+          actif: boolean
+          created_at: string
+          id: string
+          nom: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          nom: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          nom?: string
+        }
+        Relationships: []
       }
       message_lectures: {
         Row: {
@@ -802,6 +844,51 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      objectifs_mensuels_produits: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          mois: string
+          objectif_quantite: number
+          produit_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mois: string
+          objectif_quantite: number
+          produit_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mois?: string
+          objectif_quantite?: number
+          produit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "objectifs_mensuels_produits_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "objectifs_mensuels_produits_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: false
+            referencedRelation: "produits"
             referencedColumns: ["id"]
           },
         ]
@@ -954,6 +1041,45 @@ export type Database = {
             columns: ["equipe_id"]
             isOneToOne: false
             referencedRelation: "equipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produits_pilotage: {
+        Row: {
+          created_at: string
+          laboratoire_id: string
+          pght: number
+          produit_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          laboratoire_id: string
+          pght: number
+          produit_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          laboratoire_id?: string
+          pght?: number
+          produit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produits_pilotage_laboratoire_id_fkey"
+            columns: ["laboratoire_id"]
+            isOneToOne: false
+            referencedRelation: "laboratoires"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "produits_pilotage_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: true
+            referencedRelation: "produits"
             referencedColumns: ["id"]
           },
         ]
@@ -1352,6 +1478,58 @@ export type Database = {
           },
         ]
       }
+      stocks_hebdomadaires: {
+        Row: {
+          created_by: string | null
+          grossiste_id: string
+          id: string
+          produit_id: string
+          quantite: number
+          semaine_debut: string
+          updated_at: string
+        }
+        Insert: {
+          created_by?: string | null
+          grossiste_id: string
+          id?: string
+          produit_id: string
+          quantite?: number
+          semaine_debut: string
+          updated_at?: string
+        }
+        Update: {
+          created_by?: string | null
+          grossiste_id?: string
+          id?: string
+          produit_id?: string
+          quantite?: number
+          semaine_debut?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocks_hebdomadaires_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocks_hebdomadaires_grossiste_id_fkey"
+            columns: ["grossiste_id"]
+            isOneToOne: false
+            referencedRelation: "grossistes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stocks_hebdomadaires_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: false
+            referencedRelation: "produits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       superviseur_equipes: {
         Row: {
           equipe_id: string
@@ -1378,6 +1556,58 @@ export type Database = {
             columns: ["superviseur_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ventes_hebdomadaires: {
+        Row: {
+          created_by: string | null
+          grossiste_id: string
+          id: string
+          produit_id: string
+          quantite: number
+          semaine_debut: string
+          updated_at: string
+        }
+        Insert: {
+          created_by?: string | null
+          grossiste_id: string
+          id?: string
+          produit_id: string
+          quantite?: number
+          semaine_debut: string
+          updated_at?: string
+        }
+        Update: {
+          created_by?: string | null
+          grossiste_id?: string
+          id?: string
+          produit_id?: string
+          quantite?: number
+          semaine_debut?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ventes_hebdomadaires_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventes_hebdomadaires_grossiste_id_fkey"
+            columns: ["grossiste_id"]
+            isOneToOne: false
+            referencedRelation: "grossistes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventes_hebdomadaires_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: false
+            referencedRelation: "produits"
             referencedColumns: ["id"]
           },
         ]
