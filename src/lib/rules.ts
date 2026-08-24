@@ -5,10 +5,18 @@ import type { Database } from '@/types/database'
 
 type Potentiel = Database['public']['Enums']['potentiel_client']
 type Jour = Database['public']['Enums']['jour_semaine']
+type TypeVisite = Database['public']['Enums']['type_visite']
 
 export const JOURS: Jour[] = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI']
 
-export function potentielAutorise(jour: Jour, potentiel: Potentiel): boolean {
+// Jours où une dérogation plafonnée autorise quelques médecins "MOYEN" (cf. migration 043) —
+// le nombre max/jour est vérifié séparément, ici on ne fait que lever le blocage de hiérarchisation.
+export const JOURS_DEROGATION_MOYEN: Jour[] = ['LUNDI', 'MARDI', 'MERCREDI']
+
+export function potentielAutorise(jour: Jour, potentiel: Potentiel, typeVisite: TypeVisite): boolean {
+  if (typeVisite === 'MEDICAL' && potentiel === 'MOYEN' && JOURS_DEROGATION_MOYEN.includes(jour)) {
+    return true
+  }
   switch (jour) {
     case 'LUNDI':
     case 'MARDI':
