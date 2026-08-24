@@ -32,6 +32,7 @@ import ManagementClients from '@/routes/management/Clients'
 import ManagementProduits from '@/routes/management/Produits'
 import ManagementAnimationEquipe from '@/routes/management/AnimationEquipe'
 import ManagementIndicateursAnimation from '@/routes/management/IndicateursAnimation'
+import ManagementPilotageVentes from '@/routes/management/PilotageVentes'
 // Chargé à la demande : embarque Leaflet (~150 Ko), inutile pour les VM sur mobile.
 const ManagementSuiviTerrain = lazy(() => import('@/routes/management/SuiviTerrain'))
 
@@ -126,6 +127,7 @@ export default function App() {
             <Route path="rapports-duo" element={<ManagementRapportsDuo />} />
             <Route path="animation-equipe" element={<ManagementAnimationEquipe />} />
             <Route path="indicateurs-animation" element={<RequireAdmin><ManagementIndicateursAnimation /></RequireAdmin>} />
+            <Route path="pilotage-ventes" element={<ManagementPilotageVentes />} />
             <Route path="parametres" element={<RequireAdmin><ManagementParametres /></RequireAdmin>} />
             <Route path="messages" element={<Messages />} />
             <Route path="messages/:conversationId" element={<Conversation />} />
