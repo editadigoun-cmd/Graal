@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { IconPlus, IconX, IconClock, IconCheckCircle, IconAlert, IconSearch, IconCheck } from '@/components/ui/icons'
 import { usePlanning, targetSemaineDebut } from '@/features/data/usePlanning'
 import { supabase } from '@/lib/supabase'
-import { JOURS, potentielAutorise } from '@/lib/rules'
+import { JOURS, JOURS_DEROGATION_MOYEN, potentielAutorise } from '@/lib/rules'
 import { JOUR_LABEL } from '@/lib/theme'
 import { deadlineSoumission, formatCountdown, nowBenin } from '@/lib/time'
 import { normalizeText } from '@/lib/text'
@@ -21,9 +21,11 @@ interface Seuils {
   minMedical: number
   minPharmacie: number
   maxFaibleJeudiPct: number
+  maxMoyenLunMarMer: number
+  poidsMoyenReduit: number
 }
 
-const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50 }
+const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50, maxMoyenLunMarMer: 3, poidsMoyenReduit: 2.5 }
 
 export default function Planning() {
   const { programme, lignes, portefeuille, loading, error, setError, reload } = usePlanning()
@@ -48,14 +50,19 @@ export default function Planning() {
 
   useEffect(() => {
     supabase.from('parametres').select('key, value')
-      .in('key', ['visites_minimum_medical_jour', 'visites_minimum_pharmacie_jour', 'seuil_faible_jeudi_pourcentage_max'])
+      .in('key', [
+        'visites_minimum_medical_jour', 'visites_minimum_pharmacie_jour', 'seuil_faible_jeudi_pourcentage_max',
+        'nb_max_moyen_lun_mar_mer_jour', 'poids_visite_moyen_reduit_pourcentage'
+      ])
       .then(({ data }) => {
         if (!data) return
         const val = (k: string) => Number(data.find((p) => p.key === k)?.value)
         setSeuils({
           minMedical: val('visites_minimum_medical_jour') || SEUILS_DEFAUT.minMedical,
           minPharmacie: val('visites_minimum_pharmacie_jour') || SEUILS_DEFAUT.minPharmacie,
-          maxFaibleJeudiPct: val('seuil_faible_jeudi_pourcentage_max') || SEUILS_DEFAUT.maxFaibleJeudiPct
+          maxFaibleJeudiPct: val('seuil_faible_jeudi_pourcentage_max') || SEUILS_DEFAUT.maxFaibleJeudiPct,
+          maxMoyenLunMarMer: val('nb_max_moyen_lun_mar_mer_jour') || SEUILS_DEFAUT.maxMoyenLunMarMer,
+          poidsMoyenReduit: val('poids_visite_moyen_reduit_pourcentage') || SEUILS_DEFAUT.poidsMoyenReduit
         })
       })
   }, [])
@@ -66,7 +73,7 @@ export default function Planning() {
 
   const candidats = portefeuille.filter((c) => {
     if (!picking) return false
-    if (!potentielAutorise(jourActif, c.potentiel)) return false
+    if (!potentielAutorise(jourActif, c.potentiel, picking)) return false
     if (clientIdsUtilises.has(c.id)) return false
     if (recherche && !normalizeText(c.nom).includes(normalizeText(recherche))) return false
     return true
@@ -90,13 +97,39 @@ export default function Planning() {
     return (faible / total) * 100 > seuils.maxFaibleJeudiPct
   }
 
+  // Dérogation plafonnée "médecins moyens" lundi/mardi/mercredi (cf. migration 043) : au-delà
+  // de seuils.maxMoyenLunMarMer sur le jour actif, le serveur refusera l'ajout.
+  const lignesJourActifMoyenMedical = lignesJour.filter((l) => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'MOYEN').length
+  const selectionMoyenCount = picking === 'MEDICAL' && JOURS_DEROGATION_MOYEN.includes(jourActif)
+    ? selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === 'MOYEN').length
+    : 0
+  const moyenLunMarMerProjete = lignesJourActifMoyenMedical + selectionMoyenCount
+
+  function moyenDerogationBloque(candidatId: string, potentiel: string) {
+    if (picking !== 'MEDICAL' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
+    return moyenLunMarMerProjete + 1 > seuils.maxMoyenLunMarMer
+  }
+
   const parJour = Object.fromEntries(JOURS.map((j) => {
     const ljour = lignes.filter((l) => l.jour === j)
+    const medical = ljour.filter((l) => l.type_visite === 'MEDICAL')
+    const medicalMoyenReduit = JOURS_DEROGATION_MOYEN.includes(j)
+      ? medical.filter((l) => l.clients?.potentiel === 'MOYEN').length
+      : 0
     return [j, {
-      medical: ljour.filter((l) => l.type_visite === 'MEDICAL').length,
+      medical: medical.length,
+      medicalMoyenReduit,
       pharmacie: ljour.filter((l) => l.type_visite === 'PHARMACIE').length
     }]
-  })) as Record<Jour, { medical: number; pharmacie: number }>
+  })) as Record<Jour, { medical: number; medicalMoyenReduit: number; pharmacie: number }>
+
+  // Quota quotidien pondéré (miroir de soumettre_programme_hebdomadaire, migration 043) : les
+  // visites "médecin moyen" lundi/mardi/mercredi comptent pour un poids réduit, pas 1 visite pleine.
+  const poidsNormal = seuils.minMedical > 0 ? 100 / seuils.minMedical : 0
+  const pointsMedical = (j: Jour) => {
+    const { medical, medicalMoyenReduit } = parJour[j]
+    return (medical - medicalMoyenReduit) * poidsNormal + medicalMoyenReduit * seuils.poidsMoyenReduit
+  }
 
   // En mode "pharmacie uniquement", le serveur (soumettre_programme_hebdomadaire) n'exige ni
   // couverture des 5 jours ni minimums quotidiens — seulement un programme non vide et le
@@ -104,7 +137,7 @@ export default function Planning() {
   // pas bloquer une soumission que le serveur accepterait.
   const jourOk = (j: Jour) => pharmacieUniquement
     ? true
-    : parJour[j].medical >= seuils.minMedical && parJour[j].pharmacie >= seuils.minPharmacie
+    : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
   const jeudiRatioOk = jeudiTotalActuel === 0 || (jeudiFaibleActuel / jeudiTotalActuel) * 100 <= seuils.maxFaibleJeudiPct
   const prêtPourSoumission = pharmacieUniquement
@@ -240,14 +273,19 @@ export default function Planning() {
               <div>
                 <div className="flex items-center justify-between text-[11px] mb-1">
                   <span className="text-ink-500">Médical</span>
-                  <span className={parJour[jourActif].medical >= seuils.minMedical ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
-                    {parJour[jourActif].medical}/{seuils.minMedical}
+                  <span className={pointsMedical(jourActif) >= 100 - 0.01 ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
+                    {Math.round(pointsMedical(jourActif))}% (min 100%)
                   </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
-                  <div className={`h-full rounded-full ${parJour[jourActif].medical >= seuils.minMedical ? 'bg-emerald-500' : 'bg-royal-400'}`}
-                    style={{ width: `${Math.min(100, (parJour[jourActif].medical / seuils.minMedical) * 100)}%` }} />
+                  <div className={`h-full rounded-full ${pointsMedical(jourActif) >= 100 - 0.01 ? 'bg-emerald-500' : 'bg-royal-400'}`}
+                    style={{ width: `${Math.min(100, pointsMedical(jourActif))}%` }} />
                 </div>
+                {JOURS_DEROGATION_MOYEN.includes(jourActif) && (
+                  <p className="mt-1 text-[10px] text-ink-400">
+                    dont {parJour[jourActif].medicalMoyenReduit}/{seuils.maxMoyenLunMarMer} médecin(s) "moyen" (poids réduit {seuils.poidsMoyenReduit}%)
+                  </p>
+                )}
               </div>
             )}
             <div>
@@ -337,7 +375,7 @@ export default function Planning() {
                     )}
                     {JOURS.filter((j) => !jourOk(j)).map((j) => (
                       <li key={j} className="text-xs text-flame-700">
-                        • {JOUR_LABEL[j]} : {parJour[j].medical}/{seuils.minMedical} médical, {parJour[j].pharmacie}/{seuils.minPharmacie} pharmacie
+                        • {JOUR_LABEL[j]} : {Math.round(pointsMedical(j))}%/100% médical, {parJour[j].pharmacie}/{seuils.minPharmacie} pharmacie
                       </li>
                     ))}
                   </>
@@ -388,7 +426,9 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
-                  const bloque = faibleJeudiBloque(c.id, c.potentiel)
+                  const bloqueFaibleJeudi = faibleJeudiBloque(c.id, c.potentiel)
+                  const bloqueMoyen = moyenDerogationBloque(c.id, c.potentiel)
+                  const bloque = bloqueFaibleJeudi || bloqueMoyen
                   return (
                     <button
                       key={c.id} onClick={() => !bloque && toggleSelection(c.id)}
@@ -405,7 +445,11 @@ export default function Planning() {
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-ink-800 truncate">{c.nom}</p>
                           <p className="text-[11px] text-ink-400 truncate">
-                            {bloque ? `Max ${seuils.maxFaibleJeudiPct}% de clients FAIBLE le jeudi atteint` : c.centre || c.specialite}
+                            {bloqueFaibleJeudi
+                              ? `Max ${seuils.maxFaibleJeudiPct}% de clients FAIBLE le jeudi atteint`
+                              : bloqueMoyen
+                              ? `Max ${seuils.maxMoyenLunMarMer} médecin(s) "moyen" atteint pour ce jour`
+                              : c.centre || c.specialite}
                           </p>
                         </div>
                       </div>
