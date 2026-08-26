@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { TopBar } from '@/components/ui/TopBar'
 import { BottomNav } from '@/components/ui/BottomNav'
+import { Watermark } from '@/components/ui/Watermark'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 import { useOfflineSync } from '@/hooks/useOfflineSync'
@@ -18,6 +19,7 @@ export function VmShell() {
 
   return (
     <div className="graal-surface min-h-screen">
+      <Watermark nom={profile?.full_name ?? ''} />
       <div className="mx-auto max-w-md px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-28">
         <TopBar name={profile?.full_name ?? ''} avatarUrl={profile?.avatar_url} notificationsCount={unread} />
         {(!online || enAttente > 0) && (
