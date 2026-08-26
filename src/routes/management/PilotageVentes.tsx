@@ -6,11 +6,18 @@ import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { IconPlus, IconBarChart, IconTrendingUp, IconPill, IconChevronLeft, IconChevronRight } from '@/components/ui/icons'
+import { IconPlus, IconBarChart, IconTrendingUp, IconPill, IconChevronLeft, IconChevronRight, IconDownload } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { isoWeekMonday } from '@/lib/time'
 import { useAuth } from '@/features/auth/AuthProvider'
+import ImportReleveGrossiste, { type FormatGrossiste } from './ImportReleveGrossiste'
 import type { Database } from '@/types/database'
+
+// Format de fichier attendu par grossiste (cf. src/lib/importGrossistes) — clé sur le nom exact
+// seedé en base (migration 045).
+const FORMAT_PAR_GROSSISTE: Record<string, FormatGrossiste> = {
+  PROMO: 'csv-promo', 'UBI PHARM': 'csv-ubi', UBPHAR: 'pdf-ubphar', GAPOB: 'pdf-gapob'
+}
 
 type Laboratoire = Database['public']['Tables']['laboratoires']['Row']
 type Grossiste = Database['public']['Tables']['grossistes']['Row']
@@ -71,6 +78,9 @@ export default function PilotageVentes() {
   const [ajoutObjectif, setAjoutObjectif] = useState('')
   const [ajoutSaving, setAjoutSaving] = useState(false)
   const [ajoutErreur, setAjoutErreur] = useState<string | null>(null)
+
+  const [importGrossiste, setImportGrossiste] = useState<Grossiste | null>(null)
+  const [catalogueImport, setCatalogueImport] = useState<{ produitId: string; nom: string }[]>([])
 
   const mois = moisDe(semaineDebut)
   const semaines = useMemo(() => semainesDuMois(semaineDebut), [semaineDebut])
@@ -216,6 +226,13 @@ export default function PilotageVentes() {
     charger()
   }
 
+  async function ouvrirImport(g: Grossiste) {
+    const { data } = await supabase
+      .from('produits_pilotage').select('produit_id, produits(nom)')
+    setCatalogueImport((data ?? []).map((c) => ({ produitId: c.produit_id, nom: c.produits?.nom ?? '—' })))
+    setImportGrossiste(g)
+  }
+
   const totaux = useMemo(() => {
     let caObjectif = 0, caRealise = 0, valeurStock = 0
     for (const l of lignes) {
@@ -303,7 +320,18 @@ export default function PilotageVentes() {
                 <th rowSpan={2} className="px-2 py-2 align-bottom">Valeur stock</th>
               </tr>
               <tr className="border-b border-ink-100 text-left font-semibold text-ink-400">
-                {grossistes.map((g) => <th key={`v-${g.id}`} className="px-1.5 py-1.5 font-medium border-l border-ink-50 first:border-l-ink-100">{g.nom}</th>)}
+                {grossistes.map((g) => (
+                  <th key={`v-${g.id}`} className="px-1.5 py-1.5 font-medium border-l border-ink-50 first:border-l-ink-100">
+                    <div className="flex items-center gap-1">
+                      {g.nom}
+                      {isAdmin && FORMAT_PAR_GROSSISTE[g.nom] && (
+                        <button onClick={() => ouvrirImport(g)} title={`Importer un relevé ${g.nom}`} className="text-ink-300 hover:text-royal-600">
+                          <IconDownload className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                ))}
                 {grossistes.map((g) => <th key={`s-${g.id}`} className="px-1.5 py-1.5 font-medium border-l border-ink-50 first:border-l-ink-100">{g.nom}</th>)}
               </tr>
             </thead>
@@ -417,6 +445,19 @@ export default function PilotageVentes() {
             <Button onClick={enregistrerAjout} disabled={ajoutSaving}>{ajoutSaving ? 'Enregistrement...' : 'Ajouter'}</Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal open={importGrossiste !== null} onClose={() => setImportGrossiste(null)} title={`Importer un relevé — ${importGrossiste?.nom ?? ''}`} maxWidth="max-w-3xl">
+        {importGrossiste && (
+          <ImportReleveGrossiste
+            grossisteId={importGrossiste.id}
+            grossisteNom={importGrossiste.nom}
+            format={FORMAT_PAR_GROSSISTE[importGrossiste.nom]}
+            semaineDebut={semaineDebut}
+            catalogue={catalogueImport}
+            onImported={() => { setImportGrossiste(null); charger() }}
+          />
+        )}
       </Modal>
     </div>
   )

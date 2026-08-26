@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -707,6 +707,45 @@ export type Database = {
           nom?: string
         }
         Relationships: []
+      }
+      mappings_produits_grossistes: {
+        Row: {
+          code_externe: string
+          created_at: string
+          grossiste_id: string
+          id: string
+          produit_id: string
+        }
+        Insert: {
+          code_externe: string
+          created_at?: string
+          grossiste_id: string
+          id?: string
+          produit_id: string
+        }
+        Update: {
+          code_externe?: string
+          created_at?: string
+          grossiste_id?: string
+          id?: string
+          produit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mappings_produits_grossistes_grossiste_id_fkey"
+            columns: ["grossiste_id"]
+            isOneToOne: false
+            referencedRelation: "grossistes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mappings_produits_grossistes_produit_id_fkey"
+            columns: ["produit_id"]
+            isOneToOne: false
+            referencedRelation: "produits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       message_lectures: {
         Row: {
