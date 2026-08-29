@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Button } from '@/components/ui/Button'
 import { IconStethoscope, IconTrendingUp, IconCheckCircle } from '@/components/ui/icons'
-import logoFull from '@/assets/logo-full.svg'
-import logoMark from '@/assets/logo-mark.svg'
+import logoFull from '@/assets/logo-full.png'
+import logoMark from '@/assets/logo-mark.png'
 import { isBiometricAvailable, hasBiometricEnrolled, unlockWithBiometric } from '@/lib/biometric'
 
 const FEATURES = [

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Button } from '@/components/ui/Button'
 import { supabase } from '@/lib/supabase'
-import logoFull from '@/assets/logo-full.svg'
+import logoFull from '@/assets/logo-full.png'
 
 export default function SetPassword() {
   const { session, loading: authLoading } = useAuth()

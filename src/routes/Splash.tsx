@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import logoMark from '@/assets/logo-mark.svg'
+import logoMark from '@/assets/logo-mark.png'
 
 export default function Splash() {
   return (

@@ -5,8 +5,8 @@ import clsx from 'clsx'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Avatar } from '@/components/ui/Avatar'
 import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser, IconClipboard, IconStethoscope, IconMapPin, IconPill, IconTrendingUp, IconBarChart, IconMenu, IconX } from '@/components/ui/icons'
-import logoFull from '@/assets/logo-full.svg'
-import logoMark from '@/assets/logo-mark.svg'
+import logoFull from '@/assets/logo-full.png'
+import logoMark from '@/assets/logo-mark.png'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 
 const nav = [
