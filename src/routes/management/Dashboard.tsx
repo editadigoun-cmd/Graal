@@ -33,6 +33,13 @@ interface SousVisiteRow {
   justifie: boolean
 }
 
+interface ScorePondereRow {
+  vm_id: string
+  vm_nom: string
+  equipe_id: string | null
+  score: number
+}
+
 interface ClotureRow {
   id: string
   vm_id: string
@@ -53,6 +60,7 @@ export default function ManagementDashboard() {
   const [clotures, setClotures] = useState<ClotureRow[]>([])
   const [photoBusy, setPhotoBusy] = useState<string | null>(null)
   const [sousVisites, setSousVisites] = useState<SousVisiteRow[]>([])
+  const [scoresPonderes, setScoresPonderes] = useState<ScorePondereRow[]>([])
   const [equipes, setEquipes] = useState<{ id: string; nom: string }[]>([])
   const [equipeFilter, setEquipeFilter] = useState('')
   const [vmEquipeById, setVmEquipeById] = useState<Record<string, string | null>>({})
@@ -117,6 +125,15 @@ export default function ManagementDashboard() {
           }))
       )
 
+      const semaineCouranteScore = isoWeekMonday().format('YYYY-MM-DD')
+      const { data: scores } = await supabase.from('v_score_hebdomadaire_pondere').select('vm_id, score_pondere_pourcentage').eq('semaine_debut', semaineCouranteScore)
+      setScoresPonderes(
+        (scores ?? [])
+          .filter((s): s is typeof s & { vm_id: string; score_pondere_pourcentage: number } => !!s.vm_id && s.score_pondere_pourcentage != null)
+          .map((s) => ({ vm_id: s.vm_id, vm_nom: vmNomById[s.vm_id] ?? '—', equipe_id: vmEquipeMap[s.vm_id] ?? null, score: s.score_pondere_pourcentage }))
+          .sort((a, b) => a.score - b.score)
+      )
+
       setLoading(false)
     }
     load()
@@ -158,6 +175,7 @@ export default function ManagementDashboard() {
   const sousVisitesFiltre = equipeFilter ? sousVisites.filter((s) => s.equipe_id === equipeFilter) : sousVisites
   const cloturesFiltre = equipeFilter ? clotures.filter((c) => vmEquipeById[c.vm_id] === equipeFilter) : clotures
   const vmsSansPlanningFiltre = equipeFilter ? vmsSansPlanning.filter((v) => v.equipe_id === equipeFilter) : vmsSansPlanning
+  const scoresPonderesFiltre = equipeFilter ? scoresPonderes.filter((s) => s.equipe_id === equipeFilter) : scoresPonderes
 
   const totalPrevues = progressFiltre.reduce((s, p) => s + p.prevues, 0)
   const totalRealisees = progressFiltre.reduce((s, p) => s + p.realisees, 0)
@@ -280,6 +298,25 @@ export default function ManagementDashboard() {
                 </div>
                 <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${s.justifie ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
                   {s.justifie ? 'Justifié' : 'Non justifié'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {scoresPonderesFiltre.length > 0 && (
+        <Card>
+          <p className="text-sm font-bold text-ink-800">Score pondéré de la semaine (priorité spécialités)</p>
+          <p className="text-xs text-ink-400 mb-4">Visites médicales réalisées vs prévues, pondérées par priorité de spécialité (gynéco &gt; généralistes &gt; dispensaires/maternités &gt; pédiatres &gt; autres)</p>
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            {scoresPonderesFiltre.map((s) => (
+              <div key={s.vm_id} className="flex items-center justify-between gap-3 rounded-xl bg-ink-50 p-2.5">
+                <p className="text-xs font-semibold text-ink-800 truncate">{s.vm_nom}</p>
+                <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                  s.score >= 80 ? 'bg-emerald-50 text-emerald-700' : s.score >= 50 ? 'bg-flame-50 text-flame-700' : 'bg-red-50 text-red-600'
+                }`}>
+                  {s.score}%
                 </span>
               </div>
             ))}

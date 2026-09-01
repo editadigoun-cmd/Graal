@@ -12,6 +12,7 @@ import dayjs from 'dayjs'
 
 type Reporting = Database['public']['Tables']['reporting_hebdomadaire']['Row']
 type TauxHebdo = Database['public']['Views']['v_taux_realisation_hebdomadaire']['Row']
+type ScorePondere = Database['public']['Views']['v_score_hebdomadaire_pondere']['Row']
 
 const CHAMPS: { key: keyof Reporting; label: string; placeholder: string }[] = [
   { key: 'analyse_generale', label: 'Analyse générale des visites / marketing', placeholder: 'Tendances observées, contexte du secteur…' },
@@ -26,6 +27,7 @@ export default function Reporting() {
   const [offset, setOffset] = useState(0) // 0 = semaine en cours, -1 = précédente...
   const [reporting, setReporting] = useState<Partial<Reporting>>({})
   const [taux, setTaux] = useState<TauxHebdo[]>([])
+  const [scorePondere, setScorePondere] = useState<ScorePondere | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -38,10 +40,12 @@ export default function Reporting() {
     setSaved(false)
     Promise.all([
       supabase.from('reporting_hebdomadaire').select('*').eq('vm_id', session.user.id).eq('semaine_debut', semaineDebut).maybeSingle(),
-      supabase.from('v_taux_realisation_hebdomadaire').select('*').eq('vm_id', session.user.id).eq('semaine_debut', semaineDebut)
-    ]).then(([r, t]) => {
+      supabase.from('v_taux_realisation_hebdomadaire').select('*').eq('vm_id', session.user.id).eq('semaine_debut', semaineDebut),
+      supabase.from('v_score_hebdomadaire_pondere').select('*').eq('vm_id', session.user.id).eq('semaine_debut', semaineDebut).maybeSingle()
+    ]).then(([r, t, s]) => {
       setReporting(r.data ?? {})
       setTaux(t.data ?? [])
+      setScorePondere(s.data ?? null)
       setLoading(false)
     })
   }, [session, semaineDebut])
@@ -90,6 +94,22 @@ export default function Reporting() {
               <span className="text-ink-500">Couverture globale</span>
               <span className="font-bold text-royal-600">{totalRealise}/{totalPrevu} visites</span>
             </div>
+            {scorePondere?.score_pondere_pourcentage != null && (
+              <div className={`mb-3 flex items-center justify-between rounded-xl px-3 py-2 text-sm ${
+                scorePondere.score_pondere_pourcentage >= 80 ? 'bg-emerald-50' : scorePondere.score_pondere_pourcentage >= 50 ? 'bg-flame-50' : 'bg-red-50'
+              }`}>
+                <span className={
+                  scorePondere.score_pondere_pourcentage >= 80 ? 'text-emerald-700' : scorePondere.score_pondere_pourcentage >= 50 ? 'text-flame-700' : 'text-red-600'
+                }>
+                  Score pondéré (priorité spécialités : gynéco &gt; généralistes &gt; dispensaires/maternités &gt; pédiatres &gt; autres)
+                </span>
+                <span className={`font-bold ${
+                  scorePondere.score_pondere_pourcentage >= 80 ? 'text-emerald-700' : scorePondere.score_pondere_pourcentage >= 50 ? 'text-flame-700' : 'text-red-600'
+                }`}>
+                  {scorePondere.score_pondere_pourcentage}%
+                </span>
+              </div>
+            )}
             <div className="space-y-1.5">
               {taux.map((t) => (
                 <div key={t.cible} className="flex items-center justify-between text-xs">
