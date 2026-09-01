@@ -1,0 +1,168 @@
+// Corrige l'email d'un compte existant (typiquement un email temporaire posé à la création,
+// cf. create-user) et renvoie aussitôt une invitation à la nouvelle adresse — réservé aux
+// administrateurs. Contrairement à un changement d'email "self-service" (double confirmation
+// ancienne/nouvelle adresse), une mise à jour admin est immédiate : pas de confirmation requise
+// côté ancienne adresse, qui est justement souvent injoignable (placeholder).
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+}
+
+const REDIRECT_URL = 'https://graal.editadigoun.workers.dev/definir-mot-de-passe'
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  })
+}
+
+function invitationEmailHtml(fullName: string, actionLink: string) {
+  return `<!doctype html>
+<html lang="fr">
+<body style="margin:0;padding:0;background-color:#F7F8FA;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F7F8FA;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 8px 30px -12px rgba(15,50,114,0.18);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#0B2555,#154BAD);padding:32px 32px 28px;">
+            <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+              <td style="font-size:20px;font-weight:800;color:#ffffff;letter-spacing:0.5px;">GRAAL</td>
+            </tr></table>
+            <p style="margin:2px 0 0;font-size:11px;font-weight:600;letter-spacing:1.5px;color:rgba(255,255,255,0.6);text-transform:uppercase;">Medical Solutions</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.5px;color:#26B876;text-transform:uppercase;">Invitation</p>
+            <h1 style="margin:0 0 16px;font-size:20px;font-weight:800;color:#232A33;">Bienvenue, ${fullName} !</h1>
+            <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#4E5765;">
+              Votre compte sur la plateforme GRAAL Medical Solutions est prêt.
+            </p>
+            <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#4E5765;">
+              Cliquez sur le bouton ci-dessous pour définir votre mot de passe et accéder à votre espace.
+            </p>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+              <tr><td style="border-radius:16px;background-color:#154BAD;">
+                <a href="${actionLink}" style="display:inline-block;padding:14px 32px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:16px;">
+                  Activer mon compte
+                </a>
+              </td></tr>
+            </table>
+            <p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:#96A0AC;">
+              Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br/>
+              <a href="${actionLink}" style="color:#1B63C9;word-break:break-all;">${actionLink}</a>
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 32px;background-color:#F7F8FA;border-top:1px solid #EEF1F5;">
+            <p style="margin:0;font-size:11px;color:#96A0AC;">
+              Document confidentiel — usage réservé aux collaborateurs GRAAL MEDICAL SOLUTIONS.
+              Si vous n'attendiez pas cet email, vous pouvez l'ignorer.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+}
+
+async function sendViaBrevo(apiKey: string, email: string, fullName: string, actionLink: string) {
+  const fromEmail = Deno.env.get('BREVO_FROM_EMAIL')
+  if (!fromEmail) throw new Error('BREVO_FROM_EMAIL manquant (adresse expéditeur vérifiée dans Brevo).')
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      sender: { name: 'GRAAL Medical Solutions', email: fromEmail },
+      to: [{ email, name: fullName }],
+      subject: 'Votre invitation GRAAL Medical Solutions',
+      htmlContent: invitationEmailHtml(fullName, actionLink)
+    })
+  })
+  if (!res.ok) throw new Error(`Échec de l'envoi de l'email (Brevo) : ${await res.text()}`)
+}
+
+async function sendViaResend(apiKey: string, email: string, fullName: string, actionLink: string) {
+  const from = Deno.env.get('RESEND_FROM_EMAIL') ?? 'GRAAL Medical Solutions <onboarding@resend.dev>'
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from,
+      to: email,
+      subject: 'Votre invitation GRAAL Medical Solutions',
+      html: invitationEmailHtml(fullName, actionLink)
+    })
+  })
+  if (!res.ok) throw new Error(`Échec de l'envoi de l'email (Resend) : ${await res.text()}`)
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method !== 'POST') return json({ error: 'Méthode non supportée' }, 405)
+
+  try {
+    const body = await req.json()
+    const { id, email } = body as { id: string; email: string }
+    if (!id || !email) return json({ error: 'id et email obligatoires.' }, 400)
+
+    const callerClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    )
+    const { data: userData, error: userError } = await callerClient.auth.getUser()
+    if (userError || !userData.user) return json({ error: 'Non authentifié' }, 401)
+
+    const { data: callerProfile } = await callerClient.from('profiles').select('role').eq('id', userData.user.id).single()
+    if (callerProfile?.role !== 'admin') {
+      return json({ error: 'Action réservée aux administrateurs.' }, 403)
+    }
+
+    const adminClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+
+    const { data: existing } = await adminClient.from('profiles').select('id, full_name').ilike('email', email).maybeSingle()
+    if (existing && existing.id !== id) {
+      return json({ error: `Un autre compte utilise déjà cet email (${existing.full_name}).` }, 409)
+    }
+
+    const { data: target, error: targetError } = await adminClient.from('profiles').select('full_name').eq('id', id).single()
+    if (targetError || !target) return json({ error: 'Compte introuvable.' }, 404)
+
+    const { error: updateAuthError } = await adminClient.auth.admin.updateUserById(id, { email, email_confirm: false })
+    if (updateAuthError) return json({ error: updateAuthError.message }, 400)
+
+    const { error: updateProfileError } = await adminClient.from('profiles').update({ email }).eq('id', id)
+    if (updateProfileError) return json({ error: updateProfileError.message }, 400)
+
+    const brevoKey = Deno.env.get('BREVO_API_KEY')
+    const resendKey = Deno.env.get('RESEND_API_KEY')
+    if (brevoKey || resendKey) {
+      const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: { redirectTo: REDIRECT_URL }
+      })
+      if (!linkError && linkData) {
+        try {
+          if (brevoKey) await sendViaBrevo(brevoKey, email, target.full_name, linkData.properties.action_link)
+          else await sendViaResend(resendKey!, email, target.full_name, linkData.properties.action_link)
+        } catch {
+          // L'email a bien été mis à jour ; seul l'envoi de l'invitation a échoué (l'admin peut
+          // "renvoyer l'invitation" depuis Équipes pour réessayer) — ne fait pas échouer l'action.
+        }
+      }
+    }
+
+    return json({ id, email })
+  } catch (e) {
+    return json({ error: String(e) }, 500)
+  }
+})
