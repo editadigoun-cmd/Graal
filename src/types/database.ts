@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -1009,6 +1009,32 @@ export type Database = {
           },
         ]
       }
+      poids_specialite_visite: {
+        Row: {
+          equipe_id: string
+          poids: number
+          specialite: Database["public"]["Enums"]["specialite_client"]
+        }
+        Insert: {
+          equipe_id: string
+          poids?: number
+          specialite: Database["public"]["Enums"]["specialite_client"]
+        }
+        Update: {
+          equipe_id?: string
+          poids?: number
+          specialite?: Database["public"]["Enums"]["specialite_client"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poids_specialite_visite_equipe_id_fkey"
+            columns: ["equipe_id"]
+            isOneToOne: false
+            referencedRelation: "equipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portefeuille: {
         Row: {
           client_id: string
@@ -1996,6 +2022,24 @@ export type Database = {
           },
         ]
       }
+      v_score_hebdomadaire_pondere: {
+        Row: {
+          points_prevus: number | null
+          points_realises: number | null
+          score_pondere_pourcentage: number | null
+          semaine_debut: string | null
+          vm_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programmes_hebdomadaires_vm_id_fkey"
+            columns: ["vm_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_taux_realisation_hebdomadaire: {
         Row: {
           cible: string | null
@@ -2139,6 +2183,13 @@ export type Database = {
       plan_active_equipe_mois: {
         Args: { p_equipe: string; p_mois: string }
         Returns: boolean
+      }
+      poids_specialite: {
+        Args: {
+          p_equipe_id: string
+          p_specialite: Database["public"]["Enums"]["specialite_client"]
+        }
+        Returns: number
       }
       points_potentiel: {
         Args: { p: Database["public"]["Enums"]["potentiel_client"] }
