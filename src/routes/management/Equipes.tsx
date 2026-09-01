@@ -42,6 +42,8 @@ export default function ManagementEquipes() {
 
   const [rowBusy, setRowBusy] = useState<string | null>(null)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [editingEmailId, setEditingEmailId] = useState<string | null>(null)
+  const [editEmailValue, setEditEmailValue] = useState('')
 
   async function load() {
     const [{ data: eq }, { data: zo }, { data: pr }, { data: se }] = await Promise.all([
@@ -154,6 +156,31 @@ export default function ManagementEquipes() {
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? 'Erreur inconnue')
       setNotice({ type: 'success', text: `Invitation renvoyée à ${p.email}.` })
+    } catch (err) {
+      setNotice({ type: 'error', text: err instanceof Error ? err.message : 'Erreur inconnue' })
+    } finally {
+      setRowBusy(null)
+    }
+  }
+
+  async function modifierEmail(id: string) {
+    const email = editEmailValue.trim()
+    if (!email) return
+    setRowBusy(id)
+    setNotice(null)
+    const { data: sess } = await supabase.auth.getSession()
+    const token = sess.session?.access_token
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, email })
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error ?? 'Erreur inconnue')
+      setNotice({ type: 'success', text: `Email mis à jour (${email}), invitation renvoyée.` })
+      setEditingEmailId(null)
+      load()
     } catch (err) {
       setNotice({ type: 'error', text: err instanceof Error ? err.message : 'Erreur inconnue' })
     } finally {
@@ -331,7 +358,31 @@ export default function ManagementEquipes() {
                         <Avatar name={p.full_name} url={p.avatar_url} size={32} />
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-ink-800 truncate">{p.full_name}</p>
-                          <p className="text-[11px] text-ink-400 truncate">{p.email}</p>
+                          {isAdmin && editingEmailId === p.id ? (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <input
+                                autoFocus
+                                value={editEmailValue}
+                                onChange={(e) => setEditEmailValue(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') modifierEmail(p.id); if (e.key === 'Escape') setEditingEmailId(null) }}
+                                className="w-40 rounded-lg border border-royal-300 px-1.5 py-0.5 text-[11px] outline-none focus:ring-2 focus:ring-royal-100"
+                              />
+                              <button onClick={() => modifierEmail(p.id)} disabled={rowBusy === p.id} title="Enregistrer" className="rounded-full p-1 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-50">
+                                <IconCheckCircle className="h-3 w-3" />
+                              </button>
+                              <button onClick={() => setEditingEmailId(null)} title="Annuler" className="rounded-full p-1 bg-ink-100 text-ink-500 hover:bg-red-100 hover:text-red-600">
+                                <IconX className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <p
+                              className={`text-[11px] text-ink-400 truncate ${isAdmin ? 'cursor-pointer hover:text-royal-600 hover:underline' : ''}`}
+                              title={isAdmin ? "Modifier l'email" : undefined}
+                              onClick={isAdmin ? () => { setEditingEmailId(p.id); setEditEmailValue(p.email ?? '') } : undefined}
+                            >
+                              {p.email}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>

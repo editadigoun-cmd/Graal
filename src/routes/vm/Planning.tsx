@@ -16,6 +16,22 @@ import dayjs from 'dayjs'
 
 type Jour = Database['public']['Enums']['jour_semaine']
 type TypeVisite = Database['public']['Enums']['type_visite']
+type Specialite = Database['public']['Enums']['specialite_client']
+type Potentiel = Database['public']['Enums']['potentiel_client']
+
+// Regroupement pour le récapitulatif hebdomadaire par spécialité — demande explicite du
+// client : afficher combien de médecins de chaque spécialité (+ pharmacies) ont été
+// programmés dans la semaine, l'addition de ces nombres formant le total programmé.
+const RECAP_SPECIALITES: { cles: Specialite[]; label: string }[] = [
+  { cles: ['GENERALISTE'], label: 'Médecins généralistes' },
+  { cles: ['GYNECOLOGUE'], label: 'Gynécologues' },
+  { cles: ['PEDIATRE'], label: 'Pédiatres' },
+  { cles: ['DISPENSAIRE'], label: 'Dispensaires' },
+  { cles: ['MATERNITE'], label: 'Maternités' },
+  { cles: ['CARDIOLOGUE', 'RHUMATOLOGUE', 'ORL', 'AUTRE_SPECIALITE'], label: 'Autres spécialités' },
+  { cles: ['PHARMACIE'], label: 'Pharmacies' }
+]
+const POTENTIEL_LABEL: Record<Potentiel, string> = { GROS: 'Gros', MOYEN: 'Moyens', FAIBLE: 'Faibles' }
 
 interface Seuils {
   minMedical: number
@@ -108,6 +124,16 @@ export default function Planning() {
   function moyenDerogationBloque(candidatId: string, potentiel: string) {
     if (picking !== 'MEDICAL' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
     return moyenLunMarMerProjete + 1 > seuils.maxMoyenLunMarMer
+  }
+
+  // Récapitulatif hebdomadaire par spécialité + par potentiel (toute la semaine, tous jours confondus).
+  const specialiteCounts: Partial<Record<Specialite, number>> = {}
+  const potentielCounts: Record<Potentiel, number> = { GROS: 0, MOYEN: 0, FAIBLE: 0 }
+  for (const l of lignes) {
+    const s = l.clients?.specialite
+    if (s) specialiteCounts[s] = (specialiteCounts[s] ?? 0) + 1
+    const p = l.clients?.potentiel
+    if (p) potentielCounts[p] += 1
   }
 
   const parJour = Object.fromEntries(JOURS.map((j) => {
@@ -261,6 +287,34 @@ export default function Planning() {
           )
         })}
       </div>
+
+      {lignes.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-bold text-ink-600">Récapitulatif de la semaine — par spécialité</p>
+            <p className="text-sm font-extrabold text-royal-600">{lignes.length} visites</p>
+          </div>
+          <div className="space-y-1.5">
+            {RECAP_SPECIALITES.map(({ cles, label }) => {
+              const count = cles.reduce((s, c) => s + (specialiteCounts[c] ?? 0), 0)
+              if (count === 0) return null
+              return (
+                <div key={label} className="flex items-center justify-between text-xs">
+                  <span className="text-ink-500">{label}</span>
+                  <span className="font-semibold text-ink-700">{count}</span>
+                </div>
+              )
+            })}
+          </div>
+          <div className="mt-3 pt-3 border-t border-ink-100 flex items-center gap-2 flex-wrap">
+            {(Object.keys(POTENTIEL_LABEL) as Potentiel[]).map((p) => (
+              <span key={p} className="inline-flex items-center gap-1 rounded-full bg-ink-50 px-2.5 py-1 text-[11px] font-semibold text-ink-600">
+                {POTENTIEL_LABEL[p]} <span className="text-ink-800">{potentielCounts[p]}</span>
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {!verrouille && (
         <Card>
