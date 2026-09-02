@@ -287,7 +287,7 @@ export default function ImportReleveGrossiste({ grossisteId, grossisteNom, forma
               Les ventes du relevé sont converties en delta hebdomadaire (relevé moins ce qui a déjà été enregistré ce mois-ci) —
               vérifiez que la semaine sélectionnée sur l'écran principal est la bonne avant de continuer.
             </p>
-            <div className="max-h-80 overflow-y-auto">
+            <div className="max-h-80 overflow-y-auto overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-ink-100 text-left text-ink-400">
