@@ -211,23 +211,33 @@ export type Database = {
       cible_specialite_map: {
         Row: {
           cible: string
+          equipe_id: string
           specialite: Database["public"]["Enums"]["specialite_client"]
         }
         Insert: {
           cible: string
+          equipe_id: string
           specialite: Database["public"]["Enums"]["specialite_client"]
         }
         Update: {
           cible?: string
+          equipe_id?: string
           specialite?: Database["public"]["Enums"]["specialite_client"]
         }
         Relationships: [
           {
             foreignKeyName: "cible_specialite_map_cible_fkey"
-            columns: ["cible"]
+            columns: ["equipe_id", "cible"]
             isOneToOne: false
             referencedRelation: "quotas_cibles"
-            referencedColumns: ["cible"]
+            referencedColumns: ["equipe_id", "cible"]
+          },
+          {
+            foreignKeyName: "cible_specialite_map_equipe_id_fkey"
+            columns: ["equipe_id"]
+            isOneToOne: false
+            referencedRelation: "equipes"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1408,23 +1418,34 @@ export type Database = {
       quotas_cibles: {
         Row: {
           cible: string
+          equipe_id: string
           libelle: string
           ordre: number
           quota_hebdomadaire: number
         }
         Insert: {
           cible: string
+          equipe_id: string
           libelle: string
           ordre?: number
           quota_hebdomadaire: number
         }
         Update: {
           cible?: string
+          equipe_id?: string
           libelle?: string
           ordre?: number
           quota_hebdomadaire?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quotas_cibles_equipe_id_fkey"
+            columns: ["equipe_id"]
+            isOneToOne: false
+            referencedRelation: "equipes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rapports_duo: {
         Row: {
@@ -2107,7 +2128,10 @@ export type Database = {
       benin_now: { Args: never; Returns: string }
       benin_today: { Args: never; Returns: string }
       cible_pour_specialite: {
-        Args: { p_specialite: Database["public"]["Enums"]["specialite_client"] }
+        Args: {
+          p_equipe_id: string
+          p_specialite: Database["public"]["Enums"]["specialite_client"]
+        }
         Returns: string
       }
       cloturer_journee: {
