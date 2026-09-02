@@ -220,44 +220,46 @@ export default function ManagementProduits() {
         ) : filtres.length === 0 ? (
           <p className="p-8 text-center text-sm text-ink-400">Aucun produit trouvé.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-ink-100 text-left text-xs font-semibold text-ink-400 uppercase tracking-wide">
-                <th className="px-5 py-3">Produit</th>
-                {equipeFiltre === 'TOUS' && <th className="px-5 py-3">Équipe</th>}
-                <th className="px-5 py-3">Statut</th>
-                <th className="px-5 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtres.map((p) => (
-                <tr key={p.id} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50">
-                  <td className="px-5 py-3 font-semibold text-ink-700">{p.nom}</td>
-                  {equipeFiltre === 'TOUS' && <td className="px-5 py-3 text-ink-500">{nomEquipe(p.equipe_id)}</td>}
-                  <td className="px-5 py-3">
-                    <Badge tone={p.actif ? 'success' : 'neutral'}>{p.actif ? 'Actif' : 'Désactivé'}</Badge>
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => ouvrirModif(p)}
-                        className="rounded-full px-3 py-1.5 text-[11px] font-semibold bg-royal-50 text-royal-700 hover:bg-royal-100 transition"
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        onClick={() => toggleActif(p)}
-                        title={p.actif ? 'Désactiver' : 'Réactiver'}
-                        className={`rounded-full p-2 transition ${p.actif ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
-                      >
-                        {p.actif ? <IconLock className="h-3.5 w-3.5" /> : <IconCheckCircle className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-ink-100 text-left text-xs font-semibold text-ink-400 uppercase tracking-wide">
+                  <th className="px-5 py-3">Produit</th>
+                  {equipeFiltre === 'TOUS' && <th className="px-5 py-3">Équipe</th>}
+                  <th className="px-5 py-3">Statut</th>
+                  <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtres.map((p) => (
+                  <tr key={p.id} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/50">
+                    <td className="px-5 py-3 font-semibold text-ink-700">{p.nom}</td>
+                    {equipeFiltre === 'TOUS' && <td className="px-5 py-3 text-ink-500">{nomEquipe(p.equipe_id)}</td>}
+                    <td className="px-5 py-3">
+                      <Badge tone={p.actif ? 'success' : 'neutral'}>{p.actif ? 'Actif' : 'Désactivé'}</Badge>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => ouvrirModif(p)}
+                          className="rounded-full px-3 py-1.5 text-[11px] font-semibold bg-royal-50 text-royal-700 hover:bg-royal-100 transition"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          onClick={() => toggleActif(p)}
+                          title={p.actif ? 'Désactiver' : 'Réactiver'}
+                          className={`rounded-full p-2 transition ${p.actif ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                        >
+                          {p.actif ? <IconLock className="h-3.5 w-3.5" /> : <IconCheckCircle className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
