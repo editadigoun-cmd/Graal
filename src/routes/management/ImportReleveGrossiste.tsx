@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -57,7 +58,9 @@ function ProduitCombobox({
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const selected = catalogue.find((c) => c.produitId === ligne.produitId)
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -65,12 +68,70 @@ function ProduitCombobox({
   }, [catalogue, query])
 
   useEffect(() => {
+    function positionnerMenu() {
+      const anchor = ref.current?.getBoundingClientRect()
+      if (!anchor) return
+      const gap = 4
+      const marge = 8
+      const hauteurSouhaitee = 256
+      const espaceBas = window.innerHeight - anchor.bottom - gap - marge
+      const espaceHaut = anchor.top - gap - marge
+      const ouvrirVersLeHaut = espaceBas < 220 && espaceHaut > espaceBas
+      const maxHeight = Math.max(120, Math.min(hauteurSouhaitee, ouvrirVersLeHaut ? espaceHaut : espaceBas))
+      setMenuPosition({
+        top: ouvrirVersLeHaut ? anchor.top - maxHeight - gap : anchor.bottom + gap,
+        left: anchor.left,
+        width: anchor.width,
+        maxHeight,
+      })
+    }
+
+    if (!open) {
+      setMenuPosition(null)
+      return
+    }
+
+    positionnerMenu()
+    const repositionner = () => positionnerMenu()
+    window.addEventListener('resize', repositionner)
+    window.addEventListener('scroll', repositionner, true)
+    return () => {
+      window.removeEventListener('resize', repositionner)
+      window.removeEventListener('scroll', repositionner, true)
+    }
+  }, [open, query, filtered.length])
+
+  useEffect(() => {
     function fermer(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return
+      setOpen(false)
     }
     document.addEventListener('mousedown', fermer)
     return () => document.removeEventListener('mousedown', fermer)
   }, [])
+
+  const menu = open && menuPosition ? createPortal(
+    <div
+      ref={menuRef}
+      style={{ position: 'fixed', top: menuPosition.top, left: menuPosition.left, width: menuPosition.width, maxHeight: menuPosition.maxHeight }}
+      className="z-[100] overflow-y-auto rounded-xl border border-ink-100 bg-white p-1 shadow-xl"
+    >
+      <button type="button" onClick={() => { onChange(null); setOpen(false); setQuery('') }} className="w-full rounded-lg px-3 py-2 text-left text-xs text-ink-500 hover:bg-ink-50">
+        — Ignorer ce produit —
+      </button>
+      <button type="button" onClick={() => { setOpen(false); onAddNew() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-royal-600 hover:bg-royal-50">
+        <IconPlus className="h-3.5 w-3.5" /> Ajouter « {ligne.designation} » comme nouveau produit
+      </button>
+      {filtered.map((c) => (
+        <button key={c.produitId} type="button" onClick={() => { onChange(c.produitId); setOpen(false); setQuery('') }} className={`block w-full truncate rounded-lg px-3 py-2 text-left text-xs hover:bg-ink-50 ${c.produitId === ligne.produitId ? 'bg-royal-50 font-semibold text-royal-700' : 'text-ink-700'}`}>
+          {c.nom}
+        </button>
+      ))}
+      {filtered.length === 0 && <p className="px-3 py-3 text-xs text-ink-400">Aucun produit trouvé.</p>}
+    </div>,
+    document.body
+  ) : null
 
   return (
     <div ref={ref} className="relative flex-1 min-w-0">
@@ -84,22 +145,7 @@ function ProduitCombobox({
           className="w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3 py-2 text-xs outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
         />
       </div>
-      {open && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-xl border border-ink-100 bg-white p-1 shadow-xl">
-          <button type="button" onClick={() => { onChange(null); setOpen(false); setQuery('') }} className="w-full rounded-lg px-3 py-2 text-left text-xs text-ink-500 hover:bg-ink-50">
-            — Ignorer ce produit —
-          </button>
-          <button type="button" onClick={() => { setOpen(false); onAddNew() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-royal-600 hover:bg-royal-50">
-            <IconPlus className="h-3.5 w-3.5" /> Ajouter « {ligne.designation} » comme nouveau produit
-          </button>
-          {filtered.map((c) => (
-            <button key={c.produitId} type="button" onClick={() => { onChange(c.produitId); setOpen(false); setQuery('') }} className={`block w-full truncate rounded-lg px-3 py-2 text-left text-xs hover:bg-ink-50 ${c.produitId === ligne.produitId ? 'bg-royal-50 font-semibold text-royal-700' : 'text-ink-700'}`}>
-              {c.nom}
-            </button>
-          ))}
-          {filtered.length === 0 && <p className="px-3 py-3 text-xs text-ink-400">Aucun produit trouvé.</p>}
-        </div>
-      )}
+      {menu}
     </div>
   )
 }
