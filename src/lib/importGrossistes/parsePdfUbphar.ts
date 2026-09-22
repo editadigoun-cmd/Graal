@@ -45,7 +45,32 @@ function parsePage(items: ItemTexte[]): { fournisseur: string; moisReference: st
   const cols: Record<ColNom, [number, number]> = {} as Record<ColNom, [number, number]>
   for (let i = 0; i < COL_NOMS.length; i++) cols[COL_NOMS[i]] = [bounds[i] - 3, bounds[i + 1] - 3]
   function inRange(x: number, [lo, hi]: [number, number]) { return x >= lo && x < hi }
-  function colDe(x: number): ColNom | null { for (const n of COL_NOMS) if (inRange(x, cols[n])) return n; return null }
+  // Pour les colonnes numériques UBPHAR, ne pas utiliser uniquement les bornes :
+  // une valeur située près de la séparation entre deux colonnes peut sinon être
+  // rattachée à la mauvaise colonne. On rattache donc chaque nombre à l'en-tête
+  // numérique le plus proche. Ainsi la 3e colonne reste toujours Stock et la 4e
+  // reste toujours Ventes depuis le 1er.
+  const colonnesNumeriques: Array<{ nom: ColNom; x: number }> = [
+    { nom: 'stock', x: xStock },
+    { nom: 'depuis1er', x: xDepuis1er },
+    { nom: 'juillet', x: xJuillet },
+    { nom: 'juin', x: xJuin },
+    { nom: 'mai', x: xMai },
+    { nom: 'avril', x: xAvril },
+    { nom: 'mars', x: xMars },
+    { nom: 'cmde', x: xCmde }
+  ]
+  function colDe(x: number, str: string): ColNom | null {
+    // Les valeurs numériques sont affectées à la colonne numérique dont
+    // l'en-tête est le plus proche horizontalement.
+    if (/^[+-]?(?:\\d+(?:[.,]\\d+)?|[.,]\\d+)$/.test(str.trim())) {
+      return colonnesNumeriques.reduce((best, c) =>
+        Math.abs(c.x - x) < Math.abs(best.x - x) ? c : best
+      ).nom
+    }
+    for (const n of COL_NOMS) if (inRange(x, cols[n])) return n
+    return null
+  }
 
   const realAnchors = items
     .filter((it) => inRange(it.x, cols.ref) && REF_REGEX.test(it.str.trim()))
@@ -74,7 +99,7 @@ function parsePage(items: ItemTexte[]): { fournisseur: string; moisReference: st
     return b
   })
   for (const it of items) {
-    const c = colDe(it.x)
+    const c = colDe(it.x, it.str)
     if (!c) continue
     const idx = ancrePlusProche(it.y)
     buckets[idx][c].push(it)
