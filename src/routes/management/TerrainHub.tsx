@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/features/auth/AuthProvider'
 import { Card } from '@/components/ui/Card'
 import { StatCard } from '@/components/ui/StatCard'
 import { Button } from '@/components/ui/Button'
@@ -13,18 +14,18 @@ const items:Item[]=[
  {path:'/admin/controle-frequence',title:'Fréquence clients',description:'Surveiller les programmations répétées et les exceptions marketing.',icon:IconAlert,label:'Contrôle'},
  {path:'/admin/rapports-duo',title:'Duo terrain',description:'Consulter et suivre les activités réalisées en duo.',icon:IconUsers,label:'Duo'},
  {path:'/admin/animation-equipe',title:'Animation d’équipe',description:'Piloter les actions d’animation et l’accompagnement des équipes.',icon:IconTrendingUp,label:'Animation'},
- {path:'/admin/indicateurs-animation',title:'Indicateurs d’animation',description:'Analyser les indicateurs liés à l’animation des équipes.',icon:IconBarChart,label:'Indicateurs'}
+ {path:'/admin/indicateurs-animation',title:'Indicateurs d’animation',description:'Analyser les indicateurs liés à l’animation des équipes.',icon:IconBarChart,label:'Indicateurs',adminOnly:true}
 ]
 export default function TerrainHub(){
- const nav=useNavigate(); const [filter,setFilter]=useState('Tous')
- const shown=filter==='Tous'?items:items.filter(x=>x.label===filter)
+ const nav=useNavigate(); const {profile}=useAuth(); const [filter,setFilter]=useState('Tous')
+ const visible=items.filter(x=>!x.adminOnly||profile?.role==='admin'); const shown=filter==='Tous'?visible:visible.filter(x=>x.label===filter)
  const filters=['Tous','Suivi','Planification','Rapports','Contrôle','Duo','Animation','Indicateurs']
  return <div className="space-y-6">
   <div className="flex flex-wrap items-start justify-between gap-3">
    <div><p className="text-xs font-bold uppercase tracking-[.16em] text-royal-600">Pilotage opérationnel</p><h1 className="mt-1 text-2xl font-extrabold text-ink-800 font-display">Terrain & activité</h1><p className="mt-1 max-w-2xl text-sm text-ink-400">Un seul espace pour retrouver le suivi terrain, les VAD/Duo, les rapports, les contrôles et l’animation des équipes.</p></div>
   </div>
   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-   <StatCard label="Modules terrain" value={items.length} tone="royal" icon={<IconMapPin className="h-4 w-4"/>}/>
+   <StatCard label="Modules terrain" value={visible.length} tone="royal" icon={<IconMapPin className="h-4 w-4"/>}/>
    <StatCard label="Planification" value="VAD · Duo" tone="emerald" icon={<IconStethoscope className="h-4 w-4"/>}/>
    <StatCard label="Rapports" value="Hebdo" tone="flame" icon={<IconClipboard className="h-4 w-4"/>}/>
    <StatCard label="Contrôle" value="Clients" tone="royal" icon={<IconAlert className="h-4 w-4"/>}/>
