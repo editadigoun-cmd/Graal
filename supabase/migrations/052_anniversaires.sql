@@ -1,5 +1,5 @@
 alter table public.profiles add column if not exists date_anniversaire date;
-create index if not exists profiles_anniversaire_idx on public.profiles ((to_char(date_anniversaire, 'MM-DD'))) where date_anniversaire is not null;
+create index if not exists profiles_anniversaire_idx on public.profiles ((extract(month from date_anniversaire)::int * 100 + extract(day from date_anniversaire)::int)) where date_anniversaire is not null;
 create or replace function public.notifier_anniversaires() returns void language plpgsql security definer set search_path=public as $$
 declare v_today date := (now() at time zone 'Africa/Porto-Novo')::date; v_profile record; v_dest record; v_age int;
 begin
