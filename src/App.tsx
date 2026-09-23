@@ -33,6 +33,12 @@ import ManagementProduits from '@/routes/management/Produits'
 import ManagementAnimationEquipe from '@/routes/management/AnimationEquipe'
 import ManagementIndicateursAnimation from '@/routes/management/IndicateursAnimation'
 import ManagementPilotageVentes from '@/routes/management/PilotageVentes'
+import ManagementAnalyseVentes from '@/routes/management/AnalyseVentes'
+import ManagementFacturation from '@/routes/management/Facturation'
+import ManagementTerrainHub from '@/routes/management/TerrainHub'
+import ManagementVadPlan from '@/routes/management/VadPlan'
+import ManagementRapportActiviteHebdomadaire from '@/routes/management/RapportActiviteHebdomadaire'
+import ManagementControleFrequenceClients from '@/routes/management/ControleFrequenceClients'
 // Chargé à la demande : embarque Leaflet (~150 Ko), inutile pour les VM sur mobile.
 const ManagementSuiviTerrain = lazy(() => import('@/routes/management/SuiviTerrain'))
 
@@ -128,6 +134,12 @@ export default function App() {
             <Route path="animation-equipe" element={<ManagementAnimationEquipe />} />
             <Route path="indicateurs-animation" element={<RequireAdmin><ManagementIndicateursAnimation /></RequireAdmin>} />
             <Route path="pilotage-ventes" element={<ManagementPilotageVentes />} />
+            <Route path="analyse-ventes" element={<ManagementAnalyseVentes />} />
+            <Route path="facturation" element={<ManagementFacturation />} />
+            <Route path="terrain" element={<ManagementTerrainHub />} />
+            <Route path="vad-plan" element={<ManagementVadPlan />} />
+            <Route path="rapport-activite-hebdo" element={<ManagementRapportActiviteHebdomadaire />} />
+            <Route path="controle-frequence" element={<ManagementControleFrequenceClients />} />
             <Route path="parametres" element={<RequireAdmin><ManagementParametres /></RequireAdmin>} />
             <Route path="messages" element={<Messages />} />
             <Route path="messages/:conversationId" element={<Conversation />} />
