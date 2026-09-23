@@ -14,6 +14,7 @@ const nav = [
   { to: '/admin/programmes', label: 'Programmes', icon: IconCalendar, end: false, adminOnly: false },
   { to: '/admin/messages', label: 'Messages', icon: IconChat, end: false, adminOnly: false },
   { to: '/admin/anniversaires', label: 'Anniversaires', icon: IconCalendar, end: false, adminOnly: false },
+  { to: '/admin/facturation', label: 'Facturation', icon: IconClipboard, end: false, adminOnly: false },
   { to: '/admin/forum', label: 'Forum Managers', icon: IconUsers, end: false, adminOnly: false },
   { to: '/admin/suivi-terrain', label: 'Suivi terrain', icon: IconMapPin, end: false, adminOnly: false },
   { to: '/admin/reporting', label: 'Reporting', icon: IconBarChart, end: false, adminOnly: false },
