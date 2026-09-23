@@ -39,6 +39,7 @@ export default function ManagementAnimationEquipe() {
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
 
   const isAdmin = profile?.role === 'admin'
 
