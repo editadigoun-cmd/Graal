@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { IconStethoscope } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
@@ -85,6 +86,7 @@ export default function ManagementAnimationEquipe() {
     if (error) { setErreur(error.message); return }
     setNotes('')
     setVmId('')
+    setFormOpen(false)
     load()
   }
 
@@ -100,7 +102,9 @@ export default function ManagementAnimationEquipe() {
       {equipesVisibles.length === 0 ? (
         <Card className="text-sm text-ink-400 text-center py-8">Aucune équipe dans votre périmètre.</Card>
       ) : (
-        <Card>
+        <>
+          <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold text-ink-800">Actions d'animation</p><p className="text-xs text-ink-400">{activites.length} action(s) récente(s)</p></div><Button size="sm" onClick={()=>setFormOpen(true)}>Nouvelle action</Button></div>
+          <Modal open={formOpen} onClose={()=>setFormOpen(false)} title="Nouvelle action d'animation" description="Enregistrez une action pour l'équipe sélectionnée." maxWidth="max-w-2xl"><Card className="border-0 shadow-none p-0">
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-ink-500">Type d'action</label>
@@ -138,9 +142,9 @@ export default function ManagementAnimationEquipe() {
             </Button>
             {erreur && <p className="text-xs font-semibold text-red-600">{erreur}</p>}
           </div>
-        </Card>
+</Card></Modal>
+        </>
       )}
-
       <div>
         <p className="text-sm font-bold text-ink-600 mb-3">Actions récentes</p>
         {activites.length === 0 ? (
