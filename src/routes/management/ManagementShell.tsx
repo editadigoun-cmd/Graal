@@ -21,6 +21,7 @@ const nav = [
   { to: '/admin/clients', label: 'Clients', icon: IconMapPin, end: false, adminOnly: true },
   { to: '/admin/produits', label: 'Produits', icon: IconPill, end: false, adminOnly: true },
   { to: '/admin/pilotage-ventes', label: 'Pilotage des ventes', icon: IconBarChart, end: false, adminOnly: false },
+  { to: '/admin/analyse-ventes', label: 'Analyse des ventes', icon: IconTrendingUp, end: false, adminOnly: false },
   { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard, end: false, adminOnly: false },
   { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconStethoscope, end: false, adminOnly: false },
   { to: '/admin/animation-equipe', label: 'Animation d\'équipe', icon: IconTrendingUp, end: false, adminOnly: false },
