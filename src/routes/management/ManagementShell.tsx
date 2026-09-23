@@ -92,8 +92,9 @@ const groups: NavGroup[] = [
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Administrateur', superviseur: 'Superviseur' }
 
-function isPathActive(pathname: string, to: string) {
-  const clean = to.split('?')[0]
+function isPathActive(pathname: string, search: string, to: string) {
+  const [clean, query] = to.split('?')
+  if (query) return pathname === clean && search === '?' + query
   return clean === '/admin' ? pathname === clean : pathname.startsWith(clean)
 }
 
@@ -112,7 +113,7 @@ export function ManagementShell() {
   )
 
   const currentPage = [...topItems, ...visibleGroups.flatMap((g) => g.children)]
-    .find((item) => isPathActive(location.pathname, item.to))
+    .find((item) => isPathActive(location.pathname, location.search, item.to))
 
   function toggleGroup(label: string) {
     setOpenGroups((current) => {
@@ -142,7 +143,7 @@ export function ManagementShell() {
 
         {visibleGroups.map((group) => {
           const GroupIcon = group.icon
-          const active = group.children.some((item) => isPathActive(location.pathname, item.to))
+          const active = group.children.some((item) => isPathActive(location.pathname, location.search, item.to))
           const expanded = openGroups.has(group.label)
           return (
             <div key={group.label} className="pt-1">
