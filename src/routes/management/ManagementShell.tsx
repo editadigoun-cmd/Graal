@@ -69,14 +69,14 @@ const groups: NavGroup[] = [
     ],
   },
   {
-    label: 'Commercial',
+    label: 'Facturation',
     icon: IconClipboard,
     children: [
-      { to: '/admin/facturation', label: 'Facturation', icon: IconClipboard },
+      { to: '/admin/facturation', label: 'Vue d’ensemble', icon: IconClipboard },
       { to: '/admin/facturation?tab=proformas', label: 'Factures proforma', icon: IconClipboard },
       { to: '/admin/facturation?tab=bordereaux', label: 'Bordereaux de livraison', icon: IconClipboard },
-      { to: '/admin/facturation?tab=clients', label: 'Clients facturation', icon: IconUsers },
-      { to: '/admin/facturation?tab=produits', label: 'Produits facturation', icon: IconPill },
+      { to: '/admin/facturation?tab=clients', label: 'Clients', icon: IconUsers },
+      { to: '/admin/facturation?tab=produits', label: 'Produits', icon: IconPill },
     ],
   },
   {
@@ -102,7 +102,7 @@ export function ManagementShell() {
   const unread = useUnreadNotifications()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['Pilotage', 'Terrain & activité', 'Commercial']))
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['Pilotage', 'Terrain & activité']))
 
   const visibleGroups = useMemo(
     () => groups
