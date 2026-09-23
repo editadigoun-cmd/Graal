@@ -253,7 +253,7 @@ export default function Planning() {
           countdown ? (
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-white/70">Soumission avant jeudi 21h00</p>
+                <p className="text-xs text-white/70">Soumission avant samedi 12h00</p>
                 <p className="text-xl font-extrabold font-display">{countdown}</p>
               </div>
               <IconClock className="h-8 w-8 text-white/60" />
