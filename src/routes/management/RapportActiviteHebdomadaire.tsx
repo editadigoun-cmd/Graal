@@ -1,0 +1,13 @@
+import { useEffect, useState } from 'react'
+import dayjs from 'dayjs'
+import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth/AuthProvider'
+
+export default function RapportActiviteHebdomadaire(){
+ const {profile}=useAuth(); const [semaine,setSemaine]=useState(dayjs().startOf('week').add(1,'day').format('YYYY-MM-DD')); const [vmId,setVmId]=useState(''); const [vms,setVms]=useState<any[]>([]); const [form,setForm]=useState({forts:'',faibles:'',commandes:'',negociation:'',objectifs:'',commentaires:''}); const [notice,setNotice]=useState('')
+ useEffect(()=>{supabase.from('profiles').select('id,full_name').eq('role','vm').eq('actif',true).order('full_name').then(({data})=>{setVms(data??[]);if(data?.[0])setVmId(data[0].id)})},[])
+ async function save(){if(!profile||!vmId)return; const {error}=await (supabase.from('rapports_activite_hebdomadaires' as any).upsert({superviseur_id:profile.id,vm_id:vmId,semaine_debut:semaine,points_forts:form.forts,points_faibles:form.faibles,commandes_obtenues:form.commandes,commandes_negociation:form.negociation,objectifs_semaine_suivante:form.objectifs,commentaires:form.commentaires},{onConflict:'vm_id,semaine_debut'}) as any);setNotice(error?error.message:'Rapport enregistré.')}
+ return <div className="space-y-6"><div><h1 className="text-xl font-extrabold text-ink-800 font-display">Rapport d'activité hebdomadaire</h1><p className="text-sm text-ink-400">Suivi de l'activité de chaque VM.</p></div><Card className="p-4 grid gap-3 sm:grid-cols-3"><input type="date" value={semaine} onChange={e=>setSemaine(e.target.value)} className="rounded-xl border border-ink-100 px-3 py-2"/><select value={vmId} onChange={e=>setVmId(e.target.value)} className="rounded-xl border border-ink-100 px-3 py-2">{vms.map(v=><option key={v.id} value={v.id}>{v.full_name}</option>)}</select><Button onClick={save}>Enregistrer</Button></Card><Card className="p-4 space-y-3">{[['forts','POINTS FORTS DE LA SEMAINE'],['faibles','POINTS FAIBLES DE LA SEMAINE'],['commandes','COMMANDES OBTENUES'],['negociation','COMMANDES EN COURS DE NÉGOCIATION'],['objectifs','OBJECTIFS SEMAINE PROCHAINE'],['commentaires','COMMENTAIRES']].map(([k,l])=><label key={k} className="block text-sm font-semibold">{l}<textarea value={(form as any)[k]} onChange={e=>setForm({...form,[k]:e.target.value})} className="mt-1 min-h-20 w-full rounded-xl border border-ink-100 p-3 font-normal"/></label>)}</Card>{notice&&<p className="text-sm text-ink-500">{notice}</p>}</div>
+}
