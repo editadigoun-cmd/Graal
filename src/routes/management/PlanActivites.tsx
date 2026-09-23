@@ -31,6 +31,8 @@ export default function ManagementPlanActivites() {
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const isAdmin = profile?.role === 'admin'
+  const deadline = dayjs.tz(mois, 'Africa/Porto-Novo').subtract(1, 'month').date(25).hour(21).minute(0).second(0)
+  const ferme = !isAdmin && nowBenin().isAfter(deadline)
 
   async function load() {
     const [{ data: eq }, { data: pl }, se] = await Promise.all([
@@ -65,7 +67,7 @@ export default function ManagementPlanActivites() {
 
   async function soumettre(e: React.FormEvent) {
     e.preventDefault()
-    if (!equipeId || !profile) return
+    if (!equipeId || !profile || ferme) return
     setSaving(true)
     setNotice(null)
     const existant = plans.find((p) => p.equipe_id === equipeId && p.mois === mois)
@@ -90,9 +92,9 @@ export default function ManagementPlanActivites() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-ink-800 font-display">Plan d'activités mensuel</h1>
+        <h1 className="text-xl font-bold text-ink-800 font-display">Plan d'action</h1>
         <p className="text-sm text-ink-400">
-          À soumettre par équipe au plus tard le 25 du mois en cours pour le mois suivant — sans plan soumis,
+          À soumettre par équipe au plus tard le 25 à 21h00 du mois en cours pour le mois suivant — après cette échéance, la soumission est fermée. Sans plan soumis,
           l'équipe ne peut programmer aucune activité pour le mois concerné.
         </p>
       </div>
@@ -108,7 +110,7 @@ export default function ManagementPlanActivites() {
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-ink-500">Équipe</label>
                 <select
-                  value={equipeId} onChange={(e) => setEquipeId(e.target.value)}
+                  value={equipeId} onChange={(e) => setEquipeId(e.target.value)} disabled={ferme}
                   className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
                 >
                   {equipesVisibles.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
@@ -117,7 +119,7 @@ export default function ManagementPlanActivites() {
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-ink-500">Mois concerné</label>
                 <select
-                  value={mois} onChange={(e) => setMois(e.target.value)}
+                  value={mois} onChange={(e) => setMois(e.target.value)} disabled={ferme}
                   className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
                 >
                   {moisOptions().map((m) => <option key={m} value={m}>{dayjs(m).format('MMMM YYYY')}</option>)}
@@ -127,7 +129,7 @@ export default function ManagementPlanActivites() {
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-ink-500">Contenu du plan</label>
               <textarea
-                value={texte} onChange={(e) => setTexte(e.target.value)} rows={6} required
+                value={texte} onChange={(e) => setTexte(e.target.value)} rows={6} required disabled={ferme}
                 placeholder="Objectifs, actions prévues, formations, challenges, points d'attention pour le mois…"
                 className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
               />
@@ -137,7 +139,7 @@ export default function ManagementPlanActivites() {
                 {notice.text}
               </p>
             )}
-            <Button type="submit" loading={saving}>Enregistrer le plan</Button>
+            {ferme && <p className="text-xs rounded-xl bg-flame-50 text-flame-700 px-3 py-2.5">Soumission fermée après le 25 à 21h00 (heure du Bénin).</p>}\n            <Button type="submit" loading={saving} disabled={ferme}>Soumettre le plan d'action</Button>
           </form>
         </Card>
       )}
