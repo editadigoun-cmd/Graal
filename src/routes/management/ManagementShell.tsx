@@ -1,46 +1,201 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import clsx from 'clsx'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Avatar } from '@/components/ui/Avatar'
-import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser, IconClipboard, IconStethoscope, IconMapPin, IconPill, IconTrendingUp, IconBarChart, IconMenu, IconX } from '@/components/ui/icons'
+import {
+  IconHome, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity,
+  IconUser, IconClipboard, IconMapPin, IconPill, IconTrendingUp, IconBarChart,
+  IconMenu, IconX, IconChevronRight
+} from '@/components/ui/icons'
 import logoFull from '@/assets/logo-full.png'
 import logoMark from '@/assets/logo-mark.png'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 
-const nav = [
-  { to: '/admin', label: 'Tableau de bord', icon: IconHome, end: true, adminOnly: false },
-  { to: '/admin/programmes', label: 'Programmes', icon: IconCalendar, end: false, adminOnly: false },
-  { to: '/admin/messages', label: 'Messages', icon: IconChat, end: false, adminOnly: false },
-  { to: '/admin/suivi-terrain', label: 'Suivi terrain', icon: IconMapPin, end: false, adminOnly: false },
-  { to: '/admin/reporting', label: 'Reporting', icon: IconBarChart, end: false, adminOnly: false },
-  { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers, end: false, adminOnly: false },
-  { to: '/admin/clients', label: 'Clients', icon: IconMapPin, end: false, adminOnly: true },
-  { to: '/admin/produits', label: 'Produits', icon: IconPill, end: false, adminOnly: true },
-  { to: '/admin/pilotage-ventes', label: 'Pilotage des ventes', icon: IconBarChart, end: false, adminOnly: false },
-  { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard, end: false, adminOnly: false },
-  { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconStethoscope, end: false, adminOnly: false },
-  { to: '/admin/animation-equipe', label: 'Animation d\'équipe', icon: IconTrendingUp, end: false, adminOnly: false },
-  { to: '/admin/indicateurs-animation', label: "Indicateurs d'animation", icon: IconTrendingUp, end: false, adminOnly: true },
-  { to: '/admin/activite', label: 'Activité', icon: IconActivity, end: false, adminOnly: false },
-  { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings, end: false, adminOnly: true },
-  { to: '/admin/profil', label: 'Mon profil', icon: IconUser, end: false, adminOnly: false }
+type NavItem = {
+  to: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  end?: boolean
+  adminOnly?: boolean
+}
+
+type NavGroup = {
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  children: NavItem[]
+  adminOnly?: boolean
+}
+
+const topItems: NavItem[] = [
+  { to: '/admin', label: 'Tableau de bord', icon: IconHome, end: true },
+  { to: '/admin/messages', label: 'Messages', icon: IconChat },
+]
+
+const groups: NavGroup[] = [
+  {
+    label: 'Pilotage',
+    icon: IconBarChart,
+    children: [
+      { to: '/admin/programmes', label: 'Programmes', icon: IconClipboard },
+      { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard },
+      { to: '/admin/pilotage-ventes', label: 'Pilotage des ventes', icon: IconBarChart },
+      { to: '/admin/analyse-ventes', label: 'Analyse des ventes', icon: IconTrendingUp },
+      { to: '/admin/reporting', label: 'Reporting', icon: IconBarChart },
+    ],
+  },
+  {
+    label: 'Terrain & activité',
+    icon: IconMapPin,
+    children: [
+      { to: '/admin/terrain', label: 'Vue terrain', icon: IconMapPin },
+      { to: '/admin/suivi-terrain', label: 'Suivi terrain', icon: IconMapPin },
+      { to: '/admin/vad-plan', label: 'VAD & Duo', icon: IconMapPin },
+      { to: '/admin/rapport-activite-hebdo', label: 'Rapport hebdomadaire', icon: IconClipboard },
+      { to: '/admin/controle-frequence', label: 'Fréquence clients', icon: IconUsers },
+      { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconUsers },
+      { to: '/admin/animation-equipe', label: "Animation d'équipe", icon: IconTrendingUp },
+      { to: '/admin/indicateurs-animation', label: "Indicateurs d'animation", icon: IconBarChart, adminOnly: true },
+    ],
+  },
+  {
+    label: 'Ressources',
+    icon: IconUsers,
+    children: [
+      { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers },
+      { to: '/admin/clients', label: 'Clients', icon: IconUsers, adminOnly: true },
+      { to: '/admin/produits', label: 'Produits', icon: IconPill, adminOnly: true },
+    ],
+  },
+  {
+    label: 'Commercial',
+    icon: IconClipboard,
+    children: [
+      { to: '/admin/facturation', label: 'Facturation', icon: IconClipboard },
+      { to: '/admin/facturation?tab=proformas', label: 'Factures proforma', icon: IconClipboard },
+      { to: '/admin/facturation?tab=bordereaux', label: 'Bordereaux de livraison', icon: IconClipboard },
+      { to: '/admin/facturation?tab=clients', label: 'Clients facturation', icon: IconUsers },
+      { to: '/admin/facturation?tab=produits', label: 'Produits facturation', icon: IconPill },
+    ],
+  },
+  {
+    label: 'Administration',
+    icon: IconSettings,
+    children: [
+      { to: '/admin/activite', label: 'Activité & notifications', icon: IconActivity },
+      { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings, adminOnly: true },
+      { to: '/admin/profil', label: 'Mon profil', icon: IconUser },
+    ],
+  },
 ]
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Administrateur', superviseur: 'Superviseur' }
+
+function isPathActive(pathname: string, to: string) {
+  const clean = to.split('?')[0]
+  return clean === '/admin' ? pathname === clean : pathname.startsWith(clean)
+}
 
 export function ManagementShell() {
   const { profile, signOut } = useAuth()
   const unread = useUnreadNotifications()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const navVisible = nav.filter((n) => !n.adminOnly || profile?.role === 'admin')
-  const currentPage = nav.find((n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)))
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['Pilotage', 'Terrain & activité', 'Commercial']))
+
+  const visibleGroups = useMemo(
+    () => groups
+      .filter((g) => !g.adminOnly || profile?.role === 'admin')
+      .map((g) => ({ ...g, children: g.children.filter((item) => !item.adminOnly || profile?.role === 'admin') })),
+    [profile?.role]
+  )
+
+  const currentPage = [...topItems, ...visibleGroups.flatMap((g) => g.children)]
+    .find((item) => isPathActive(location.pathname, item.to))
+
+  function toggleGroup(label: string) {
+    setOpenGroups((current) => {
+      const next = new Set(current)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
+  }
+
+  function Navigation({ mobile = false }: { mobile?: boolean }) {
+    return (
+      <nav className="space-y-1 flex-1 overflow-y-auto styled-scrollbar pr-1">
+        {topItems.map(({ to, label, icon: Icon, end }) => (
+          <NavLink key={to} to={to} end={end} onClick={mobile ? () => setMenuOpen(false) : undefined}>
+            {({ isActive }) => (
+              <div className={clsx(
+                'flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-semibold transition',
+                isActive ? 'bg-royal-600 text-white shadow-soft' : 'text-ink-500 hover:bg-ink-100'
+              )}>
+                <Icon className="h-4.5 w-4.5" />
+                {label}
+              </div>
+            )}
+          </NavLink>
+        ))}
+
+        {visibleGroups.map((group) => {
+          const GroupIcon = group.icon
+          const active = group.children.some((item) => isPathActive(location.pathname, item.to))
+          const expanded = openGroups.has(group.label)
+          return (
+            <div key={group.label} className="pt-1">
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.label)}
+                className={clsx(
+                  'w-full flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-bold transition',
+                  active ? 'text-royal-700 bg-royal-50' : 'text-ink-500 hover:bg-ink-100'
+                )}
+                aria-expanded={expanded}
+              >
+                <GroupIcon className="h-4.5 w-4.5" />
+                <span className="flex-1 text-left">{group.label}</span>
+                <IconChevronRight className={clsx('h-4 w-4 transition-transform', expanded && 'rotate-90')} />
+              </button>
+
+              <AnimatePresence initial={false}>
+                {expanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="ml-4 mt-1 space-y-0.5 border-l border-ink-100 pl-2">
+                      {group.children.map(({ to, label, icon: Icon, end }) => (
+                        <NavLink key={to} to={to} end={end} onClick={mobile ? () => setMenuOpen(false) : undefined}>
+                          {({ isActive }) => (
+                            <div className={clsx(
+                              'flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold transition',
+                              isActive ? 'bg-royal-600 text-white shadow-soft' : 'text-ink-500 hover:bg-ink-100'
+                            )}>
+                              <Icon className="h-3.5 w-3.5" />
+                              {label}
+                            </div>
+                          )}
+                        </NavLink>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )
+        })}
+      </nav>
+    )
+  }
 
   return (
     <div className="graal-surface flex h-screen overflow-hidden">
-      <aside className="hidden md:flex w-64 flex-shrink-0 flex-col border-r border-ink-100/60 bg-white/70 backdrop-blur-xl p-5">
+      <aside className="hidden md:flex w-72 flex-shrink-0 flex-col border-r border-ink-100/60 bg-white/70 backdrop-blur-xl p-5">
         <div className="flex items-center gap-2.5 px-1 mb-8">
           <img src={logoMark} alt="" className="h-8 w-8" />
           <div>
@@ -48,19 +203,7 @@ export function ManagementShell() {
             <p className="text-[10px] font-semibold text-ink-400 tracking-wide">MEDICAL SOLUTIONS</p>
           </div>
         </div>
-        <nav className="space-y-1 flex-1 overflow-y-auto styled-scrollbar pr-1">
-          {navVisible.map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end}>
-              {({ isActive }) => (
-                <div className={clsx('flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-semibold transition',
-                  isActive ? 'bg-royal-600 text-white shadow-soft' : 'text-ink-500 hover:bg-ink-100')}>
-                  <Icon className="h-4.5 w-4.5" />
-                  {label}
-                </div>
-              )}
-            </NavLink>
-          ))}
-        </nav>
+        <Navigation />
         <div className="mt-4 flex items-center gap-3 rounded-2xl border border-ink-100 p-2.5">
           <Avatar name={profile?.full_name ?? ''} url={profile?.avatar_url} size={38} />
           <div className="min-w-0 flex-1">
@@ -113,7 +256,7 @@ export function ManagementShell() {
               onClick={() => setMenuOpen(false)}
             >
               <motion.div
-                className="absolute left-0 top-0 h-full w-72 max-w-[80vw] bg-white p-5 flex flex-col"
+                className="absolute left-0 top-0 h-full w-80 max-w-[88vw] bg-white p-5 flex flex-col"
                 initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 onClick={(e) => e.stopPropagation()}
@@ -130,19 +273,7 @@ export function ManagementShell() {
                     <IconX className="h-5 w-5" />
                   </button>
                 </div>
-                <nav className="space-y-1 flex-1 overflow-y-auto styled-scrollbar pr-1">
-                  {navVisible.map(({ to, label, icon: Icon, end }) => (
-                    <NavLink key={to} to={to} end={end} onClick={() => setMenuOpen(false)}>
-                      {({ isActive }) => (
-                        <div className={clsx('flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-semibold transition',
-                          isActive ? 'bg-royal-600 text-white shadow-soft' : 'text-ink-500 hover:bg-ink-100')}>
-                          <Icon className="h-4.5 w-4.5" />
-                          {label}
-                        </div>
-                      )}
-                    </NavLink>
-                  ))}
-                </nav>
+                <Navigation mobile />
                 <div className="mt-4 flex items-center gap-3 rounded-2xl border border-ink-100 p-2.5">
                   <Avatar name={profile?.full_name ?? ''} url={profile?.avatar_url} size={38} />
                   <div className="min-w-0 flex-1">
@@ -160,6 +291,7 @@ export function ManagementShell() {
             </motion.div>
           )}
         </AnimatePresence>
+
         <div className="flex-1 overflow-y-auto">
           <div className="p-5 md:p-8 max-w-7xl w-full mx-auto">
             <Outlet />
