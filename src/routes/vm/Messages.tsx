@@ -48,7 +48,33 @@ export default function Messages() {
     if (!session) return
     async function load() {
       const { data: parts } = await supabase.from('conversation_participants').select('conversation_id').eq('profile_id', session!.user.id)
-      const ids = (parts ?? []).map((p) => p.conversation_id)
+      let ids = (parts ?? []).map((p) => p.conversation_id)
+
+      // Le forum managers est une conversation de groupe normale, affichée directement dans Messages.
+      if (profile?.role === 'admin') {
+        const { data: forum } = await supabase.from('conversations').select('id').eq('type', 'FORUM_MANAGER').maybeSingle()
+        if (!forum) {
+          const { data: created } = await supabase.from('conversations').insert({
+            nom: 'Forum Managers',
+            type: 'FORUM_MANAGER',
+            created_by: session!.user.id,
+          }).select('id').single()
+          if (created) {
+            const { data: managers } = await supabase.from('profiles').select('id').in('role', ['admin', 'superviseur'])
+            if (managers?.length) {
+              await supabase.from('conversation_participants').insert(
+                managers.map((m) => ({ conversation_id: created.id, profile_id: m.id }))
+              )
+            }
+            ids = [...ids, created.id]
+          }
+        } else if (!ids.includes(forum.id)) {
+          const { data: membership } = await supabase.from('conversation_participants').select('conversation_id').eq('conversation_id', forum.id).eq('profile_id', session!.user.id).maybeSingle()
+          if (!membership) await supabase.from('conversation_participants').insert({ conversation_id: forum.id, profile_id: session!.user.id })
+          ids = [...ids, forum.id]
+        }
+      }
+
       if (ids.length === 0) { setConvs([]); setLoading(false); return }
 
       const { data: conversations } = await supabase.from('conversations').select('*, conversation_participants(profile_id, profiles(full_name))').in('id', ids)
