@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { supabase } from '@/lib/supabase'
@@ -30,6 +31,7 @@ export default function ManagementRapportsDuo() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
 
   async function load() {
     const [{ data: pr }, { data: rd }, { data: eq }] = await Promise.all([
@@ -67,6 +69,7 @@ export default function ManagementRapportsDuo() {
     else {
       setNotice({ type: 'success', text: 'Rapport de duo enregistré.' })
       setForm((f) => ({ ...EMPTY_FORM, vm_id: f.vm_id }))
+      setFormOpen(false)
       load()
     }
   }
@@ -99,7 +102,9 @@ export default function ManagementRapportsDuo() {
       {vmsFiltres.length === 0 ? (
         <Card className="text-sm text-ink-400 text-center py-8">Aucun visiteur médical dans votre périmètre.</Card>
       ) : (
-        <Card>
+        <>
+          <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold text-ink-800">Évaluation duo</p><p className="text-xs text-ink-400">{rapportsFiltres.length} rapport(s) récent(s)</p></div><Button size="sm" onClick={()=>setFormOpen(true)}>Nouveau rapport</Button></div>
+          <Modal open={formOpen} onClose={()=>setFormOpen(false)} title="Nouveau rapport de duo" description="Évaluez la sortie conjointe avec le visiteur médical." maxWidth="max-w-2xl"><Card className="border-0 shadow-none p-0">
           <form onSubmit={soumettre} className="space-y-4">
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-ink-500">Visiteur médical</label>
@@ -141,9 +146,9 @@ export default function ManagementRapportsDuo() {
 
             <Button type="submit" loading={saving}>Enregistrer le rapport</Button>
           </form>
-        </Card>
+</Card></Modal>
+        </>
       )}
-
       <div>
         <p className="text-sm font-bold text-ink-600 mb-3">Derniers rapports</p>
         {rapportsFiltres.length === 0 ? (
