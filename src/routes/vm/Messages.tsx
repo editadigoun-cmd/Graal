@@ -58,9 +58,9 @@ export default function Messages() {
           const { data: membership } = await supabase.from('conversation_participants').select('conversation_id').eq('conversation_id', forum.id).eq('profile_id', session!.user.id).maybeSingle()
           if (!membership) await supabase.from('conversation_participants').insert({ conversation_id: forum.id, profile_id: session!.user.id })
           ids = ids.includes(forum.id) ? ids : [...ids, forum.id]
-        } else if (profile?.role === 'admin') {
+        } else {
           const { data: created } = await supabase.from('conversations').insert({
-            nom: 'Managers & Administration',
+            nom: 'Superviseurs & Administration',
             type: 'FORUM_MANAGER',
             created_by: session!.user.id,
           }).select('id').single()
@@ -86,7 +86,7 @@ export default function Messages() {
         const messagesConv = (allMessages ?? []).filter((m) => m.conversation_id === c.id)
         const last = messagesConv[0]
         const autres = (c.conversation_participants ?? []).filter((p: any) => p.profile_id !== session!.user.id)
-        const autreNom = c.type === 'FORUM_MANAGER' ? 'Managers & Administration' : (c.nom || autres.map((p: any) => p.profiles?.full_name).join(', ') || 'Conversation')
+        const autreNom = c.type === 'FORUM_MANAGER' ? 'Superviseurs & Administration' : (c.nom || autres.map((p: any) => p.profiles?.full_name).join(', ') || 'Conversation')
         const noms: Record<string, string> = Object.fromEntries(
           (c.conversation_participants ?? []).map((p: any) => [p.profile_id, p.profiles?.full_name ?? 'Utilisateur'])
         )
