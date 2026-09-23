@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
@@ -33,6 +34,7 @@ export default function ManagementReporting() {
   const [loading, setLoading] = useState(true)
   const [drafts, setDrafts] = useState<Record<string, { appreciation: string; recommandations: string }>>({})
   const [saving, setSaving] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const semaineDebut = isoWeekMonday().format('YYYY-MM-DD')
 
   async function load() {
@@ -63,6 +65,7 @@ export default function ManagementReporting() {
       visa_superviseur_id: session.session?.user.id
     }).eq('id', id)
     setSaving(null)
+    setEditingId(null)
     load()
   }
 
@@ -109,26 +112,27 @@ export default function ManagementReporting() {
               <Field label="Suggestions" value={r.suggestions} />
               <Field label="Appréciation personnelle" value={r.appreciation_personnelle} className="md:col-span-2" />
             </div>
-            <div className="border-t border-ink-100 pt-3 space-y-2">
-              <textarea
-                value={draft.appreciation}
-                onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: { ...draft, appreciation: e.target.value } }))}
-                placeholder="Appréciation du superviseur…" rows={2}
-                className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm"
-              />
-              <textarea
-                value={draft.recommandations}
-                onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: { ...draft, recommandations: e.target.value } }))}
-                placeholder="Recommandations…" rows={2}
-                className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm"
-              />
-              <Button size="sm" loading={saving === r.id} onClick={() => viser(r.id)}>
-                {r.visa_superviseur_id ? 'Mettre à jour le visa' : 'Viser'}
+            <div className="border-t border-ink-100 pt-3 flex justify-end">
+              <Button size="sm" variant="secondary" onClick={() => setEditingId(r.id)}>
+                {r.visa_superviseur_id ? 'Modifier le visa' : 'Viser le reporting'}
               </Button>
             </div>
           </Card>
         )
       })}
+
+      {editingId && (() => {
+        const r = rowsFiltrees.find((x) => x.id === editingId)
+        if (!r) return null
+        const draft = drafts[r.id] ?? { appreciation: r.appreciation_superviseur ?? '', recommandations: r.recommandations_superviseur ?? '' }
+        return <Modal open onClose={() => setEditingId(null)} title="Visa du superviseur" description={r.profiles?.full_name ? `Reporting de ${r.profiles.full_name}` : 'Complétez le visa du reporting'}>
+          <div className="space-y-3">
+            <textarea value={draft.appreciation} onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: { ...draft, appreciation: e.target.value } }))} placeholder="Appréciation du superviseur…" rows={4} className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm" />
+            <textarea value={draft.recommandations} onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: { ...draft, recommandations: e.target.value } }))} placeholder="Recommandations…" rows={4} className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm" />
+            <div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setEditingId(null)}>Annuler</Button><Button loading={saving === r.id} onClick={() => viser(r.id)}>Enregistrer le visa</Button></div>
+          </div>
+        </Modal>
+      })()}
     </div>
   )
 }
