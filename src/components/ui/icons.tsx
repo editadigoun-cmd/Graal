@@ -144,3 +144,10 @@ export const IconPictureInPicture = (p: IconProps) => (
 export const IconBarChart = (p: IconProps) => (
   <svg {...base} {...p}><path d="M4 20V10M10 20V4M16 20v-7M21 20H3" /></svg>
 )
+
+export const IconGift = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M4 9h16v11H4z" /><path d="M3 9h18v3H3z" /><path d="M12 9v11" /><path d="M12 9H8.5a2.5 2.5 0 1 1 0-5C10.5 4 12 9 12 9Z" /><path d="M12 9h3.5a2.5 2.5 0 1 0 0-5C13.5 4 12 9 12 9Z" /></svg>
+)
+export const IconTruck = (p: IconProps) => (
+  <svg {...base} {...p}><path d="M3 6h11v10H3z" /><path d="M14 10h4l3 3v3h-7z" /><circle cx="7" cy="18" r="2" /><circle cx="18" cy="18" r="2" /></svg>
+)
