@@ -208,6 +208,276 @@ export type Database = {
           },
         ]
       }
+      autorisations_frequence_client: {
+        Row: {
+          actif: boolean
+          autorise_par: string
+          client_id: string
+          created_at: string
+          date_debut: string
+          date_fin: string
+          id: string
+          motif: string
+          vm_id: string
+        }
+        Insert: {
+          actif?: boolean
+          autorise_par: string
+          client_id: string
+          created_at?: string
+          date_debut: string
+          date_fin: string
+          id?: string
+          motif: string
+          vm_id: string
+        }
+        Update: {
+          actif?: boolean
+          autorise_par?: string
+          client_id?: string
+          created_at?: string
+          date_debut?: string
+          date_fin?: string
+          id?: string
+          motif?: string
+          vm_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autorisations_frequence_client_autorise_par_fkey"
+            columns: ["autorise_par"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autorisations_frequence_client_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autorisations_frequence_client_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_client_frequence"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "autorisations_frequence_client_vm_id_fkey"
+            columns: ["vm_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_clients: {
+        Row: {
+          adresse: string | null
+          code: string | null
+          created_at: string
+          email: string | null
+          id: string
+          nif: string | null
+          nom: string
+          rccm: string | null
+          telephone: string | null
+          updated_at: string
+        }
+        Insert: {
+          adresse?: string | null
+          code?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          nif?: string | null
+          nom: string
+          rccm?: string | null
+          telephone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          adresse?: string | null
+          code?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          nif?: string | null
+          nom?: string
+          rccm?: string | null
+          telephone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      billing_counters: {
+        Row: {
+          annee: number
+          dernier_numero: number
+          type: string
+        }
+        Insert: {
+          annee: number
+          dernier_numero?: number
+          type: string
+        }
+        Update: {
+          annee?: number
+          dernier_numero?: number
+          type?: string
+        }
+        Relationships: []
+      }
+      billing_products: {
+        Row: {
+          actif: boolean
+          created_at: string
+          description: string | null
+          designation: string
+          id: string
+          prix_unitaire: number
+          reference: string | null
+          unite: string
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          designation: string
+          id?: string
+          prix_unitaire?: number
+          reference?: string | null
+          unite?: string
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          designation?: string
+          id?: string
+          prix_unitaire?: number
+          reference?: string | null
+          unite?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bordereau_items: {
+        Row: {
+          bordereau_id: string
+          designation: string
+          id: string
+          ordre: number
+          proforma_item_id: string
+          quantite_commandee: number
+          quantite_livree: number
+          unite: string
+        }
+        Insert: {
+          bordereau_id: string
+          designation: string
+          id?: string
+          ordre?: number
+          proforma_item_id: string
+          quantite_commandee?: number
+          quantite_livree?: number
+          unite: string
+        }
+        Update: {
+          bordereau_id?: string
+          designation?: string
+          id?: string
+          ordre?: number
+          proforma_item_id?: string
+          quantite_commandee?: number
+          quantite_livree?: number
+          unite?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bordereau_items_bordereau_id_fkey"
+            columns: ["bordereau_id"]
+            isOneToOne: false
+            referencedRelation: "bordereaux_livraison"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bordereau_items_proforma_item_id_fkey"
+            columns: ["proforma_item_id"]
+            isOneToOne: false
+            referencedRelation: "proforma_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bordereaux_livraison: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          date_livraison: string
+          id: string
+          numero: string
+          objet: string | null
+          observations: string | null
+          proforma_id: string
+          reference_commande: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          date_livraison?: string
+          id?: string
+          numero?: string
+          objet?: string | null
+          observations?: string | null
+          proforma_id: string
+          reference_commande?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          date_livraison?: string
+          id?: string
+          numero?: string
+          objet?: string | null
+          observations?: string | null
+          proforma_id?: string
+          reference_commande?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bordereaux_livraison_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "billing_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bordereaux_livraison_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bordereaux_livraison_proforma_id_fkey"
+            columns: ["proforma_id"]
+            isOneToOne: false
+            referencedRelation: "proformas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cible_specialite_map: {
         Row: {
           cible: string
@@ -1222,6 +1492,117 @@ export type Database = {
           },
         ]
       }
+      proforma_items: {
+        Row: {
+          designation: string
+          id: string
+          montant: number | null
+          ordre: number
+          prix_unitaire: number
+          product_id: string
+          proforma_id: string
+          quantite: number
+          unite: string
+        }
+        Insert: {
+          designation: string
+          id?: string
+          montant?: number | null
+          ordre?: number
+          prix_unitaire?: number
+          product_id: string
+          proforma_id: string
+          quantite?: number
+          unite: string
+        }
+        Update: {
+          designation?: string
+          id?: string
+          montant?: number | null
+          ordre?: number
+          prix_unitaire?: number
+          product_id?: string
+          proforma_id?: string
+          quantite?: number
+          unite?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proforma_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "billing_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proforma_items_proforma_id_fkey"
+            columns: ["proforma_id"]
+            isOneToOne: false
+            referencedRelation: "proformas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proformas: {
+        Row: {
+          client_id: string
+          conditions: string | null
+          created_at: string
+          created_by: string | null
+          date_emission: string
+          id: string
+          numero: string
+          objet: string | null
+          reference_commande: string | null
+          statut: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          conditions?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_emission?: string
+          id?: string
+          numero?: string
+          objet?: string | null
+          reference_commande?: string | null
+          statut?: string
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          conditions?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_emission?: string
+          id?: string
+          numero?: string
+          objet?: string | null
+          reference_commande?: string | null
+          statut?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proformas_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "billing_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proformas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       programme_conformite: {
         Row: {
           cible: string
@@ -1450,6 +1831,91 @@ export type Database = {
           },
         ]
       }
+      rapports_activite_hebdomadaires: {
+        Row: {
+          appreciation: string | null
+          commandes_negociation: string | null
+          commandes_obtenues: string | null
+          commentaires: string | null
+          couverture_prevue: number
+          couverture_realisee: number
+          created_at: string
+          equipe_id: string | null
+          id: string
+          objectifs_semaine_prochaine: string | null
+          points_faibles: string | null
+          points_forts: string | null
+          semaine_debut: string
+          soumis_at: string | null
+          superviseur_id: string
+          taux_couverture: number
+          updated_at: string
+          vm_id: string
+        }
+        Insert: {
+          appreciation?: string | null
+          commandes_negociation?: string | null
+          commandes_obtenues?: string | null
+          commentaires?: string | null
+          couverture_prevue?: number
+          couverture_realisee?: number
+          created_at?: string
+          equipe_id?: string | null
+          id?: string
+          objectifs_semaine_prochaine?: string | null
+          points_faibles?: string | null
+          points_forts?: string | null
+          semaine_debut: string
+          soumis_at?: string | null
+          superviseur_id: string
+          taux_couverture?: number
+          updated_at?: string
+          vm_id: string
+        }
+        Update: {
+          appreciation?: string | null
+          commandes_negociation?: string | null
+          commandes_obtenues?: string | null
+          commentaires?: string | null
+          couverture_prevue?: number
+          couverture_realisee?: number
+          created_at?: string
+          equipe_id?: string | null
+          id?: string
+          objectifs_semaine_prochaine?: string | null
+          points_faibles?: string | null
+          points_forts?: string | null
+          semaine_debut?: string
+          soumis_at?: string | null
+          superviseur_id?: string
+          taux_couverture?: number
+          updated_at?: string
+          vm_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rapports_activite_hebdomadaires_equipe_id_fkey"
+            columns: ["equipe_id"]
+            isOneToOne: false
+            referencedRelation: "equipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rapports_activite_hebdomadaires_superviseur_id_fkey"
+            columns: ["superviseur_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rapports_activite_hebdomadaires_vm_id_fkey"
+            columns: ["vm_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rapports_duo: {
         Row: {
           commentaire: string | null
@@ -1642,6 +2108,51 @@ export type Database = {
           },
           {
             foreignKeyName: "superviseur_equipes_superviseur_id_fkey"
+            columns: ["superviseur_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vad_plans_mensuels: {
+        Row: {
+          contenu: Json
+          created_at: string
+          equipe_id: string
+          id: string
+          mois: string
+          soumis_at: string | null
+          superviseur_id: string
+        }
+        Insert: {
+          contenu?: Json
+          created_at?: string
+          equipe_id: string
+          id?: string
+          mois: string
+          soumis_at?: string | null
+          superviseur_id: string
+        }
+        Update: {
+          contenu?: Json
+          created_at?: string
+          equipe_id?: string
+          id?: string
+          mois?: string
+          soumis_at?: string | null
+          superviseur_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vad_plans_mensuels_equipe_id_fkey"
+            columns: ["equipe_id"]
+            isOneToOne: false
+            referencedRelation: "equipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vad_plans_mensuels_superviseur_id_fkey"
             columns: ["superviseur_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1968,6 +2479,41 @@ export type Database = {
           },
         ]
       }
+      v_clients_programmes_frequents: {
+        Row: {
+          client_id: string | null
+          client_nom: string | null
+          derniere_semaine: string | null
+          mois: string | null
+          nb_programmations_mois: number | null
+          niveau: string | null
+          vm_id: string | null
+          vm_nom: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programme_lignes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "programme_lignes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_client_frequence"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "programmes_hebdomadaires_vm_id_fkey"
+            columns: ["vm_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_hors_programme_journalier: {
         Row: {
           jour: string | null
@@ -2130,12 +2676,20 @@ export type Database = {
       }
       benin_now: { Args: never; Returns: string }
       benin_today: { Args: never; Returns: string }
+      calculer_couverture_vm_hebdo: {
+        Args: { p_semaine: string; p_vm: string }
+        Returns: Json
+      }
       cible_pour_specialite: {
         Args: {
           p_equipe_id: string
           p_specialite: Database["public"]["Enums"]["specialite_client"]
         }
         Returns: string
+      }
+      client_frequence_autorisee: {
+        Args: { p_client: string; p_date: string; p_vm: string }
+        Returns: boolean
       }
       cloturer_journee: {
         Args: {
@@ -2184,6 +2738,7 @@ export type Database = {
         Returns: boolean
       }
       get_parametre: { Args: { p_key: string }; Returns: Json }
+      graal_deadline_mensuelle: { Args: { p_mois: string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_conversation_participant: {
         Args: { p_conversation_id: string }
@@ -2199,6 +2754,8 @@ export type Database = {
         Args: { d: string }
         Returns: Database["public"]["Enums"]["jour_semaine"]
       }
+      next_billing_number: { Args: { p_type: string }; Returns: string }
+      notifier_anniversaires: { Args: never; Returns: undefined }
       parametre_numeric: {
         Args: { p_default: number; p_key: string }
         Returns: number
@@ -2230,6 +2787,7 @@ export type Database = {
         Returns: boolean
       }
       rappel_cloture_journee: { Args: never; Returns: undefined }
+      rappel_cloture_journee_parametre: { Args: never; Returns: undefined }
       rappel_soumission_programme: { Args: never; Returns: undefined }
       rejeter_programme_hebdomadaire: {
         Args: { p_motif: string; p_programme_id: string }
@@ -2246,6 +2804,10 @@ export type Database = {
           taux_couverture: number
           vm_id: string
         }[]
+      }
+      score_mensuel_vm_conforme: {
+        Args: { p_mois: string; p_vm_id: string }
+        Returns: boolean
       }
       signaler_non_conformite_journaliere: { Args: never; Returns: undefined }
       signaler_non_respect_frequence: { Args: never; Returns: undefined }
@@ -2314,12 +2876,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2343,11 +2905,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2368,11 +2930,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2393,11 +2955,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2410,11 +2972,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
