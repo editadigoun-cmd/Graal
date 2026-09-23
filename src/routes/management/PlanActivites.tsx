@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { IconCalendar, IconCheckCircle } from '@/components/ui/icons'
+import { IconCalendar, IconCheckCircle, IconPlus } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { nowBenin } from '@/lib/time'
@@ -29,6 +30,7 @@ export default function ManagementPlanActivites() {
   const [texte, setTexte] = useState('')
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
 
   const isAdmin = profile?.role === 'admin'
 
@@ -79,6 +81,7 @@ export default function ManagementPlanActivites() {
     if (error) setNotice({ type: 'error', text: error.message })
     else {
       setNotice({ type: 'success', text: 'Plan enregistré.' })
+      setFormOpen(false)
       load()
     }
   }
@@ -102,45 +105,60 @@ export default function ManagementPlanActivites() {
           Aucune équipe ne vous est rattachée pour le moment. Contactez un administrateur.
         </Card>
       ) : (
-        <Card>
-          <form onSubmit={soumettre} className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-ink-500">Équipe</label>
-                <select
-                  value={equipeId} onChange={(e) => setEquipeId(e.target.value)}
-                  className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
-                >
-                  {equipesVisibles.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-ink-500">Mois concerné</label>
-                <select
-                  value={mois} onChange={(e) => setMois(e.target.value)}
-                  className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
-                >
-                  {moisOptions().map((m) => <option key={m} value={m}>{dayjs(m).format('MMMM YYYY')}</option>)}
-                </select>
-              </div>
+        <div className="space-y-4">
+          <Card className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-bold text-ink-800">Plans d'action mensuels</p>
+              <p className="mt-1 text-xs text-ink-400">La liste reste visible. Le formulaire s'ouvre uniquement lors d'une création ou modification.</p>
+            </div>
+            <Button size="sm" icon={<IconPlus className="h-4 w-4" />} onClick={() => setFormOpen(true)}>
+              Nouveau plan
+            </Button>
+          </Card>
+          {notice && (
+            <p className={`text-xs rounded-xl px-3 py-2.5 ${notice.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+              {notice.text}
+            </p>
+          )}
+        </div>
+      )}
+
+      <Modal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        title="Plan d'action mensuel"
+        description="Renseignez le plan de l'équipe sélectionnée pour le mois concerné."
+        maxWidth="max-w-2xl"
+      >
+        <form onSubmit={soumettre} className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-ink-500">Équipe</label>
+              <select value={equipeId} onChange={(e) => setEquipeId(e.target.value)}
+                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
+                {equipesVisibles.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+              </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-ink-500">Contenu du plan</label>
-              <textarea
-                value={texte} onChange={(e) => setTexte(e.target.value)} rows={6} required
-                placeholder="Objectifs, actions prévues, formations, challenges, points d'attention pour le mois…"
-                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
-              />
+              <label className="mb-1.5 block text-xs font-semibold text-ink-500">Mois concerné</label>
+              <select value={mois} onChange={(e) => setMois(e.target.value)}
+                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
+                {moisOptions().map((m) => <option key={m} value={m}>{dayjs(m).format('MMMM YYYY')}</option>)}
+              </select>
             </div>
-            {notice && (
-              <p className={`text-xs rounded-xl px-3 py-2.5 ${notice.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                {notice.text}
-              </p>
-            )}
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-ink-500">Contenu du plan</label>
+            <textarea value={texte} onChange={(e) => setTexte(e.target.value)} rows={7} required
+              placeholder="Objectifs, actions prévues, formations, challenges, points d'attention pour le mois…"
+              className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>Annuler</Button>
             <Button type="submit" loading={saving}>Enregistrer le plan</Button>
-          </form>
-        </Card>
-      )}
+          </div>
+        </form>
+      </Modal>
 
       <div>
         <p className="text-sm font-bold text-ink-600 mb-3">Statut par équipe</p>
