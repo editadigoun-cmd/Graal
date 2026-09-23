@@ -6,7 +6,7 @@ import { StatCard } from '@/components/ui/StatCard'
 import { Button } from '@/components/ui/Button'
 import { IconMapPin, IconStethoscope, IconClipboard, IconAlert, IconTrendingUp, IconBarChart, IconUsers } from '@/components/ui/icons'
 
-type Item={path:string;title:string;description:string;icon:any;label:string}
+type Item={path:string;title:string;description:string;icon:any;label:string;adminOnly?:boolean}
 const items:Item[]=[
  {path:'/admin/suivi-terrain',title:'Suivi terrain',description:'Suivre l’activité et les interventions sur le terrain.',icon:IconMapPin,label:'Suivi'},
  {path:'/admin/vad-plan',title:'VAD & Duo',description:'Planifier les VAD/Duo du mois et préparer les actions terrain.',icon:IconStethoscope,label:'Planification'},
@@ -26,9 +26,9 @@ export default function TerrainHub(){
   </div>
   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
    <StatCard label="Modules terrain" value={visible.length} tone="royal" icon={<IconMapPin className="h-4 w-4"/>}/>
-   <StatCard label="Planification" value="VAD · Duo" tone="emerald" icon={<IconStethoscope className="h-4 w-4"/>}/>
-   <StatCard label="Rapports" value="Hebdo" tone="flame" icon={<IconClipboard className="h-4 w-4"/>}/>
-   <StatCard label="Contrôle" value="Clients" tone="royal" icon={<IconAlert className="h-4 w-4"/>}/>
+   <StatCard label="Planification" value={visible.filter(x=>x.label==="Planification").length} tone="emerald" icon={<IconStethoscope className="h-4 w-4"/>}/>
+   <StatCard label="Rapports" value={visible.filter(x=>x.label==="Rapports").length} tone="flame" icon={<IconClipboard className="h-4 w-4"/>}/>
+   <StatCard label="Contrôle" value={visible.filter(x=>x.label==="Contrôle").length} tone="royal" icon={<IconAlert className="h-4 w-4"/>}/>
   </div>
   <div className="flex gap-2 overflow-x-auto pb-1">{filters.map(f=><button key={f} onClick={()=>setFilter(f)} className={'whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold '+(filter===f?'bg-royal-600 text-white':'bg-ink-100 text-ink-500 hover:bg-ink-200')}>{f}</button>)}</div>
   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
