@@ -26,6 +26,7 @@ const nav = [
   { to: '/admin/analyse-ventes', label: 'Analyse des ventes', icon: IconTrendingUp, end: false, adminOnly: false },
   { to: '/admin/plan-activites', label: "Plan d'action", icon: IconClipboard, end: false, adminOnly: false },
   { to: '/admin/vad-plan', label: 'VAD – Plan de Duo', icon: IconStethoscope, end: false, adminOnly: false },
+  { to: '/admin/rapport-activite-hebdo', label: "Rapport d'activité hebdomadaire", icon: IconClipboard, end: false, adminOnly: false },
   { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconStethoscope, end: false, adminOnly: false },
   { to: '/admin/animation-equipe', label: 'Animation d\'équipe', icon: IconTrendingUp, end: false, adminOnly: false },
   { to: '/admin/indicateurs-animation', label: "Indicateurs d'animation", icon: IconTrendingUp, end: false, adminOnly: true },
