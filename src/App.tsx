@@ -34,6 +34,7 @@ import ManagementProduits from '@/routes/management/Produits'
 import ManagementAnimationEquipe from '@/routes/management/AnimationEquipe'
 import ManagementIndicateursAnimation from '@/routes/management/IndicateursAnimation'
 import ManagementPilotageVentes from '@/routes/management/PilotageVentes'
+import ManagementForum from '@/routes/management/Forum'
 const ManagementSuiviTerrain = lazy(() => import('@/routes/management/SuiviTerrain'))
 
 function ConfigError() {
