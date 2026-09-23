@@ -86,7 +86,7 @@ export default function Messages() {
         const messagesConv = (allMessages ?? []).filter((m) => m.conversation_id === c.id)
         const last = messagesConv[0]
         const autres = (c.conversation_participants ?? []).filter((p: any) => p.profile_id !== session!.user.id)
-        const autreNom = c.nom || autres.map((p: any) => p.profiles?.full_name).join(', ') || 'Conversation'
+        const autreNom = c.type === 'FORUM_MANAGER' ? 'Managers & Administration' : (c.nom || autres.map((p: any) => p.profiles?.full_name).join(', ') || 'Conversation')
         const noms: Record<string, string> = Object.fromEntries(
           (c.conversation_participants ?? []).map((p: any) => [p.profile_id, p.profiles?.full_name ?? 'Utilisateur'])
         )
