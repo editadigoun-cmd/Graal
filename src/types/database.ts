@@ -1164,6 +1164,7 @@ export type Database = {
           actif: boolean
           avatar_url: string | null
           created_at: string
+          date_anniversaire: string | null
           email: string | null
           equipe_id: string | null
           full_name: string
@@ -1178,6 +1179,7 @@ export type Database = {
           actif?: boolean
           avatar_url?: string | null
           created_at?: string
+          date_anniversaire?: string | null
           email?: string | null
           equipe_id?: string | null
           full_name: string
@@ -1192,6 +1194,7 @@ export type Database = {
           actif?: boolean
           avatar_url?: string | null
           created_at?: string
+          date_anniversaire?: string | null
           email?: string | null
           equipe_id?: string | null
           full_name?: string
