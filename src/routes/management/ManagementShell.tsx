@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import clsx from 'clsx'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Avatar } from '@/components/ui/Avatar'
-import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser, IconClipboard, IconStethoscope, IconMapPin, IconPill, IconTrendingUp, IconBarChart, IconMenu, IconX, IconAlert } from '@/components/ui/icons'
+import { IconHome, IconCalendar, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity, IconUser, IconClipboard, IconStethoscope, IconMapPin, IconPill, IconTrendingUp, IconBarChart, IconMenu, IconX } from '@/components/ui/icons'
 import logoFull from '@/assets/logo-full.png'
 import logoMark from '@/assets/logo-mark.png'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
@@ -15,8 +15,6 @@ const nav = [
   { to: '/admin/messages', label: 'Messages', icon: IconChat, end: false, adminOnly: false },
   { to: '/admin/anniversaires', label: 'Anniversaires', icon: IconCalendar, end: false, adminOnly: false },
   { to: '/admin/facturation', label: 'Facturation', icon: IconClipboard, end: false, adminOnly: false },
-  { to: '/admin/forum', label: 'Forum Managers', icon: IconUsers, end: false, adminOnly: false },
-  { to: '/admin/suivi-terrain', label: 'Suivi terrain', icon: IconMapPin, end: false, adminOnly: false },
   { to: '/admin/reporting', label: 'Reporting', icon: IconBarChart, end: false, adminOnly: false },
   { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers, end: false, adminOnly: false },
   { to: '/admin/zones', label: 'Zones', icon: IconMapPin, end: false, adminOnly: true },
@@ -25,12 +23,7 @@ const nav = [
   { to: '/admin/pilotage-ventes', label: 'Pilotage des ventes', icon: IconBarChart, end: false, adminOnly: false },
   { to: '/admin/analyse-ventes', label: 'Analyse des ventes', icon: IconTrendingUp, end: false, adminOnly: false },
   { to: '/admin/plan-activites', label: "Plan d'action", icon: IconClipboard, end: false, adminOnly: false },
-  { to: '/admin/vad-plan', label: 'VAD – Plan de Duo', icon: IconStethoscope, end: false, adminOnly: false },
-  { to: '/admin/rapport-activite-hebdo', label: "Rapport d'activité hebdomadaire", icon: IconClipboard, end: false, adminOnly: false },
-  { to: '/admin/controle-frequence', label: 'Fréquence des clients', icon: IconAlert, end: false, adminOnly: false },
-  { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconStethoscope, end: false, adminOnly: false },
-  { to: '/admin/animation-equipe', label: "Animation d'équipe", icon: IconTrendingUp, end: false, adminOnly: false },
-  { to: '/admin/indicateurs-animation', label: "Indicateurs d'animation", icon: IconTrendingUp, end: false, adminOnly: true },
+  { to: '/admin/terrain', label: 'Terrain & activité', icon: IconMapPin, end: false, adminOnly: false },
   { to: '/admin/activite', label: 'Activité', icon: IconActivity, end: false, adminOnly: false },
   { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings, end: false, adminOnly: true },
   { to: '/admin/profil', label: 'Mon profil', icon: IconUser, end: false, adminOnly: false }
