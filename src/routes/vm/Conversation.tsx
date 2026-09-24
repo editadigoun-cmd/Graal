@@ -229,7 +229,7 @@ export default function Conversation() {
     supabase.from('conversations').select('*, conversation_participants(profile_id, profiles(full_name))').eq('id', conversationId).single()
       .then(({ data }: any) => {
         const autres = (data?.conversation_participants ?? []).filter((p: any) => p.profile_id !== session?.user.id)
-        setTitre(data?.type === 'FORUM_MANAGER' ? 'Managers & Administration' : (data?.nom || autres.map((p: any) => p.profiles?.full_name).join(', ') || 'Conversation'))
+        setTitre(data?.type === 'FORUM_MANAGER' ? 'Superviseurs & Administration' : (data?.nom || autres.map((p: any) => p.profiles?.full_name).join(', ') || 'Conversation'))
         setEstGroupe(data?.type !== 'DIRECT')
         setConvType(data?.type ?? 'DIRECT')
         setEquipeId(data?.equipe_id ?? null)
