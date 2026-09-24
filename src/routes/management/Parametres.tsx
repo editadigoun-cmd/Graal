@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
 type Parametre = Database['public']['Tables']['parametres']['Row']
-type FieldType = 'time' | 'percentage' | 'number'
+type FieldType = 'time' | 'percentage' | 'number' | 'toggle'
 
 interface FieldMeta {
   key: string
@@ -27,11 +27,11 @@ interface Group {
 const GROUPS: Group[] = [
   {
     title: 'Programme hebdomadaire',
-    description: 'Règles de constitution et de soumission du planning du jeudi.',
+    description: 'Règles de constitution et de soumission du planning hebdomadaire.',
     icon: IconCalendar,
     tone: 'royal',
     fields: [
-      { key: 'heure_limite_soumission_programme', label: 'Heure limite de soumission (jeudi)', type: 'time' },
+      { key: 'heure_limite_soumission_programme', label: 'Heure limite de soumission (samedi)', type: 'time' },
       { key: 'seuil_faible_jeudi_pourcentage_max', label: 'Part max. de clients FAIBLE potentiel le jeudi', type: 'percentage' },
       { key: 'visites_minimum_medical_jour', label: 'Visites médicales minimum / jour', type: 'number' },
       { key: 'visites_minimum_pharmacie_jour', label: 'Visites pharmacie minimum / jour', type: 'number' }
@@ -236,7 +236,7 @@ export default function ManagementParametres() {
     })
   }, [])
 
-  async function sauvegarderGroupe(group: Group) {
+  function fieldIsToggle(group: Group, key: string) {\n    return group.fields.find((f) => f.key === key)?.type === 'toggle'\n  }\n\n  async function sauvegarderGroupe(group: Group) {
     setSaving(group.title)
     setSaveError(null)
     const resultats = await Promise.all(
