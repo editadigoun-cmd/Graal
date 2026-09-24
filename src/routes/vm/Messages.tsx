@@ -53,7 +53,7 @@ export default function Messages() {
       // Discussion interne réservée aux managers (superviseurs) et à l'administration.
       // Elle n'est pas un élément du menu : elle apparaît directement dans Messages.
       if (profile?.role === 'admin' || profile?.role === 'superviseur') {
-        const { data: forum } = await supabase.from('conversations').select('id').eq('type', 'FORUM_MANAGER').maybeSingle()
+        const { data: forum } = await supabase.from('conversations').select('id').eq('type', 'FORUM_MANAGER').limit(1).maybeSingle()
         if (forum) {
           const { data: membership } = await supabase.from('conversation_participants').select('conversation_id').eq('conversation_id', forum.id).eq('profile_id', session!.user.id).maybeSingle()
           if (!membership) await supabase.from('conversation_participants').insert({ conversation_id: forum.id, profile_id: session!.user.id })
@@ -134,7 +134,7 @@ export default function Messages() {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [session])
+  }, [session, profile?.role])
 
   return (
     <div className="space-y-6 mt-2 pb-4">
