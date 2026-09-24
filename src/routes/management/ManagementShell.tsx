@@ -170,19 +170,20 @@ export function ManagementShell() {
                     className="overflow-hidden"
                   >
                     <div className="ml-4 mt-1 space-y-0.5 border-l border-ink-100 pl-2">
-                      {group.children.map(({ to, label, icon: Icon, end }) => (
-                        <NavLink key={to} to={to} end={end} onClick={mobile ? () => setMenuOpen(false) : undefined}>
-                          {({ isActive }) => (
+                      {group.children.map(({ to, label, icon: Icon, end }) => {
+                        const itemActive = isPathActive(location.pathname, location.search, to)
+                        return (
+                          <Link key={to} to={to} onClick={mobile ? () => setMenuOpen(false) : undefined}>
                             <div className={clsx(
                               'flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold transition',
-                              isActive ? 'bg-royal-600 text-white shadow-soft' : 'text-ink-500 hover:bg-ink-100'
+                              itemActive ? 'bg-royal-600 text-white shadow-soft' : 'text-ink-500 hover:bg-ink-100'
                             )}>
                               <Icon className="h-3.5 w-3.5" />
                               {label}
                             </div>
-                          )}
-                        </NavLink>
-                      ))}
+                          </Link>
+                        )
+                      })}
                     </div>
                   </motion.div>
                 )}
