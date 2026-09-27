@@ -44,7 +44,7 @@ export default function ManagementAnimationEquipe() {
   async function load() {
     const [{ data: eq }, { data: vm }, { data: act }, se] = await Promise.all([
       supabase.from('equipes').select('*').order('nom'),
-      supabase.from('profiles').select('*').eq('role', 'vm').order('full_name'),
+      supabase.from('profiles').select('*').eq('role', 'vm').eq('actif', true).order('full_name'),
       supabase.from('activites_animation').select('*, profiles!activites_animation_vm_id_fkey(full_name)')
         .order('jour', { ascending: false }).limit(30),
       profile?.role === 'superviseur'
@@ -69,12 +69,30 @@ export default function ManagementAnimationEquipe() {
     if (!equipeId && equipesVisibles.length > 0) setEquipeId(equipesVisibles[0].id)
   }, [equipesVisibles, equipeId])
 
-  const vmsEquipe = vms.filter((v) => v.equipe_id === equipeId)
+  const vmsEquipe = useMemo(
+    () => vms.filter((v) => v.equipe_id === equipeId && v.actif),
+    [vms, equipeId]
+  )
   const besoinVm = type === 'COACHING_TERRAIN' || type === 'ARGUMENTAIRE_VM'
+
+  // Lorsqu'une action nécessite un VM, le changement de type ou d'équipe doit
+  // toujours laisser un VM sélectionnable et ne jamais conserver un ancien ID.
+  useEffect(() => {
+    if (!besoinVm) {
+      setVmId('')
+      return
+    }
+    if (!vmsEquipe.some((v) => v.id === vmId)) {
+      setVmId('')
+    }
+  }, [besoinVm, equipeId, vmsEquipe, vmId])
 
   async function enregistrer() {
     if (!profile || !equipeId) return
-    if (besoinVm && !vmId) return
+    if (besoinVm && !vmId) {
+      setErreur('Sélectionnez le visiteur médical concerné.')
+      return
+    }
     setSaving(true)
     setErreur(null)
     const { error } = await supabase.from('activites_animation').insert({
@@ -111,7 +129,7 @@ export default function ManagementAnimationEquipe() {
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-ink-500">Équipe</label>
-              <select value={equipeId} onChange={(e) => { setEquipeId(e.target.value); setVmId('') }}
+              <select value={equipeId} onChange={(e) => setEquipeId(e.target.value)}
                 className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
                 {equipesVisibles.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
               </select>
@@ -119,9 +137,11 @@ export default function ManagementAnimationEquipe() {
             {besoinVm && (
               <div className="sm:col-span-2">
                 <label className="mb-1.5 block text-xs font-semibold text-ink-500">Visiteur médical concerné</label>
-                <select value={vmId} onChange={(e) => setVmId(e.target.value)}
-                  className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
-                  <option value="">Sélectionner…</option>
+                <select value={vmId} onChange={(e) => setVmId(e.target.value)} disabled={vmsEquipe.length === 0}
+                  className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100 disabled:cursor-not-allowed disabled:bg-ink-50">
+                  <option value="">
+                    {vmsEquipe.length > 0 ? 'Sélectionner un visiteur médical…' : 'Aucun visiteur médical actif dans cette équipe'}
+                  </option>
                   {vmsEquipe.map((v) => <option key={v.id} value={v.id}>{v.full_name}</option>)}
                 </select>
               </div>
