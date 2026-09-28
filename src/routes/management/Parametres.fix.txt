@@ -1,0 +1,1 @@
+The TypeScript parser error is caused by literal backslash-n sequences in Parametres.tsx around fieldIsToggle and sauvegarderGroupe.
