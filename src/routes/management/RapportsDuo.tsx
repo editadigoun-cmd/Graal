@@ -41,9 +41,12 @@ export default function ManagementRapportsDuo() {
   const [formOpen, setFormOpen] = useState(false)
 
   async function load() {
+    // The generated Supabase typings do not yet contain the VAD session table.
+    // Keep this query runtime-safe without weakening the rest of the page's typing.
+    const db = supabase as any
     const sessionsQuery = profile?.role === 'superviseur'
-      ? supabase.from('vad_duo_sessions').select('id, vm_id, jour, statut, profiles!vad_duo_sessions_vm_id_fkey(full_name)').eq('superviseur_id', profile.id).eq('statut', 'TERMINE').order('jour', { ascending: false }).limit(50)
-      : supabase.from('vad_duo_sessions').select('id, vm_id, jour, statut, profiles!vad_duo_sessions_vm_id_fkey(full_name)').eq('statut', 'TERMINE').order('jour', { ascending: false }).limit(50)
+      ? db.from('vad_duo_sessions').select('id, vm_id, jour, statut, profiles!vad_duo_sessions_vm_id_fkey(full_name)').eq('superviseur_id', profile.id).eq('statut', 'TERMINE').order('jour', { ascending: false }).limit(50)
+      : db.from('vad_duo_sessions').select('id, vm_id, jour, statut, profiles!vad_duo_sessions_vm_id_fkey(full_name)').eq('statut', 'TERMINE').order('jour', { ascending: false }).limit(50)
     const [{ data: pr }, { data: rd }, { data: eq }, { data: ss }] = await Promise.all([
       supabase.from('profiles').select('*').eq('role', 'vm').order('full_name'),
       supabase.from('rapports_duo').select('*, profiles!rapports_duo_vm_id_fkey(full_name, equipe_id)').order('jour', { ascending: false }).limit(50),
