@@ -65,6 +65,7 @@ const groups: NavGroup[] = [
     icon: IconUsers,
     children: [
       { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers },
+      { to: '/admin/portefeuille', label: 'Mon portefeuille', icon: IconUsers },
       { to: '/admin/clients', label: 'Clients', icon: IconUsers, adminOnly: true },
       { to: '/admin/produits', label: 'Produits', icon: IconPill, adminOnly: true },
     ],
@@ -106,10 +107,24 @@ export function ManagementShell() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['Pilotage', 'Terrain & activité']))
 
-  const visibleGroups = useMemo(
-    () => groups.filter((g) => !g.adminOnly || profile?.role === 'admin').map((g) => ({ ...g, children: g.children.filter((item) => !item.adminOnly || profile?.role === 'admin') })),
-    [profile?.role]
-  )
+  const supervisorPaths = new Set([
+    '/admin/programmes', '/admin/plan-activites', '/admin/reporting',
+    '/admin/terrain', '/admin/suivi-terrain', '/admin/vad-plan',
+    '/admin/rapport-activite-hebdo', '/admin/controle-frequence',
+    '/admin/rapports-duo', '/admin/animation-equipe', '/admin/equipes',
+    '/admin/portefeuille', '/admin/activite', '/admin/profil'
+  ])
+  const visibleGroups = useMemo(() => {
+    if (profile?.role === 'admin') {
+      return groups
+    }
+    if (profile?.role === 'superviseur') {
+      return groups
+        .map((g) => ({ ...g, children: g.children.filter((item) => !item.adminOnly && supervisorPaths.has(item.to.split('?')[0])) }))
+        .filter((g) => g.children.length > 0)
+    }
+    return []
+  }, [profile?.role])
   const currentPage = [...topItems, ...visibleGroups.flatMap((g) => g.children)].find((item) => isPathActive(location.pathname, location.search, item.to))
 
   function toggleGroup(label: string) {
