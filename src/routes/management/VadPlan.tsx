@@ -42,9 +42,12 @@ export default function ManagementVadPlan() {
         ? db.from('superviseur_equipes').select('equipe_id').eq('superviseur_id', profile.id)
         : Promise.resolve({ data: [] })
     ])
+    const supervised = (se.data ?? []).map((s: { equipe_id: string }) => s.equipe_id)
+    const visible = isAdmin ? (eq ?? []) : (eq ?? []).filter((e: Equipe) => supervised.includes(e.id))
     setEquipes(eq ?? [])
     setPlans(pl ?? [])
-    setSupervisedIds((se.data ?? []).map((s: { equipe_id: string }) => s.equipe_id))
+    setSupervisedIds(supervised)
+    if (!equipeId && visible.length) setEquipeId(visible[0].id)
   }
 
   useEffect(() => { load() }, [profile?.id])
@@ -68,12 +71,17 @@ export default function ManagementVadPlan() {
 
   async function soumettre(e: React.FormEvent) {
     e.preventDefault()
-    if (!profile || !equipeId || ferme) return
+    if (!profile || ferme) return
+    const selectedEquipeId = equipeId || (isAdmin ? equipesVisibles[0]?.id : supervisedIds[0]) || ''
+    if (!selectedEquipeId) {
+      setNotice({ type: 'error', text: 'Aucune équipe n’est associée à ce superviseur. Impossible de soumettre le plan de duo.' })
+      return
+    }
     setSaving(true); setNotice(null)
-    const existant = plans.find((p) => p.equipe_id === equipeId && p.mois === mois)
+    const existant = plans.find((p) => p.equipe_id === selectedEquipeId && p.mois === mois)
     const { error } = await db.from('vad_plans_mensuels').upsert({
       id: existant?.id,
-      equipe_id: equipeId,
+      equipe_id: selectedEquipeId,
       superviseur_id: profile.id,
       mois,
       contenu: { texte },
