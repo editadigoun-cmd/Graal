@@ -65,6 +65,8 @@ export default function ManagementDashboard() {
   const [equipeFilter, setEquipeFilter] = useState('')
   const [vmEquipeById, setVmEquipeById] = useState<Record<string, string | null>>({})
   const [vmsSansPlanning, setVmsSansPlanning] = useState<{ id: string; full_name: string; equipe: string | null; equipe_id: string | null }[]>([])
+  const [anniversaires, setAnniversaires] = useState<{ id: string; full_name: string; role: string; date_anniversaire: string }[]>([])
+  const [superviseurVisites, setSuperviseurVisites] = useState(0)
 
   useEffect(() => {
     async function load() {
@@ -76,13 +78,14 @@ export default function ManagementDashboard() {
       // à null et donc TOUTES les statistiques du dashboard à zéro en permanence. On
       // reconstruit le nom d'équipe côté client à partir de la liste `equipes` déjà chargée
       // séparément (nécessaire de toute façon pour le filtre), ce qui évite l'embed fragile.
-      const [{ data: taux }, { data: profiles }, { data: notifs }, { data: clo }, { data: eq }, { data: progSemaine }] = await Promise.all([
+      const [{ data: taux }, { data: profiles }, { data: notifs }, { data: clo }, { data: eq }, { data: progSemaine }, { data: staffBirthday }] = await Promise.all([
         supabase.from('v_taux_realisation_journalier').select('*').eq('jour', today),
         supabase.from('profiles').select('id, full_name, equipe_id').eq('role', 'vm'),
         supabase.from('notifications').select('id, titre, corps, created_at').order('created_at', { ascending: false }).limit(8),
         supabase.from('clotures_journalieres').select('id, vm_id, statut, heure_cloture, photo_path, en_retard, profiles(full_name)').eq('jour', today),
         supabase.from('equipes').select('id, nom').order('nom'),
-        supabase.from('programmes_hebdomadaires').select('vm_id').eq('semaine_debut', semaineProchaine)
+        supabase.from('programmes_hebdomadaires').select('vm_id').eq('semaine_debut', semaineProchaine),
+        supabase.from('profiles').select('id, full_name, role, date_anniversaire').in('role', ['vm', 'superviseur']).not('date_anniversaire', 'is', null)
       ])
 
       const equipeNomById = Object.fromEntries((eq ?? []).map((e) => [e.id, e.nom]))
@@ -98,6 +101,13 @@ export default function ManagementDashboard() {
       setVmEquipeById(vmEquipeMap)
 
       const vmIdsAvecProgramme = new Set((progSemaine ?? []).map((pr) => pr.vm_id))
+      setAnniversaires((staffBirthday ?? []) as { id: string; full_name: string; role: string; date_anniversaire: string }[])
+
+      if (profile?.role === 'superviseur') {
+        const { count } = await supabase.from('visites').select('id', { count: 'exact', head: true }).eq('vm_id', profile.id).eq('jour', today).eq('statut', 'REALISEE')
+        setSuperviseurVisites(count ?? 0)
+      }
+
       setVmsSansPlanning(
         (profiles ?? [])
           .filter((p) => !vmIdsAvecProgramme.has(p.id))
@@ -216,6 +226,21 @@ export default function ManagementDashboard() {
         <StatCard label="VM en retard" value={enRetard} tone="flame" icon={<IconAlert className="h-4 w-4" />} />
       </div>
 
+      {profile?.role === 'superviseur' && (
+        <Card className="border border-royal-100 bg-royal-50/50">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-ink-800">Objectif visites superviseur</p>
+              <p className="text-xs text-ink-400">Minimum quotidien : 8 visites</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-extrabold text-royal-700">{superviseurVisites}/8</p>
+              <p className="text-[11px] text-ink-400">{Math.max(0, 8 - superviseurVisites)} restante(s)</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
           <p className="text-sm font-bold text-ink-800 mb-4">Comparaison par équipe (taux du jour)</p>
@@ -252,6 +277,31 @@ export default function ManagementDashboard() {
           </div>
         </Card>
       </div>
+
+      {anniversaires.length > 0 && (
+        <Card>
+          <p className="text-sm font-bold text-ink-800 mb-1">Anniversaires de l'équipe</p>
+          <p className="text-xs text-ink-400 mb-4">VM et superviseurs</p>
+          <div className="space-y-2">
+            {anniversaires
+              .sort((a, b) => {
+                const da = dayjs(a.date_anniversaire).format('MM-DD')
+                const db = dayjs(b.date_anniversaire).format('MM-DD')
+                return da.localeCompare(db)
+              })
+              .slice(0, 8)
+              .map((a) => (
+                <div key={a.id} className="flex items-center justify-between rounded-xl bg-ink-50 p-2.5">
+                  <div>
+                    <p className="text-xs font-semibold text-ink-800">{a.full_name}</p>
+                    <p className="text-[10px] text-ink-400">{a.role === 'superviseur' ? 'Superviseur' : 'VM'}</p>
+                  </div>
+                  <span className="text-xs font-semibold text-royal-700">{dayjs(a.date_anniversaire).format('DD/MM')}</span>
+                </div>
+              ))}
+          </div>
+        </Card>
+      )}
 
       <Card>
         <p className="text-sm font-bold text-ink-800 mb-3">Alertes récentes</p>
