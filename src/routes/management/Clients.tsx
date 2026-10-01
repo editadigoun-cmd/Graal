@@ -24,13 +24,14 @@ const SPECIALITE_LABEL: Record<Specialite, string> = {
 const EMPTY_FORM = {
   nom: '', centre: '', specialite: 'GENERALISTE' as Specialite, potentiel: 'MOYEN' as Potentiel,
   categorie: '', secteur: 'A' as 'A' | 'B', jour_heure_habituel: '', contacts: '', observations: '',
-  frequence_visite_mensuelle: '2', vm_id: ''
+  frequence_visite_mensuelle: '2', vm_id: '', superviseur_id: ''
 }
 
 export default function ManagementClients() {
   const [clients, setClients] = useState<Client[]>([])
   const [portefeuille, setPortefeuille] = useState<{ client_id: string; vm_id: string }[]>([])
   const [vms, setVms] = useState<Profile[]>([])
+  const [superviseurs, setSuperviseurs] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -49,20 +50,25 @@ export default function ManagementClients() {
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   async function load() {
-    const [{ data: cl }, { data: pf }, { data: vm }] = await Promise.all([
+    const [{ data: cl }, { data: pf }, { data: vm }, { data: sup }] = await Promise.all([
       supabase.from('clients').select('*').order('nom'),
       supabase.from('portefeuille').select('client_id, vm_id'),
-      supabase.from('profiles').select('*').eq('role', 'vm').order('full_name')
+      supabase.from('profiles').select('*').eq('role', 'vm').order('full_name'),
+      supabase.from('profiles').select('*').eq('role', 'superviseur').order('full_name')
     ])
     setClients(cl ?? [])
     setPortefeuille(pf ?? [])
+    const { data: sp } = await supabase.from('portefeuille_superviseurs').select('client_id, superviseur_id')
+    setSuperviseurParClient(Object.fromEntries((sp ?? []).map((p) => [p.client_id, p.superviseur_id])))
     setVms(vm ?? [])
+    setSuperviseurs(sup ?? [])
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
 
   const vmParClient = useMemo(() => Object.fromEntries(portefeuille.map((p) => [p.client_id, p.vm_id])), [portefeuille])
+  const [superviseurParClient, setSuperviseurParClient] = useState<Record<string, string>>({})
   const vmNomById = useMemo(() => Object.fromEntries(vms.map((v) => [v.id, v.full_name])), [vms])
 
   const filtered = useMemo(() => {
@@ -138,7 +144,7 @@ export default function ManagementClients() {
       nom: c.nom, centre: c.centre ?? '', specialite: c.specialite, potentiel: c.potentiel,
       categorie: c.categorie ?? '', secteur: c.secteur, jour_heure_habituel: c.jour_heure_habituel ?? '',
       contacts: c.contacts ?? '', observations: c.observations ?? '',
-      frequence_visite_mensuelle: String(c.frequence_visite_mensuelle), vm_id: vmParClient[c.id] ?? ''
+      frequence_visite_mensuelle: String(c.frequence_visite_mensuelle), vm_id: vmParClient[c.id] ?? '', superviseur_id: superviseurParClient[c.id] ?? ''
     })
     setFormMsg(null)
     setModalOpen(true)
@@ -166,12 +172,23 @@ export default function ManagementClients() {
     }
 
     const vmActuel = editingId ? vmParClient[editingId] : undefined
+    const superviseurActuel = editingId ? superviseurParClient[editingId] : undefined
     if (clientId && form.vm_id && form.vm_id !== vmActuel) {
       await supabase.from('portefeuille').delete().eq('client_id', clientId)
       const { error: pfError } = await supabase.from('portefeuille').insert({ client_id: clientId, vm_id: form.vm_id })
       if (pfError) { setFormMsg({ type: 'error', text: `Client enregistré, mais affectation VM échouée : ${pfError.message}` }); setSaving(false); load(); return }
     } else if (clientId && !form.vm_id && vmActuel) {
       await supabase.from('portefeuille').delete().eq('client_id', clientId)
+    }
+    if (clientId && form.superviseur_id && form.superviseur_id !== superviseurActuel) {
+      await supabase.from('portefeuille_superviseurs').delete().eq('client_id', clientId).eq('superviseur_id', superviseurActuel ?? '')
+      const { error: supError } = await supabase.from('portefeuille_superviseurs').upsert(
+        { client_id: clientId, superviseur_id: form.superviseur_id },
+        { onConflict: 'client_id,superviseur_id' }
+      )
+      if (supError) { setFormMsg({ type: 'error', text: `Client enregistré, mais affectation superviseur échouée : ${supError.message}` }); setSaving(false); load(); return }
+    } else if (clientId && !form.superviseur_id && superviseurActuel) {
+      await supabase.from('portefeuille_superviseurs').delete().eq('client_id', clientId).eq('superviseur_id', superviseurActuel)
     }
 
     setSaving(false)
@@ -454,6 +471,15 @@ export default function ManagementClients() {
               <label className="mb-1.5 block text-xs font-semibold text-ink-500">Observations</label>
               <textarea value={form.observations} onChange={(e) => setForm((f) => ({ ...f, observations: e.target.value }))} rows={2}
                 className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-xs font-semibold text-ink-500">Superviseur affecté</label>
+              <select value={form.superviseur_id} onChange={(e) => setForm((f) => ({ ...f, superviseur_id: e.target.value }))}
+                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
+                <option value="">Sans affectation</option>
+                {superviseurs.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+              </select>
+              <p className="mt-1 text-[10px] text-ink-400">Le client peut être affecté à un VM et à son superviseur.</p>
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-xs font-semibold text-ink-500">Visiteur médical affecté</label>
