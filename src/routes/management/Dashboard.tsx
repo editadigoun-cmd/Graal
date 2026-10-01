@@ -76,7 +76,12 @@ export default function ManagementDashboard() {
       // à null et donc TOUTES les statistiques du dashboard à zéro en permanence. On
       // reconstruit le nom d'équipe côté client à partir de la liste `equipes` déjà chargée
       // séparément (nécessaire de toute façon pour le filtre), ce qui évite l'embed fragile.
-      const [{ data: taux }, { data: profiles }, { data: notifs }, { data: clo }, { data: eq }, { data: progSemaine }] = await Promise.all([
+      const { data: supervisorLinks } = profile?.role === 'superviseur'
+        ? await supabase.from('superviseur_equipes').select('equipe_id').eq('superviseur_id', profile.id)
+        : { data: [] as { equipe_id: string }[] }
+      const supervisedIds = new Set((supervisorLinks ?? []).map((x) => x.equipe_id))
+
+      const [{ data: taux }, { data: allProfiles }, { data: notifs }, { data: clo }, { data: allEquipes }, { data: progSemaine }] = await Promise.all([
         supabase.from('v_taux_realisation_journalier').select('*').eq('jour', today),
         supabase.from('profiles').select('id, full_name, equipe_id').eq('role', 'vm'),
         supabase.from('notifications').select('id, titre, corps, created_at').order('created_at', { ascending: false }).limit(8),
@@ -84,6 +89,12 @@ export default function ManagementDashboard() {
         supabase.from('equipes').select('id, nom').order('nom'),
         supabase.from('programmes_hebdomadaires').select('vm_id').eq('semaine_debut', semaineProchaine)
       ])
+      const profiles = profile?.role === 'superviseur'
+        ? (allProfiles ?? []).filter((p) => p.equipe_id && supervisedIds.has(p.equipe_id))
+        : (allProfiles ?? [])
+      const eq = profile?.role === 'superviseur'
+        ? (allEquipes ?? []).filter((e) => supervisedIds.has(e.id))
+        : (allEquipes ?? [])
 
       const equipeNomById = Object.fromEntries((eq ?? []).map((e) => [e.id, e.nom]))
       const merged: VmProgress[] = (profiles ?? []).map((p) => {
