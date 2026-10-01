@@ -104,10 +104,25 @@ export function ManagementShell() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['Pilotage', 'Terrain & activité', 'Commercial']))
 
+  const supervisorPaths = new Set([
+    '/admin/programmes', '/admin/plan-activites', '/admin/reporting',
+    '/admin/terrain', '/admin/suivi-terrain', '/admin/vad-plan',
+    '/admin/rapport-activite-hebdo', '/admin/controle-frequence', '/admin/rapports-duo',
+    '/admin/animation-equipe', '/admin/equipes', '/admin/activite', '/admin/profil'
+  ])
+
   const visibleGroups = useMemo(
     () => groups
       .filter((g) => !g.adminOnly || profile?.role === 'admin')
-      .map((g) => ({ ...g, children: g.children.filter((item) => !item.adminOnly || profile?.role === 'admin') })),
+      .map((g) => ({
+        ...g,
+        children: g.children.filter((item) => {
+          if (profile?.role === 'admin') return !item.adminOnly
+          if (item.adminOnly) return false
+          return supervisorPaths.has(item.to.split('?')[0])
+        })
+      }))
+      .filter((g) => g.children.length > 0),
     [profile?.role]
   )
 
