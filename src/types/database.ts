@@ -13,7 +13,43 @@ export type Database = {
     PostgrestVersion: "14.5"
   }
   public: {
-    Tables: {
+    Tables: {\n      portefeuille_superviseurs: {
+        Row: {
+          id: string
+          client_id: string
+          superviseur_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          superviseur_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          superviseur_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portefeuille_superviseurs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portefeuille_superviseurs_superviseur_id_fkey"
+            columns: ["superviseur_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+
       activites_animation: {
         Row: {
           created_at: string
