@@ -78,26 +78,37 @@ export default function ManagementDashboard() {
       // à null et donc TOUTES les statistiques du dashboard à zéro en permanence. On
       // reconstruit le nom d'équipe côté client à partir de la liste `equipes` déjà chargée
       // séparément (nécessaire de toute façon pour le filtre), ce qui évite l'embed fragile.
-      const [{ data: taux }, { data: profiles }, { data: notifs }, { data: clo }, { data: eq }, { data: progSemaine }, { data: staffBirthday }] = await Promise.all([
+      const [{ data: taux }, { data: profiles }, { data: notifs }, { data: clo }, { data: eq }, { data: progSemaine }, { data: staffBirthday }, { data: supervisorLinks }] = await Promise.all([
         supabase.from('v_taux_realisation_journalier').select('*').eq('jour', today),
         supabase.from('profiles').select('id, full_name, equipe_id').eq('role', 'vm'),
         supabase.from('notifications').select('id, titre, corps, created_at').order('created_at', { ascending: false }).limit(8),
         supabase.from('clotures_journalieres').select('id, vm_id, statut, heure_cloture, photo_path, en_retard, profiles(full_name)').eq('jour', today),
         supabase.from('equipes').select('id, nom').order('nom'),
         supabase.from('programmes_hebdomadaires').select('vm_id').eq('semaine_debut', semaineProchaine),
-        supabase.from('profiles').select('id, full_name, role, date_anniversaire').in('role', ['vm', 'superviseur']).not('date_anniversaire', 'is', null)
+        supabase.from('profiles').select('id, full_name, role, date_anniversaire').in('role', ['vm', 'superviseur']).not('date_anniversaire', 'is', null),
+        profile?.role === 'superviseur'
+          ? supabase.from('superviseur_equipes').select('equipe_id').eq('superviseur_id', profile.id)
+          : Promise.resolve({ data: [] as { equipe_id: string }[] })
       ])
 
-      const equipeNomById = Object.fromEntries((eq ?? []).map((e) => [e.id, e.nom]))
-      const merged: VmProgress[] = (profiles ?? []).map((p) => {
+      const supervisedIds = new Set((supervisorLinks ?? []).map((x) => x.equipe_id))
+      const visibleProfiles = profile?.role === 'superviseur'
+        ? (profiles ?? []).filter((p) => p.equipe_id && supervisedIds.has(p.equipe_id))
+        : (profiles ?? [])
+      const visibleEquipes = profile?.role === 'superviseur'
+        ? (eq ?? []).filter((e) => supervisedIds.has(e.id))
+        : (eq ?? [])
+
+      const equipeNomById = Object.fromEntries(visibleEquipes.map((e) => [e.id, e.nom]))
+      const merged: VmProgress[] = visibleProfiles.map((p) => {
         const t = taux?.find((x) => x.vm_id === p.id)
         return { vm_id: p.id, full_name: p.full_name, equipe: p.equipe_id ? equipeNomById[p.equipe_id] ?? null : null, equipe_id: p.equipe_id ?? null, prevues: t?.visites_prevues ?? 0, realisees: t?.visites_realisees ?? 0, conforme: t?.conforme ?? null }
       })
       setProgress(merged)
       setAlertes(notifs ?? [])
       setClotures((clo as unknown as ClotureRow[]) ?? [])
-      setEquipes(eq ?? [])
-      const vmEquipeMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p.equipe_id as string | null]))
+      setEquipes(visibleEquipes)
+      const vmEquipeMap = Object.fromEntries(visibleProfiles.map((p) => [p.id, p.equipe_id as string | null]))
       setVmEquipeById(vmEquipeMap)
 
       const vmIdsAvecProgramme = new Set((progSemaine ?? []).map((pr) => pr.vm_id))
@@ -109,7 +120,7 @@ export default function ManagementDashboard() {
       }
 
       setVmsSansPlanning(
-        (profiles ?? [])
+        visibleProfiles
           .filter((p) => !vmIdsAvecProgramme.has(p.id))
           .map((p) => ({ id: p.id, full_name: p.full_name, equipe: p.equipe_id ? equipeNomById[p.equipe_id] ?? null : null, equipe_id: p.equipe_id ?? null }))
       )
@@ -120,7 +131,7 @@ export default function ManagementDashboard() {
           .eq('frequence_respectee', false).not('vm_id', 'is', null),
         supabase.from('justifications_frequence').select('client_id, vm_id').eq('mois', moisCourant)
       ])
-      const vmNomById = Object.fromEntries((profiles ?? []).map((p: any) => [p.id, p.full_name]))
+      const vmNomById = Object.fromEntries(visibleProfiles.map((p: any) => [p.id, p.full_name]))
       setSousVisites(
         (freq ?? [])
           .filter((f): f is typeof f & { client_id: string; nom: string; potentiel: string; vm_id: string } =>
