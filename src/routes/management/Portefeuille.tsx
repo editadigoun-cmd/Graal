@@ -147,8 +147,8 @@ export default function ManagementPortefeuille() {
                   <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-500">Secteur {client.secteur}</span>
                 </div>
               </div>
-              <Button size="sm" loading={busy === client.id} disabled={visites >= 8} icon={visites >= 8 ? <IconCheckCircle className="h-4 w-4" /> : <IconMapPin className="h-4 w-4" />} onClick={() => enregistrerVisite(client)}>
-                {visites >= 8 ? 'Objectif atteint' : 'Visiter'}
+              <Button size="sm" loading={busy === client.id} disabled={false} icon={visites >= 8 ? <IconCheckCircle className="h-4 w-4" /> : <IconMapPin className="h-4 w-4" />} onClick={() => enregistrerVisite(client)}>
+                {visites >= 8 ? 'Ajouter une visite' : 'Visiter'}
               </Button>
             </div>
           </Card>
