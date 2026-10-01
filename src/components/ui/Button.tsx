@@ -29,10 +29,11 @@ interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'ref' | 'children'
 }
 
 export function Button({
-  variant = 'primary', size = 'md', icon, fullWidth, loading, className, children, disabled, ...rest
+  variant = 'primary', size = 'md', icon, fullWidth, loading, className, children, disabled, type = 'button', ...rest
 }: ButtonProps) {
   return (
     <motion.button
+      type={type}
       whileTap={{ scale: 0.96 }}
       whileHover={{ scale: disabled ? 1 : 1.01 }}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
