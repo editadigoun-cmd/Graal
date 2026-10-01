@@ -117,7 +117,7 @@ export function ManagementShell() {
       .map((g) => ({
         ...g,
         children: g.children.filter((item) => {
-          if (profile?.role === 'admin') return !item.adminOnly
+          if (profile?.role === 'admin') return true
           if (item.adminOnly) return false
           return supervisorPaths.has(item.to.split('?')[0])
         })
