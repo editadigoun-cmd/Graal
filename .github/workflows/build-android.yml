@@ -1,21 +1,16 @@
 name: Build Android APK
 
-# Construit l'appli Android (Capacitor) et publie l'APK signé en artefact téléchargeable.
-# Déclenché manuellement, ou automatiquement si le projet Android/les icônes changent —
-# volontairement PAS sur chaque push (build lourd, ~10 min).
-#
-# Signature : keystore committé (android/app/debug.keystore, cf. commentaire dans
-# android/app/build.gradle) — convient à une distribution directe (hors Play Store) mais
-# n'est pas éligible à une publication sur le Play Store. Pour ça, remplacer par un vrai
-# keystore de release gardé secret (GitHub Actions secret), jamais committé.
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
+      - 'src/**'
       - 'android/**'
       - 'assets/**'
       - 'capacitor.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/build-android.yml'
 
 jobs:
