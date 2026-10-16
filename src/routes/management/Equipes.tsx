@@ -479,6 +479,9 @@ export default function ManagementEquipes() {
                     <td className="px-4 py-3">
                       {isAdmin ? (
                         <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => ouvrirModification(p)} disabled={busy} title="Modifier le membre" className="rounded-full p-2 bg-amber-50 text-amber-700 hover:bg-amber-100 transition disabled:opacity-50">
+                            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" /></svg>
+                          </button>
                           <button
                             onClick={() => renvoyerInvitation(p)} disabled={busy}
                             title="Renvoyer l'invitation"
@@ -515,6 +518,29 @@ export default function ManagementEquipes() {
           </table>
         </div>
       </Card>
+
+      <Modal open={!!editingProfile} onClose={() => setEditingProfile(null)} title="Modifier le membre" description="Mettez à jour le nom, le rôle et le rattachement de cet utilisateur.">
+        <form onSubmit={enregistrerModification} className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-ink-500">Nom complet</label>
+            <input required value={editProfileForm.full_name} onChange={(e) => setEditProfileForm((f) => ({ ...f, full_name: e.target.value }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-ink-500">Rôle</label>
+            <select value={editProfileForm.role} onChange={(e) => setEditProfileForm((f) => ({ ...f, role: e.target.value as Role }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
+              {(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+            </select>
+          </div>
+          {editProfileForm.role === 'vm' && (
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div><label className="mb-1.5 block text-xs font-semibold text-ink-500">Secteur</label><select value={editProfileForm.secteur} onChange={(e) => setEditProfileForm((f) => ({ ...f, secteur: e.target.value as 'A' | 'B' }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"><option value="A">Secteur A</option><option value="B">Secteur B</option></select></div>
+              <div><label className="mb-1.5 block text-xs font-semibold text-ink-500">Équipe</label><select value={editProfileForm.equipe_id} onChange={(e) => setEditProfileForm((f) => ({ ...f, equipe_id: e.target.value }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"><option value="">Sans équipe</option>{equipes.map((e2) => <option key={e2.id} value={e2.id}>{e2.nom}</option>)}</select></div>
+              <div className="sm:col-span-2"><label className="mb-1.5 block text-xs font-semibold text-ink-500">Zone</label><select value={editProfileForm.zone_id} onChange={(e) => setEditProfileForm((f) => ({ ...f, zone_id: e.target.value }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"><option value="">Sans zone</option>{zones.map((z) => <option key={z.id} value={z.id}>{z.nom}</option>)}</select></div>
+            </div>
+          )}
+          <div className="flex items-center gap-3 pt-1"><Button type="submit" loading={savingProfile}>Enregistrer les modifications</Button><Button type="button" variant="ghost" onClick={() => setEditingProfile(null)}>Annuler</Button></div>
+        </form>
+      </Modal>
 
       <Modal open={modalOpen} onClose={fermerModal} title="Ajouter un membre" description="Une invitation par email sera envoyée pour définir le mot de passe.">
         <form onSubmit={creerCompte} className="space-y-4">
