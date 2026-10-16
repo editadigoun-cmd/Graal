@@ -107,8 +107,11 @@ Deno.serve(async (req) => {
     const pharmacyWidths = [110, 70, 50, 90, 90, 105]
     const medicalCapacity = 14
     const pharmacyCapacity = 13
-    const medicalChunks = chunkRows(medical, medicalCapacity)
-    const pharmacyChunks = chunkRows(pharmacie, pharmacyCapacity)
+    // Trois lignes vierges sont toujours ajoutées à la fin de chaque volet pour les ajouts manuscrits.
+    // Elles sont incluses dans la pagination afin de ne jamais déborder en bas de page.
+    const blankRows = () => Array.from({ length: 3 }, () => ({ __blank: true }))
+    const medicalChunks = chunkRows([...medical, ...blankRows()], medicalCapacity)
+    const pharmacyChunks = chunkRows([...pharmacie, ...blankRows()], pharmacyCapacity)
     const totalPages = medicalChunks.length + pharmacyChunks.length
     let pageNumber = 0
 
@@ -222,7 +225,8 @@ function drawTable(
   let y = startY
   const headerHeight = 34
   page.drawText(title, { x: x0, y: y + 8, size: 11, font: bold, color: ROYAL_DARK })
-  page.drawText(`${rows.length} VISITE(S) PRÉVUE(S)`, {
+  const visitCount = rows.filter((row: any) => !row?.__blank).length
+  page.drawText(`${visitCount} VISITE(S) PRÉVUE(S)`, {
     x: PAGE_WIDTH - MARGIN_X - 130, y: y + 9, size: 7, font: bold, color: GREY
   })
   y -= 5
