@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     const medicalPage = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
     drawPageHeader(medicalPage, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', 1)
     drawTable(
-      medicalPage, font, bold, 718, 'VOLET MÉDICAL',
+      medicalPage, font, bold, 698, 'VOLET MÉDICAL',
       ['Client programmé', 'Centre', 'Catégorie / potentiel', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions'],
       [90, 70, 45, 55, 50, 90, 65, 50],
       medical, Math.min(medical.length + 2, 11), 42
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     const pharmacyPage = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
     drawPageHeader(pharmacyPage, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', 2)
     drawTable(
-      pharmacyPage, font, bold, 718, 'VOLET PHARMACIE',
+      pharmacyPage, font, bold, 698, 'VOLET PHARMACIE',
       ['Pharmacie programmée', 'Centre', 'Catégorie / potentiel', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle'],
       [110, 70, 50, 90, 90, 105],
       pharmacie, Math.min(pharmacie.length + 2, 6), 48
