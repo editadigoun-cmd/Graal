@@ -17,9 +17,15 @@ export default function Visites() {
   const { session } = useAuth()
   const { lignes, loading } = useVisitesDuJour()
   const [exporting, setExporting] = useState(false)
+  const [, setHorloge] = useState(0)
   const [cloture, setCloture] = useState<{ statut: string; heure_cloture: string | null } | null | undefined>(undefined)
   const restantes = lignes.filter((l) => l.statut_reel === 'EN_ATTENTE')
   const faites = lignes.filter((l) => l.statut_reel !== 'EN_ATTENTE')
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setHorloge((n) => n + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (!session) return
@@ -40,6 +46,12 @@ export default function Visites() {
   }
 
   const estCloturee = cloture?.statut === 'CLOTUREE' || cloture?.statut === 'CLOTUREE_FORCEE'
+  const maintenant = nowBenin()
+  const limiteNormale = maintenant.hour(18).minute(0).second(0).millisecond(0)
+  const limiteAutomatique = maintenant.hour(20).minute(0).second(0).millisecond(0)
+  const cibleCloture = maintenant.isBefore(limiteNormale) ? limiteNormale : limiteAutomatique
+  const secondesRestantes = Math.max(0, cibleCloture.diff(maintenant, 'second'))
+  const compteARebours = `${String(Math.floor(secondesRestantes / 3600)).padStart(2, '0')}:${String(Math.floor((secondesRestantes % 3600) / 60)).padStart(2, '0')}:${String(secondesRestantes % 60).padStart(2, '0')}`
 
   if (estCloturee) {
     return (
@@ -83,6 +95,23 @@ export default function Visites() {
           </Link>
         </div>
       </div>
+
+      <Card className={`border ${maintenant.isBefore(limiteNormale) ? 'border-royal-200 bg-royal-50' : maintenant.isBefore(limiteAutomatique) ? 'border-amber-300 bg-amber-50' : 'border-red-200 bg-red-50'}`}>
+        <div className="flex items-center gap-3">
+          <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${maintenant.isBefore(limiteNormale) ? 'bg-royal-100 text-royal-700' : maintenant.isBefore(limiteAutomatique) ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+            <IconMoon className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-ink-500">
+              {maintenant.isBefore(limiteNormale) ? 'Temps restant avant la clôture (18 h)' : maintenant.isBefore(limiteAutomatique) ? 'Clôture en retard — clôture automatique à 20 h' : 'Heure limite dépassée'}
+            </p>
+            <p className="mt-0.5 text-2xl font-extrabold tracking-wider text-ink-900 tabular-nums">{compteARebours}</p>
+            <p className="mt-0.5 text-[11px] text-ink-500">
+              {maintenant.isBefore(limiteNormale) ? 'Pensez à clôturer votre journée avant 18 h.' : maintenant.isBefore(limiteAutomatique) ? 'Clôturez dès maintenant pour éviter la clôture forcée.' : 'La clôture automatique est prévue à 20 h.'}
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {loading && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
 
