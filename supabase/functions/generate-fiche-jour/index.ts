@@ -99,25 +99,40 @@ Deno.serve(async (req) => {
       day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC'
     })
 
-    // Chaque volet dispose de sa propre page A4 : cela préserve de vraies zones
-    // d'écriture et de cachet sans écraser les colonnes ni réduire les caractères.
-    const medicalPage = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
-    drawPageHeader(medicalPage, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', 1)
-    drawTable(
-      medicalPage, font, bold, 698, 'VOLET MÉDICAL',
-      ['Client programmé', 'Centre', 'Catégorie / potentiel', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions'],
-      [90, 70, 45, 55, 50, 90, 65, 50],
-      medical, Math.min(medical.length + 2, 11), 42
-    )
+    // Pagination automatique : chaque volet peut utiliser autant de pages A4
+    // que nécessaire. Les lignes sont découpées en blocs sans perdre ni masquer de visite.
+    const medicalHeaders = ['Client programmé', 'Centre', 'Catégorie / potentiel', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions']
+    const medicalWidths = [90, 70, 45, 55, 50, 90, 65, 50]
+    const pharmacyHeaders = ['Pharmacie programmée', 'Centre', 'Catégorie / potentiel', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle']
+    const pharmacyWidths = [110, 70, 50, 90, 90, 105]
+    const medicalCapacity = 14
+    const pharmacyCapacity = 13
+    const medicalChunks = chunkRows(medical, medicalCapacity)
+    const pharmacyChunks = chunkRows(pharmacie, pharmacyCapacity)
+    const totalPages = medicalChunks.length + pharmacyChunks.length
+    let pageNumber = 0
 
-    const pharmacyPage = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
-    drawPageHeader(pharmacyPage, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', 2)
-    drawTable(
-      pharmacyPage, font, bold, 698, 'VOLET PHARMACIE',
-      ['Pharmacie programmée', 'Centre', 'Catégorie / potentiel', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle'],
-      [110, 70, 50, 90, 90, 105],
-      pharmacie, Math.min(pharmacie.length + 2, 6), 48
-    )
+    for (const chunk of medicalChunks) {
+      pageNumber++
+      const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
+      drawPageHeader(page, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', pageNumber, totalPages)
+      drawTable(
+        page, font, bold, 698, 'VOLET MÉDICAL',
+        medicalHeaders, medicalWidths,
+        chunk, Math.min(chunk.length + 2, 11), 42
+      )
+    }
+
+    for (const chunk of pharmacyChunks) {
+      pageNumber++
+      const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
+      drawPageHeader(page, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', pageNumber, totalPages)
+      drawTable(
+        page, font, bold, 698, 'VOLET PHARMACIE',
+        pharmacyHeaders, pharmacyWidths,
+        chunk, Math.min(chunk.length + 2, 6), 48
+      )
+    }
 
     const bytes = await pdf.save()
     return new Response(bytes, {
@@ -134,7 +149,7 @@ Deno.serve(async (req) => {
 
 function drawPageHeader(
   page: any, font: any, bold: any, logo: any, dateLabel: string,
-  jourSemaine: string, vmName: string, secteur: string, pageNumber: number
+  jourSemaine: string, vmName: string, secteur: string, pageNumber: number, totalPages: number
 ) {
   // Filet de couleur et bloc de marque.
   page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 7, width: PAGE_WIDTH, height: 7, color: ROYAL })
@@ -159,7 +174,16 @@ function drawPageHeader(
   page.drawText(vmName || '—', { x: 50, y: 733, size: 9, font: bold, color: INK, maxWidth: 245 })
   page.drawText('SECTEUR', { x: 375, y: 746, size: 6.5, font: bold, color: GREY })
   page.drawText(secteur || '—', { x: 375, y: 733, size: 9, font: bold, color: INK })
-  page.drawText(`DOCUMENT TERRAIN  •  ${pageNumber}/2`, { x: 405, y: 805, size: 6.5, font, color: GREY })
+  page.drawText(`DOCUMENT TERRAIN  •  ${pageNumber}/${totalPages}`, { x: 405, y: 805, size: 6.5, font, color: GREY })
+}
+
+function chunkRows<T>(rows: T[], capacity: number): T[][] {
+  if (!rows.length) return [[]]
+  const chunks: T[][] = []
+  for (let index = 0; index < rows.length; index += capacity) {
+    chunks.push(rows.slice(index, index + capacity))
+  }
+  return chunks
 }
 
 function wrapText(text: string, font: any, size: number, maxWidth: number): string[] {
