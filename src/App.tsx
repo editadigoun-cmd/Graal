@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthProvider'
 import Splash from '@/routes/Splash'
 import Login from '@/routes/Login'
 import SetPassword from '@/routes/SetPassword'
+import FirstConnection from '@/routes/FirstConnection'
 import { VmShell } from '@/routes/vm/VmShell'
 import { ManagementShell } from '@/routes/management/ManagementShell'
 import VmDashboard from '@/routes/vm/Dashboard'
@@ -103,6 +104,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/definir-mot-de-passe" element={<SetPassword />} />
+          <Route path="/premiere-connexion" element={<FirstConnection />} />
           <Route path="/" element={<RoleRedirect />} />
 
           <Route path="/app" element={<RequireAuth><VmShell /></RequireAuth>}>

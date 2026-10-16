@@ -163,6 +163,16 @@ export default function Login() {
               <Button type="submit" fullWidth loading={loading}>Se connecter</Button>
             </form>
 
+            <div className="mt-5 text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/premiere-connexion')}
+                className="text-sm font-semibold text-royal-600 transition hover:text-royal-700"
+              >
+                Première connexion ? Définir mon mot de passe
+              </button>
+            </div>
+
             {canBiometric && (
               <button
                 onClick={handleBiometric}
