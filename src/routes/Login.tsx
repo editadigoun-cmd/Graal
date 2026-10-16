@@ -22,6 +22,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [canBiometric, setCanBiometric] = useState(false)
   const [firstLoginOpen, setFirstLoginOpen] = useState(false)
@@ -45,6 +46,7 @@ export default function Login() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setSuccessMessage(null)
     setLoading(true)
     const { error } = await signIn(email, password)
     setLoading(false)
@@ -129,8 +131,7 @@ export default function Login() {
     setEmail(firstLoginEmail)
     setError(null)
     setFirstLoginError(null)
-    // Message affiché sur l'écran de connexion après fermeture du parcours.
-    setError('Mot de passe défini avec succès. Connectez-vous avec votre nouveau mot de passe.')
+    setSuccessMessage('Mot de passe défini avec succès. Connectez-vous avec votre nouveau mot de passe.')
   }
 
   async function closeFirstLogin() {
@@ -282,6 +283,12 @@ export default function Login() {
             <h1 className="text-lg font-bold text-ink-800 text-center lg:text-left font-display">Connexion</h1>
             <p className="text-sm text-ink-400 text-center lg:text-left mt-1 mb-6">Accédez à votre espace GRAAL</p>
 
+            {successMessage && (
+              <p role="status" className="mb-4 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                {successMessage}
+              </p>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-ink-500 mb-1.5 block">Email</label>
@@ -331,6 +338,7 @@ export default function Login() {
               setFirstLoginError(null)
               setFirstLoginNotice(null)
               setError(null)
+              setSuccessMessage(null)
             }} className="mt-4 w-full text-sm font-semibold text-royal-600 hover:text-royal-700">
               Première connexion ? Définir mon mot de passe
             </button>
