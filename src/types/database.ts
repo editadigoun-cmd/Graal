@@ -1325,6 +1325,7 @@ export type Database = {
       }
       programmes_hebdomadaires: {
         Row: {
+          secteur: Database["public"]["Enums"]["secteur_code"] | null
           created_at: string
           delai_supplementaire_jusqu_a: string | null
           id: string
@@ -1351,6 +1352,7 @@ export type Database = {
           vm_id: string
         }
         Update: {
+          secteur?: Database["public"]["Enums"]["secteur_code"] | null
           created_at?: string
           delai_supplementaire_jusqu_a?: string | null
           id?: string
