@@ -92,14 +92,22 @@ export function usePlanning() {
       return
     }
     const clientIds = (portefeuilleData ?? []).map((p) => p.client_id)
-    const [{ data: lignesData }, { data: clientsData }] = await Promise.all([
-      supabase.from('programme_lignes').select('*, clients(id, nom, potentiel, specialite, centre)').eq('programme_id', prog!.id).order('ordre'),
-      clientIds.length
-        ? supabase.from('clients').select('*').in('id', clientIds).eq('actif', true).order('nom')
-        : Promise.resolve({ data: [], error: null })
-    ])
+    const { data: lignesData } = await supabase
+      .from('programme_lignes').select('*, clients(id, nom, potentiel, specialite, centre)')
+      .eq('programme_id', prog!.id).order('ordre')
+    let clientsData: ClientRow[] = []
+    if (clientIds.length) {
+      const { data: fetchedClients, error: clientsError } = await supabase
+        .from('clients').select('*').in('id', clientIds).eq('actif', true).order('nom')
+      if (clientsError) {
+        setError(clientsError.message)
+        setLoading(false)
+        return
+      }
+      clientsData = fetchedClients ?? []
+    }
     setLignes((lignesData as Ligne[]) ?? [])
-    setPortefeuille((clientsData ?? []).filter((c) => !secteurActif || c.secteur === secteurActif))
+    setPortefeuille(clientsData.filter((c) => !secteurActif || c.secteur === secteurActif))
     setLoading(false)
   }, [session])
 
