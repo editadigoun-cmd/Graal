@@ -166,7 +166,8 @@ export default function ManagementDashboard() {
     const lignes: string[][] = [['Visiteur médical', 'Mois', 'Taux couverture (%)', 'Ponctualité (%)', 'Exécution planning (%)', 'Discipline clôtures (%)', 'Score global (%)']]
 
     for (const vm of vms ?? []) {
-      const { data: s } = await supabase.rpc('score_mensuel_vm', { p_vm_id: vm.id, p_mois: moisExport }).single()
+      const { data } = await supabase.rpc('score_mensuel_vm', { p_vm_id: vm.id, p_mois: moisExport }).single()
+      const s = data as { taux_couverture?: number; ponctualite?: number; execution_planning?: number; discipline_clotures?: number; score_global?: number } | null
       lignes.push([
         vm.full_name, dayjs(moisExport).format('MMMM YYYY'),
         String(s?.taux_couverture ?? 0), String(s?.ponctualite ?? 0),
