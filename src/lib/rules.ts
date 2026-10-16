@@ -27,5 +27,7 @@ export function potentielAutorise(jour: Jour, potentiel: Potentiel, typeVisite: 
       return potentiel === 'MOYEN' || potentiel === 'FAIBLE'
     case 'VENDREDI':
       return potentiel === 'FAIBLE'
+    default:
+      return false
   }
 }
