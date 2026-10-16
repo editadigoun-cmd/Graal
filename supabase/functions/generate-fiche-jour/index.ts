@@ -7,8 +7,17 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
 
 const ROYAL = rgb(0.082, 0.294, 0.678)
+const ROYAL_DARK = rgb(0.055, 0.19, 0.43)
 const INK = rgb(0.11, 0.13, 0.16)
-const GREY = rgb(0.6, 0.63, 0.68)
+const GREY = rgb(0.38, 0.42, 0.48)
+const LIGHT_GREY = rgb(0.91, 0.93, 0.96)
+const PALE_BLUE = rgb(0.96, 0.975, 0.995)
+const WHITE = rgb(1, 1, 1)
+const PAGE_WIDTH = 595.28
+const PAGE_HEIGHT = 841.89
+const MARGIN_X = 40
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2
+const LOGO_URL = 'https://raw.githubusercontent.com/editadigoun-cmd/Graal/main/src/assets/logo-full.png'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,25 +90,40 @@ Deno.serve(async (req) => {
     const pdf = await PDFDocument.create()
     const font = await pdf.embedFont(StandardFonts.Helvetica)
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-    const page = pdf.addPage([595.28, 841.89]) // A4
-    let y = 800
 
-    page.drawText('GRAAL MEDICAL SOLUTIONS', { x: 40, y, size: 16, font: bold, color: ROYAL })
-    y -= 20
-    page.drawText(`Fiche journalière — ${jourSemaine} ${jour}`, { x: 40, y, size: 11, font, color: INK })
-    y -= 15
-    page.drawText(`VM : ${profile?.full_name ?? ''}    Secteur : ${profile?.secteur ?? ''}`, { x: 40, y, size: 10, font, color: GREY })
-    y -= 30
+    // Le logo est récupéré depuis le dépôt public. En cas d'indisponibilité réseau,
+    // l'en-tête conserve une présentation textuelle propre.
+    let logo: any = null
+    try {
+      const response = await fetch(LOGO_URL)
+      if (response.ok) logo = await pdf.embedPng(new Uint8Array(await response.arrayBuffer()))
+    } catch {
+      logo = null
+    }
 
-    y = drawTable(page, font, bold, y, 'VOLET MÉDICAL', [
-      'Client programmé', 'Centre', 'Catégorie', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions'
-    ], [90, 70, 45, 55, 50, 90, 65, 50], medical, Math.min(medical.length + 2, 11))
+    const dateLabel = new Date(jour + 'T12:00:00Z').toLocaleDateString('fr-FR', {
+      day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC'
+    })
 
-    y -= 20
+    // Chaque volet dispose de sa propre page A4 : cela préserve de vraies zones
+    // d'écriture et de cachet sans écraser les colonnes ni réduire les caractères.
+    const medicalPage = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
+    drawPageHeader(medicalPage, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', 1)
+    drawTable(
+      medicalPage, font, bold, 718, 'VOLET MÉDICAL',
+      ['Client programmé', 'Centre', 'Catégorie / potentiel', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions'],
+      [90, 70, 45, 55, 50, 90, 65, 50],
+      medical, Math.min(medical.length + 2, 11), 42
+    )
 
-    drawTable(page, font, bold, y, 'VOLET PHARMACIE', [
-      'Pharmacie programmée', 'Centre', 'Catégorie', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle'
-    ], [110, 70, 50, 90, 90, 105], pharmacie, Math.min(pharmacie.length + 2, 6))
+    const pharmacyPage = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
+    drawPageHeader(pharmacyPage, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', 2)
+    drawTable(
+      pharmacyPage, font, bold, 718, 'VOLET PHARMACIE',
+      ['Pharmacie programmée', 'Centre', 'Catégorie / potentiel', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle'],
+      [110, 70, 50, 90, 90, 105],
+      pharmacie, Math.min(pharmacie.length + 2, 6), 48
+    )
 
     const bytes = await pdf.save()
     return new Response(bytes, {
@@ -114,36 +138,133 @@ Deno.serve(async (req) => {
   }
 })
 
-function drawTable(page: any, font: any, bold: any, startY: number, title: string, headers: string[], widths: number[], rows: any[], minRows: number) {
-  const x0 = 40
+function drawPageHeader(
+  page: any, font: any, bold: any, logo: any, dateLabel: string,
+  jourSemaine: string, vmName: string, secteur: string, pageNumber: number
+) {
+  // Filet de couleur et bloc de marque.
+  page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 7, width: PAGE_WIDTH, height: 7, color: ROYAL })
+  if (logo) {
+    const scale = Math.min(108 / logo.width, 48 / logo.height)
+    const width = logo.width * scale
+    const height = logo.height * scale
+    page.drawImage(logo, { x: MARGIN_X, y: 776 + (48 - height) / 2, width, height })
+  } else {
+    page.drawText('GRAAL', { x: MARGIN_X, y: 790, size: 23, font: bold, color: ROYAL })
+    page.drawText('MEDICAL SOLUTIONS', { x: MARGIN_X, y: 778, size: 7, font: bold, color: GREY })
+  }
+
+  const titleX = 164
+  page.drawText('FICHE JOURNALIÈRE', { x: titleX, y: 805, size: 15, font: bold, color: ROYAL_DARK })
+  page.drawText('SUIVI DES VISITES TERRAIN', { x: titleX, y: 789, size: 8, font: bold, color: GREY })
+  page.drawText(`${jourSemaine} • ${dateLabel}`, { x: titleX, y: 773, size: 9, font, color: INK })
+
+  page.drawRectangle({ x: MARGIN_X, y: 724, width: CONTENT_WIDTH, height: 35, color: PALE_BLUE })
+  page.drawRectangle({ x: MARGIN_X, y: 724, width: 3, height: 35, color: ROYAL })
+  page.drawText('VISITEUR MÉDICAL', { x: 50, y: 746, size: 6.5, font: bold, color: GREY })
+  page.drawText(vmName || '—', { x: 50, y: 733, size: 9, font: bold, color: INK, maxWidth: 245 })
+  page.drawText('SECTEUR', { x: 375, y: 746, size: 6.5, font: bold, color: GREY })
+  page.drawText(secteur || '—', { x: 375, y: 733, size: 9, font: bold, color: INK })
+  page.drawText(`DOCUMENT TERRAIN  •  ${pageNumber}/2`, { x: 405, y: 805, size: 6.5, font, color: GREY })
+}
+
+function wrapText(text: string, font: any, size: number, maxWidth: number): string[] {
+  const words = String(text ?? '').trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return ['']
+  const lines: string[] = []
+  let line = ''
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      line = candidate
+      continue
+    }
+    if (line) lines.push(line)
+    // Long identifiers/words are split character-by-character instead of crossing a border.
+    if (font.widthOfTextAtSize(word, size) > maxWidth) {
+      let chunk = ''
+      for (const char of word) {
+        if (chunk && font.widthOfTextAtSize(chunk + char, size) > maxWidth) {
+          lines.push(chunk)
+          chunk = char
+        } else chunk += char
+      }
+      line = chunk
+    } else line = word
+  }
+  if (line) lines.push(line)
+  return lines
+}
+
+function drawTable(
+  page: any, font: any, bold: any, startY: number, title: string,
+  headers: string[], widths: number[], rows: any[], minRows: number, rowHeight: number
+) {
+  const x0 = MARGIN_X
   let y = startY
-  page.drawText(title, { x: x0, y, size: 11, font: bold, color: ROYAL })
-  y -= 16
-  // Lignes volontairement hautes : le VM y appose le cachet du client lors de la visite.
-  const rowHeight = 34
+  const headerHeight = 34
+  page.drawText(title, { x: x0, y: y + 8, size: 11, font: bold, color: ROYAL_DARK })
+  page.drawText(`${rows.length} VISITE(S) PRÉVUE(S)`, {
+    x: PAGE_WIDTH - MARGIN_X - 130, y: y + 9, size: 7, font: bold, color: GREY
+  })
+  y -= 5
+
   let x = x0
-  headers.forEach((h, i) => {
-    page.drawRectangle({ x, y: y - 16, width: widths[i], height: 16, color: ROYAL })
-    page.drawText(h, { x: x + 3, y: y - 12, size: 7, font: bold, color: rgb(1, 1, 1) })
+  headers.forEach((header, i) => {
+    page.drawRectangle({ x, y: y - headerHeight, width: widths[i], height: headerHeight, color: ROYAL })
+    const lines = wrapText(header, bold, 7, widths[i] - 8).slice(0, 4)
+    const lineHeight = 8
+    const textBlockHeight = lines.length * lineHeight
+    let textY = y - (headerHeight - textBlockHeight) / 2 - 6
+    for (const line of lines) {
+      page.drawText(line, { x: x + 4, y: textY, size: 7, font: bold, color: WHITE, maxWidth: widths[i] - 8 })
+      textY -= lineHeight
+    }
     x += widths[i]
   })
-  y -= 16
+  y -= headerHeight
 
   const total = Math.max(rows.length, minRows)
   for (let r = 0; r < total; r++) {
-    x = x0
     const ligne = rows[r]
     const nom = ligne?.clients?.nom ?? ''
     const centre = ligne?.clients?.centre ?? ''
     const categorie = ligne?.clients?.potentiel ?? ligne?.clients?.categorie ?? ''
-    const nbExtra = headers.length - 3
-    const cells = [nom, centre, categorie, ...Array(nbExtra).fill('')]
-    cells.forEach((c, i) => {
-      page.drawRectangle({ x, y: y - rowHeight, width: widths[i], height: rowHeight, borderColor: rgb(0.85, 0.87, 0.9), borderWidth: 0.5 })
-      if (c) page.drawText(String(c), { x: x + 3, y: y - rowHeight + rowHeight - 12, size: 7.5, font })
+    const cells = [nom, centre, categorie, ...Array(headers.length - 3).fill('')]
+    x = x0
+    for (let i = 0; i < headers.length; i++) {
+      page.drawRectangle({
+        x, y: y - rowHeight, width: widths[i], height: rowHeight,
+        color: r % 2 === 0 ? WHITE : PALE_BLUE,
+        borderColor: LIGHT_GREY, borderWidth: 0.7
+      })
+
+      const value = String(cells[i] ?? '').trim()
+      if (value) {
+        const lines = wrapText(value, font, 7.5, widths[i] - 10)
+        const lineHeight = 9
+        const maxLines = Math.max(1, Math.floor((rowHeight - 10) / lineHeight))
+        let textY = y - 7.5
+        for (const line of lines.slice(0, maxLines)) {
+          page.drawText(line, { x: x + 5, y: textY, size: 7.5, font, color: INK, maxWidth: widths[i] - 10 })
+          textY -= lineHeight
+        }
+      }
       x += widths[i]
-    })
+    }
     y -= rowHeight
   }
-  return y
+
+  // La ligne de clôture donne un repère visuel net et laisse une marge pour annotations.
+  page.drawLine({
+    start: { x: x0, y: y - 7 },
+    end: { x: x0 + widths.reduce((sum, width) => sum + width, 0), y: y - 7 },
+    thickness: 1.2, color: ROYAL
+  })
+  page.drawText('GRAAL MEDICAL SOLUTIONS  •  Fiche de suivi interne', {
+    x: x0, y: 22, size: 7, font, color: GREY
+  })
+  page.drawText('Cachets et observations à renseigner sur place', {
+    x: PAGE_WIDTH - MARGIN_X - 205, y: 22, size: 7, font, color: GREY
+  })
 }
