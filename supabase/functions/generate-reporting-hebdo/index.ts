@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
     const logoBytes = Uint8Array.from(atob(LOGO_PNG_BASE64), (c) => c.charCodeAt(0))
     const logo = await pdf.embedPng(logoBytes)
-    const page = pdf.addPage([595.28, 841.89])
+    let page = pdf.addPage([595.28, 841.89])
     let y = 800
     const x0 = 40
 
@@ -126,6 +126,7 @@ Deno.serve(async (req) => {
 
     for (const [label, content] of sections) {
       if (y < 105) {
+        page = pdf.addPage([595.28, 841.89])
         y = 790
         page.drawRectangle({ x: 0, y: 790, width: 595.28, height: 51.89, color: rgb(0.96, 0.975, 0.995) })
         page.drawRectangle({ x: 0, y: 790, width: 6, height: 51.89, color: ROYAL })
