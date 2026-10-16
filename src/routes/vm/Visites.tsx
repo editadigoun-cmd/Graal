@@ -107,7 +107,7 @@ export default function Visites() {
             </p>
             <p className="mt-0.5 text-2xl font-extrabold tracking-wider text-ink-900 tabular-nums">{compteARebours}</p>
             <p className="mt-0.5 text-[11px] text-ink-500">
-              {maintenant.isBefore(limiteNormale) ? 'Pensez à clôturer votre journée avant 18 h.' : maintenant.isBefore(limiteAutomatique) ? 'Clôturez dès maintenant pour éviter la clôture forcée.' : 'La clôture automatique est prévue à 20 h.'}
+              {maintenant.isBefore(limiteNormale) ? 'Pensez à clôturer votre journée avant 18 h.' : maintenant.isBefore(limiteAutomatique) ? 'Clôturez dès maintenant pour éviter la clôture forcée.' : 'La clôture automatique doit être exécutée à présent. Actualisez la page dans un instant.'}
             </p>
           </div>
         </div>
