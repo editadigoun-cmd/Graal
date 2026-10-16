@@ -139,7 +139,7 @@ export default function SuiviTerrain() {
   }
 
   function DetailVisite({ v }: { v: Visite }) {
-    const produits = v.visite_produits.map((p) => p.produits?.nom).filter(Boolean)
+    const produits = v.visite_produits.map((p: any) => p.produits?.nom).filter(Boolean)
     return (
       <div className="mt-2 space-y-1.5 rounded-xl bg-ink-50 p-3 text-xs">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-ink-500">
