@@ -44,7 +44,7 @@ interface Seuils {
 const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50, maxMoyenLunMarMer: 3, poidsMoyenReduit: 2.5 }
 
 export default function Planning() {
-  const { programme, lignes, portefeuille, loading, error, setError, reload } = usePlanning()
+  const { programme, lignes, portefeuille, secteurProgramme, loading, error, setError, reload } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
   const [picking, setPicking] = useState<TypeVisite | null>(null)
   const [recherche, setRecherche] = useState('')
@@ -90,6 +90,9 @@ export default function Planning() {
   const candidats = portefeuille.filter((c) => {
     if (!picking) return false
     if (!potentielAutorise(jourActif, c.potentiel, picking)) return false
+    if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
+    if (picking === 'PHARMACIE' && c.specialite !== 'PHARMACIE') return false
+    if (secteurProgramme && c.secteur !== secteurProgramme) return false
     if (clientIdsUtilises.has(c.id)) return false
     if (recherche && !normalizeText(c.nom).includes(normalizeText(recherche))) return false
     return true
@@ -246,6 +249,11 @@ export default function Planning() {
       <div>
         <h1 className="text-lg font-bold text-ink-800 font-display">Planning de la semaine</h1>
         <p className="text-xs text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
+        {secteurProgramme && (
+          <p className="mt-1 inline-flex rounded-full bg-royal-50 px-2.5 py-1 text-[11px] font-semibold text-royal-700">
+            Secteur prévu : {secteurProgramme}
+          </p>
+        )}
       </div>
 
       <Card className={countdown ? 'bg-gradient-to-br from-royal-600 to-royal-700 text-white' : undefined}>
@@ -466,8 +474,14 @@ export default function Planning() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink-200" />
-              <p className="text-sm font-bold text-ink-800 mb-1">Ajouter des clients — {JOUR_LABEL[jourActif]}</p>
-              <p className="text-xs text-ink-400 mb-3">Seuls les clients autorisés ce jour selon leur potentiel sont affichés. Sélectionnez-en un ou plusieurs.</p>
+              <p className="text-sm font-bold text-ink-800 mb-1">
+                Ajouter {picking === 'MEDICAL' ? 'un client médical' : 'une pharmacie'} — {JOUR_LABEL[jourActif]}
+              </p>
+              <p className="text-xs text-ink-400 mb-3">
+                {picking === 'MEDICAL' ? 'Médecins, centres médicaux, maternités et dispensaires uniquement.' : 'Pharmacies uniquement.'}
+                {secteurProgramme ? ` Secteur ${secteurProgramme} uniquement.` : ''}
+                {' '}Les règles de potentiel du jour restent appliquées.
+              </p>
               <div className="relative mb-3">
                 <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
                 <input
