@@ -257,14 +257,14 @@ function drawTable(
 
   // La ligne de clôture donne un repère visuel net et laisse une marge pour annotations.
   page.drawLine({
-    start: { x: x0, y: y - 7 },
-    end: { x: x0 + widths.reduce((sum, width) => sum + width, 0), y: y - 7 },
+    start: { x: x0, y: y - 3 },
+    end: { x: x0 + widths.reduce((sum, width) => sum + width, 0), y: y - 3 },
     thickness: 1.2, color: ROYAL
   })
   page.drawText('GRAAL MEDICAL SOLUTIONS  •  Fiche de suivi interne', {
-    x: x0, y: 22, size: 7, font, color: GREY
+    x: x0, y: 12, size: 7, font, color: GREY
   })
   page.drawText('Cachets et observations à renseigner sur place', {
-    x: PAGE_WIDTH - MARGIN_X - 205, y: 22, size: 7, font, color: GREY
+    x: PAGE_WIDTH - MARGIN_X - 205, y: 12, size: 7, font, color: GREY
   })
 }
