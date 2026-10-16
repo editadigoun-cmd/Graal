@@ -15,7 +15,9 @@ type Reporting = Database['public']['Tables']['reporting_hebdomadaire']['Row']
 type TauxHebdo = Database['public']['Views']['v_taux_realisation_hebdomadaire']['Row']
 type ScorePondere = Database['public']['Views']['v_score_hebdomadaire_pondere']['Row']
 
-const CHAMPS: { key: keyof Reporting; label: string; placeholder: string }[] = [
+type ReportingField = 'analyse_generale' | 'points_forts' | 'veille_concurrentielle' | 'suggestions' | 'appreciation_personnelle'
+
+const CHAMPS: { key: ReportingField; label: string; placeholder: string }[] = [
   { key: 'analyse_generale', label: 'Analyse générale des visites / marketing', placeholder: 'Tendances observées, contexte du secteur…' },
   { key: 'points_forts', label: 'Points forts de la semaine', placeholder: 'Ce qui a bien fonctionné…' },
   { key: 'veille_concurrentielle', label: 'Veille concurrentielle', placeholder: 'Actions ou produits concurrents observés…' },
