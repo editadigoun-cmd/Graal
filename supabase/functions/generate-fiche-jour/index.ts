@@ -5,6 +5,7 @@
 // celle de son périmètre.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
+import { LOGO_PNG_BASE64 } from './logo.ts'
 
 const ROYAL = rgb(0.082, 0.294, 0.678)
 const ROYAL_DARK = rgb(0.055, 0.19, 0.43)
@@ -17,7 +18,6 @@ const PAGE_WIDTH = 595.28
 const PAGE_HEIGHT = 841.89
 const MARGIN_X = 40
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2
-const LOGO_URL = 'https://raw.githubusercontent.com/editadigoun-cmd/Graal/main/src/assets/logo-full.png'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -91,15 +91,9 @@ Deno.serve(async (req) => {
     const font = await pdf.embedFont(StandardFonts.Helvetica)
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
 
-    // Le logo est récupéré depuis le dépôt public. En cas d'indisponibilité réseau,
-    // l'en-tête conserve une présentation textuelle propre.
-    let logo: any = null
-    try {
-      const response = await fetch(LOGO_URL)
-      if (response.ok) logo = await pdf.embedPng(new Uint8Array(await response.arrayBuffer()))
-    } catch {
-      logo = null
-    }
+    // Logo embarqué localement : aucune requête externe n'est nécessaire à la génération.
+    const logoBytes = Uint8Array.from(atob(LOGO_PNG_BASE64), (char) => char.charCodeAt(0))
+    const logo: any = await pdf.embedPng(logoBytes)
 
     const dateLabel = new Date(jour + 'T12:00:00Z').toLocaleDateString('fr-FR', {
       day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC'
