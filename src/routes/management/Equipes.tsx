@@ -44,6 +44,9 @@ export default function ManagementEquipes() {
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [editingEmailId, setEditingEmailId] = useState<string | null>(null)
   const [editEmailValue, setEditEmailValue] = useState('')
+  const [editingProfile, setEditingProfile] = useState<Profile | null>(null)
+  const [editProfileForm, setEditProfileForm] = useState({ full_name: '', role: 'vm' as Role, secteur: 'A' as 'A' | 'B', equipe_id: '', zone_id: '' })
+  const [savingProfile, setSavingProfile] = useState(false)
 
   async function load() {
     const [{ data: eq }, { data: zo }, { data: pr }, { data: se }] = await Promise.all([
@@ -161,6 +164,41 @@ export default function ManagementEquipes() {
     } finally {
       setRowBusy(null)
     }
+  }
+
+  function ouvrirModification(p: Profile) {
+    setEditingProfile(p)
+    setEditProfileForm({
+      full_name: p.full_name,
+      role: p.role,
+      secteur: p.secteur ?? 'A',
+      equipe_id: p.equipe_id ?? '',
+      zone_id: p.zone_id ?? ''
+    })
+    setNotice(null)
+  }
+
+  async function enregistrerModification(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingProfile || !editProfileForm.full_name.trim()) return
+    setSavingProfile(true)
+    setNotice(null)
+    const update = {
+      full_name: editProfileForm.full_name.trim(),
+      role: editProfileForm.role,
+      secteur: editProfileForm.role === 'vm' ? editProfileForm.secteur : null,
+      equipe_id: editProfileForm.role === 'vm' ? editProfileForm.equipe_id || null : null,
+      zone_id: editProfileForm.role === 'vm' ? editProfileForm.zone_id || null : null
+    }
+    const { error } = await supabase.from('profiles').update(update).eq('id', editingProfile.id)
+    setSavingProfile(false)
+    if (error) {
+      setNotice({ type: 'error', text: error.message })
+      return
+    }
+    setNotice({ type: 'success', text: 'Les informations du membre ont été mises à jour.' })
+    setEditingProfile(null)
+    await load()
   }
 
   async function modifierEmail(id: string) {
