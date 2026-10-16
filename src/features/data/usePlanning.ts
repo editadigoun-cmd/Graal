@@ -59,12 +59,18 @@ export function usePlanning() {
     }
     setProgramme(prog)
 
-    const [{ data: lignesData }, { data: clientsData }] = await Promise.all([
+    const [{ data: lignesData }, { data: clientsData }, { data: vmProfile }] = await Promise.all([
       supabase.from('programme_lignes').select('*, clients(id, nom, potentiel, specialite, centre)').eq('programme_id', prog!.id).order('ordre'),
-      supabase.from('clients').select('*').order('nom')
+      supabase.from('clients').select('*').eq('actif', true).order('nom'),
+      supabase.from('profiles').select('secteur').eq('id', vmId).maybeSingle()
     ])
     setLignes((lignesData as Ligne[]) ?? [])
-    setPortefeuille(clientsData ?? [])
+
+    // Le secteur de référence est celui du programme de la semaine, car les secteurs
+    // alternent d'une semaine à l'autre. Le profil sert uniquement de repli pour les
+    // anciens programmes dont le secteur n'aurait pas été renseigné.
+    const secteurSemaine = prog!.secteur ?? vmProfile?.secteur ?? null
+    setPortefeuille((clientsData ?? []).filter((client) => secteurSemaine !== null && client.secteur === secteurSemaine))
     setLoading(false)
   }, [session])
 
