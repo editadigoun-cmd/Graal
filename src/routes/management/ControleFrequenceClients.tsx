@@ -19,6 +19,8 @@ type Ligne = {
 
 export default function ControleFrequenceClients() {
   const { profile } = useAuth()
+  // Ces vues/tables sont provisionnées par les migrations SQL, mais ne figurent pas encore dans le type généré.
+  const db = supabase as any
   const [rows, setRows] = useState<Ligne[]>([])
   const [loading, setLoading] = useState(true)
   const [motif, setMotif] = useState('')
@@ -27,7 +29,7 @@ export default function ControleFrequenceClients() {
 
   async function load() {
     setLoading(true)
-    let q = supabase.from('v_clients_programmes_frequents').select('*').in('niveau', ['VIGILANCE', 'LIMITE_MENSUELLE']).order('mois', { ascending: false }).order('nb_programmations_mois', { ascending: false })
+    let q = db.from('v_clients_programmes_frequents').select('*').in('niveau', ['VIGILANCE', 'LIMITE_MENSUELLE']).order('mois', { ascending: false }).order('nb_programmations_mois', { ascending: false })
     if (profile?.role !== 'admin') q = q.eq('vm_id', profile?.id)
     const { data } = await q
     setRows((data ?? []) as Ligne[])
@@ -41,7 +43,7 @@ export default function ControleFrequenceClients() {
     setSaving(true)
     const debut = dayjs(autorisation.mois).startOf('month').format('YYYY-MM-DD')
     const fin = dayjs(autorisation.mois).endOf('month').format('YYYY-MM-DD')
-    const { error } = await supabase.from('autorisations_frequence_client').insert({
+    const { error } = await db.from('autorisations_frequence_client').insert({
       vm_id: autorisation.vm_id,
       client_id: autorisation.client_id,
       date_debut: debut,
