@@ -3,6 +3,7 @@
 // concurrentielle, suggestions, appréciations et visa du superviseur.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
+import { LOGO_PNG_BASE64 } from './logo.ts'
 
 const ROYAL = rgb(0.082, 0.294, 0.678)
 const EMERALD = rgb(0.149, 0.6, 0.463)
@@ -72,16 +73,24 @@ Deno.serve(async (req) => {
     const pdf = await PDFDocument.create()
     const font = await pdf.embedFont(StandardFonts.Helvetica)
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
+    const logoBytes = Uint8Array.from(atob(LOGO_PNG_BASE64), (c) => c.charCodeAt(0))
+    const logo = await pdf.embedPng(logoBytes)
     const page = pdf.addPage([595.28, 841.89])
     let y = 800
     const x0 = 40
 
+    // Bandeau de marque avec logo intégré localement : aucun appel réseau nécessaire.
+    page.drawRectangle({ x: 0, y: 735, width: 595.28, height: 106.89, color: rgb(0.96, 0.975, 0.995) })
+    page.drawRectangle({ x: 0, y: 735, width: 6, height: 106.89, color: ROYAL })
+    page.drawImage(logo, { x: 472, y: 762, width: 78, height: 58 })
     page.drawText('GRAAL MEDICAL SOLUTIONS', { x: x0, y, size: 16, font: bold, color: ROYAL })
-    y -= 20
-    page.drawText(`Reporting hebdomadaire — Semaine du ${semaine}`, { x: x0, y, size: 11, font, color: INK })
+    y -= 23
+    page.drawText('REPORTING HEBDOMADAIRE', { x: x0, y, size: 10, font: bold, color: EMERALD })
+    y -= 17
+    page.drawText(`Semaine du ${semaine}`, { x: x0, y, size: 10, font, color: INK })
     y -= 15
-    page.drawText(`VM : ${profile?.full_name ?? ''}    Secteur : ${profile?.secteur ?? ''}`, { x: x0, y, size: 10, font, color: GREY })
-    y -= 28
+    page.drawText(`VM : ${profile?.full_name ?? ''}    Secteur : ${profile?.secteur ?? ''}`, { x: x0, y, size: 9, font, color: GREY })
+    y -= 35
 
     page.drawText('Synthèse des visites (calculée automatiquement)', { x: x0, y, size: 11, font: bold, color: ROYAL })
     y -= 18
@@ -116,7 +125,15 @@ Deno.serve(async (req) => {
     ]
 
     for (const [label, content] of sections) {
-      if (y < 90) break
+      if (y < 105) {
+        y = 790
+        page.drawRectangle({ x: 0, y: 790, width: 595.28, height: 51.89, color: rgb(0.96, 0.975, 0.995) })
+        page.drawRectangle({ x: 0, y: 790, width: 6, height: 51.89, color: ROYAL })
+        page.drawImage(logo, { x: 500, y: 799, width: 45, height: 34 })
+        page.drawText('GRAAL MEDICAL SOLUTIONS', { x: x0, y: 817, size: 11, font: bold, color: ROYAL })
+        page.drawText(`Reporting hebdomadaire · Semaine du ${semaine}`, { x: x0, y: 801, size: 8, font, color: GREY })
+        y = 770
+      }
       page.drawText(label, { x: x0, y, size: 9.5, font: bold, color: EMERALD })
       y -= 13
       const lines = wrapText(content || '—', 95)
