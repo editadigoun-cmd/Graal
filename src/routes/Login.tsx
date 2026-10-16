@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { IconStethoscope, IconTrendingUp, IconCheckCircle } from '@/components/ui/icons'
 import logoFull from '@/assets/logo-full.png'
@@ -23,10 +24,19 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [canBiometric, setCanBiometric] = useState(false)
+  const [firstLoginOpen, setFirstLoginOpen] = useState(false)
+  const [firstLoginStep, setFirstLoginStep] = useState<'email' | 'otp' | 'password'>('email')
+  const [firstLoginEmail, setFirstLoginEmail] = useState('')
+  const [firstLoginOtp, setFirstLoginOtp] = useState('')
+  const [firstLoginPassword, setFirstLoginPassword] = useState('')
+  const [firstLoginConfirm, setFirstLoginConfirm] = useState('')
+  const [firstLoginLoading, setFirstLoginLoading] = useState(false)
+  const [firstLoginError, setFirstLoginError] = useState<string | null>(null)
+  const [firstLoginNotice, setFirstLoginNotice] = useState<string | null>(null)
 
   useEffect(() => {
-    if (session) navigate('/', { replace: true })
-  }, [session, navigate])
+    if (session && !firstLoginOpen) navigate('/', { replace: true })
+  }, [session, navigate, firstLoginOpen])
 
   useEffect(() => {
     isBiometricAvailable().then((ok) => setCanBiometric(ok && hasBiometricEnrolled()))
@@ -46,6 +56,92 @@ export default function Login() {
     if (ok && session) navigate('/', { replace: true })
     else if (ok) setError('Aucune session active. Connectez-vous une première fois avec votre mot de passe.')
     else setError('Vérification biométrique refusée ou annulée.')
+  }
+
+  async function requestFirstLoginCode(e: React.FormEvent) {
+    e.preventDefault()
+    setFirstLoginError(null)
+    setFirstLoginNotice(null)
+    setFirstLoginLoading(true)
+    const normalizedEmail = firstLoginEmail.trim().toLowerCase()
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: { shouldCreateUser: false },
+    })
+    setFirstLoginLoading(false)
+    if (error) {
+      setFirstLoginError("Impossible d'envoyer le code. Vérifiez l'adresse e-mail ou réessayez dans une minute.")
+      return
+    }
+    setFirstLoginEmail(normalizedEmail)
+    setFirstLoginStep('otp')
+    setFirstLoginNotice('Si cette adresse correspond à un compte GRAAL, un code de vérification vient d’être envoyé.')
+  }
+
+  async function verifyFirstLoginCode(e: React.FormEvent) {
+    e.preventDefault()
+    setFirstLoginError(null)
+    setFirstLoginNotice(null)
+    setFirstLoginLoading(true)
+    const { error } = await supabase.auth.verifyOtp({
+      email: firstLoginEmail,
+      token: firstLoginOtp.trim(),
+      type: 'email',
+    })
+    setFirstLoginLoading(false)
+    if (error) {
+      setFirstLoginError('Code invalide ou expiré. Vérifiez le code reçu et réessayez.')
+      return
+    }
+    setFirstLoginStep('password')
+    setFirstLoginNotice('Adresse vérifiée. Vous pouvez maintenant définir votre mot de passe.')
+  }
+
+  async function setFirstLoginPassword(e: React.FormEvent) {
+    e.preventDefault()
+    setFirstLoginError(null)
+    setFirstLoginNotice(null)
+    if (firstLoginPassword.length < 8) {
+      setFirstLoginError('Choisissez un mot de passe de 8 caractères minimum.')
+      return
+    }
+    if (firstLoginPassword !== firstLoginConfirm) {
+      setFirstLoginError('Les deux mots de passe ne correspondent pas.')
+      return
+    }
+    setFirstLoginLoading(true)
+    const { error } = await supabase.auth.updateUser({ password: firstLoginPassword })
+    if (error) {
+      setFirstLoginLoading(false)
+      setFirstLoginError('Impossible d’enregistrer le mot de passe. Recommencez la vérification si le code a expiré.')
+      return
+    }
+    await supabase.auth.signOut()
+    setFirstLoginLoading(false)
+    setFirstLoginOpen(false)
+    setFirstLoginStep('email')
+    setFirstLoginOtp('')
+    setFirstLoginPassword('')
+    setFirstLoginConfirm('')
+    setPassword('')
+    setError(null)
+    setFirstLoginNotice(null)
+    setEmail(firstLoginEmail)
+    setError(null)
+    setFirstLoginError(null)
+    // Message affiché sur l'écran de connexion après fermeture du parcours.
+    setError('Mot de passe défini avec succès. Connectez-vous avec votre nouveau mot de passe.')
+  }
+
+  async function closeFirstLogin() {
+    if (session) await supabase.auth.signOut()
+    setFirstLoginOpen(false)
+    setFirstLoginStep('email')
+    setFirstLoginOtp('')
+    setFirstLoginPassword('')
+    setFirstLoginConfirm('')
+    setFirstLoginError(null)
+    setFirstLoginNotice(null)
   }
 
   return (
@@ -118,6 +214,71 @@ export default function Login() {
           </div>
 
           <div className="glass-panel rounded-xl4 p-7 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
+            {firstLoginOpen ? (
+              <>
+                <h1 className="text-lg font-bold text-ink-800 text-center lg:text-left font-display">Première connexion</h1>
+                <p className="text-sm text-ink-400 text-center lg:text-left mt-1 mb-6">
+                  Vérifiez votre adresse professionnelle pour créer votre mot de passe.
+                </p>
+
+                {firstLoginStep === 'email' && (
+                  <form onSubmit={requestFirstLoginCode} className="space-y-4">
+                    <div>
+                      <label className="text-xs font-semibold text-ink-500 mb-1.5 block">E-mail du compte GRAAL</label>
+                      <input type="email" required autoComplete="email" value={firstLoginEmail}
+                        onChange={(e) => setFirstLoginEmail(e.target.value)} placeholder="prenom.nom@graal.com"
+                        className="w-full rounded-2xl border border-ink-200 bg-white/80 px-4 py-3 text-[15px] outline-none transition focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
+                    </div>
+                    <Button type="submit" fullWidth loading={firstLoginLoading}>Recevoir le code par e-mail</Button>
+                  </form>
+                )}
+
+                {firstLoginStep === 'otp' && (
+                  <form onSubmit={verifyFirstLoginCode} className="space-y-4">
+                    <div>
+                      <label className="text-xs font-semibold text-ink-500 mb-1.5 block">Code de vérification (6 chiffres)</label>
+                      <input type="text" required inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                        pattern="[0-9]{6}" value={firstLoginOtp} onChange={(e) => setFirstLoginOtp(e.target.value.replace(/\\D/g, '').slice(0, 6))}
+                        placeholder="123456"
+                        className="w-full rounded-2xl border border-ink-200 bg-white/80 px-4 py-3 text-[15px] tracking-[0.3em] outline-none transition focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
+                      <p className="mt-2 text-xs text-ink-400">Code envoyé à {firstLoginEmail}</p>
+                    </div>
+                    <Button type="submit" fullWidth loading={firstLoginLoading}>Vérifier le code</Button>
+                    <button type="button" onClick={() => { setFirstLoginStep('email'); setFirstLoginOtp(''); setFirstLoginError(null); setFirstLoginNotice(null) }}
+                      className="w-full text-sm font-semibold text-royal-600">Modifier l’adresse e-mail</button>
+                  </form>
+                )}
+
+                {firstLoginStep === 'password' && (
+                  <form onSubmit={setFirstLoginPassword} className="space-y-4">
+                    <div>
+                      <label className="text-xs font-semibold text-ink-500 mb-1.5 block">Nouveau mot de passe</label>
+                      <input type="password" required minLength={8} autoComplete="new-password" value={firstLoginPassword}
+                        onChange={(e) => setFirstLoginPassword(e.target.value)} placeholder="8 caractères minimum"
+                        className="w-full rounded-2xl border border-ink-200 bg-white/80 px-4 py-3 text-[15px] outline-none transition focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-ink-500 mb-1.5 block">Confirmer le mot de passe</label>
+                      <input type="password" required minLength={8} autoComplete="new-password" value={firstLoginConfirm}
+                        onChange={(e) => setFirstLoginConfirm(e.target.value)} placeholder="Répétez le mot de passe"
+                        className="w-full rounded-2xl border border-ink-200 bg-white/80 px-4 py-3 text-[15px] outline-none transition focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
+                    </div>
+                    <Button type="submit" fullWidth loading={firstLoginLoading}>Enregistrer mon mot de passe</Button>
+                  </form>
+                )}
+
+                {(firstLoginError || firstLoginNotice) && (
+                  <p role="status" className={`mt-4 rounded-xl px-3 py-2 text-sm ${firstLoginError ? 'text-flame-600 bg-flame-50' : 'text-emerald-700 bg-emerald-50'}`}>
+                    {firstLoginError || firstLoginNotice}
+                  </p>
+                )}
+                <button type="button" onClick={closeFirstLogin}
+                  className="mt-5 w-full text-sm font-semibold text-ink-500 hover:text-royal-600">
+                  Retour à la connexion
+                </button>
+              </>
+            ) : (
+              <>
             <h1 className="text-lg font-bold text-ink-800 text-center lg:text-left font-display">Connexion</h1>
             <p className="text-sm text-ink-400 text-center lg:text-left mt-1 mb-6">Accédez à votre espace GRAAL</p>
 
@@ -163,6 +324,17 @@ export default function Login() {
               <Button type="submit" fullWidth loading={loading}>Se connecter</Button>
             </form>
 
+            <button type="button" onClick={() => {
+              setFirstLoginOpen(true)
+              setFirstLoginStep('email')
+              setFirstLoginEmail(email)
+              setFirstLoginError(null)
+              setFirstLoginNotice(null)
+              setError(null)
+            }} className="mt-4 w-full text-sm font-semibold text-royal-600 hover:text-royal-700">
+              Première connexion ? Définir mon mot de passe
+            </button>
+
             {canBiometric && (
               <button
                 onClick={handleBiometric}
@@ -170,6 +342,8 @@ export default function Login() {
               >
                 Déverrouiller avec Face ID / empreinte
               </button>
+            )}
+              </>
             )}
           </div>
 
