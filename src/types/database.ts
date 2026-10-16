@@ -1339,6 +1339,7 @@ export type Database = {
           vm_id: string
         }
         Insert: {
+          secteur?: Database["public"]["Enums"]["secteur_code"] | null
           created_at?: string
           delai_supplementaire_jusqu_a?: string | null
           id?: string
