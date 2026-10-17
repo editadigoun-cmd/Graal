@@ -90,7 +90,7 @@ export default function Planning() {
   const jourCompatible = (habituel: string | null | undefined, jour: Jour) => {
     if (!habituel?.trim()) return true
     const texte = normalizeText(habituel).replace(/[0-9].*$/, '')
-    const tokens = texte.split(/[\/;,\\s]+/).filter(Boolean)
+    const tokens = texte.split(/[\/;,\s]+/).filter(Boolean)
     const alias: Record<Jour, string[]> = {
       LUNDI: ['l', 'lu', 'lun', 'lundi'],
       MARDI: ['m', 'ma', 'mar', 'mardi'],
