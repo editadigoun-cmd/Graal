@@ -23,9 +23,9 @@ export function isoWeekMonday(d = nowBenin()) {
   return d.tz(BENIN_TZ).startOf('isoWeek')
 }
 
-/** Jeudi 21h (heure du Bénin) précédant le lundi `semaineDebut` — deadline de soumission du programme. */
+/** Samedi 14h (heure du Bénin) précédant le lundi `semaineDebut` — échéance de soumission du programme. */
 export function deadlineSoumission(semaineDebut: string) {
-  return dayjs.tz(semaineDebut, BENIN_TZ).subtract(2, 'day').hour(12).minute(0).second(0)
+  return dayjs.tz(semaineDebut, BENIN_TZ).subtract(2, 'day').hour(14).minute(0).second(0).millisecond(0)
 }
 
 export function heureCloture(heure = '19:00') {

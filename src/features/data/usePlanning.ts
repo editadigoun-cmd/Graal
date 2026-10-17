@@ -25,20 +25,24 @@ export function usePlanning() {
   const load = useCallback(async () => {
     if (!session) return
     setLoading(true)
+    setError(null)
     const vmId = session.user.id
     const semaineDebut = targetSemaineDebut()
 
-    let { data: prog } = await supabase
+    let { data: prog, error: programmeError } = await supabase
       .from('programmes_hebdomadaires').select('*')
       .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).maybeSingle()
+    if (programmeError) {
+      setError(programmeError.message)
+      setLoading(false)
+      return
+    }
 
     if (!prog) {
       const { data: created, error: createError } = await supabase
         .from('programmes_hebdomadaires').insert({ vm_id: vmId, semaine_debut: semaineDebut }).select('*').single()
       if (createError) {
         if (createError.code === '23505') {
-          // Course concurrente (ex. rechargement de session ou deux onglets) : un autre appel a
-          // déjà créé la ligne entre le SELECT et l'INSERT — on la relit simplement.
           const { data: existing, error: refetchError } = await supabase
             .from('programmes_hebdomadaires').select('*')
             .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).single()
@@ -59,18 +63,21 @@ export function usePlanning() {
     }
     setProgramme(prog)
 
-    const [{ data: lignesData }, { data: clientsData }, { data: vmProfile }] = await Promise.all([
+    const [{ data: lignesData, error: lignesError }, { data: clientsData, error: clientsError }, { data: portefeuilleData, error: portefeuilleError }] = await Promise.all([
       supabase.from('programme_lignes').select('*, clients(id, nom, potentiel, specialite, centre)').eq('programme_id', prog!.id).order('ordre'),
       supabase.from('clients').select('*').eq('actif', true).order('nom'),
-      supabase.from('profiles').select('secteur').eq('id', vmId).maybeSingle()
+      supabase.from('portefeuille').select('client_id').eq('vm_id', vmId)
     ])
-    setLignes((lignesData as Ligne[]) ?? [])
+    if (lignesError || clientsError || portefeuilleError) {
+      setError(lignesError?.message ?? clientsError?.message ?? portefeuilleError?.message ?? 'Impossible de charger les clients.')
+      setLoading(false)
+      return
+    }
 
-    // Le secteur de référence est celui du programme de la semaine, car les secteurs
-    // alternent d'une semaine à l'autre. Le profil sert uniquement de repli pour les
-    // anciens programmes dont le secteur n'aurait pas été renseigné.
-    const secteurSemaine = prog!.secteur ?? vmProfile?.secteur ?? null
-    setPortefeuille((clientsData ?? []).filter((client) => secteurSemaine !== null && client.secteur === secteurSemaine))
+    // Tous les clients actifs du portefeuille du VM sont proposés, tous secteurs confondus.
+    const idsPortefeuille = new Set((portefeuilleData ?? []).map((item) => item.client_id))
+    setPortefeuille((clientsData ?? []).filter((client) => idsPortefeuille.has(client.id)))
+    setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
   }, [session])
 
