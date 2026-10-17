@@ -15,6 +15,12 @@ export function targetSemaineDebut() {
   return isoWeekMonday().add(7, 'day').format('YYYY-MM-DD')
 }
 
+function secteurSuivant(secteur: Secteur | null | undefined): Secteur | null {
+  if (secteur === 'A') return 'B'
+  if (secteur === 'B') return 'A'
+  return null
+}
+
 export function usePlanning() {
   const { session } = useAuth()
   const [programme, setProgramme] = useState<Programme | null>(null)
@@ -38,7 +44,22 @@ export function usePlanning() {
       setLoading(false)
       return
     }
-    setSecteurVm(profile.secteur)
+
+    // Le secteur alterne d'une semaine à l'autre : A -> B et B -> A.
+    // On prend le programme hebdomadaire le plus récent avant la semaine cible.
+    const { data: programmePrecedent, error: precedentError } = await supabase
+      .from('programmes_hebdomadaires').select('secteur,semaine_debut')
+      .eq('vm_id', vmId).lt('semaine_debut', semaineDebut)
+      .order('semaine_debut', { ascending: false }).limit(1).maybeSingle()
+    if (precedentError) {
+      setError(precedentError.message)
+      setLoading(false)
+      return
+    }
+
+    const secteurReference = programmePrecedent?.secteur ?? profile.secteur
+    const secteurCible = secteurSuivant(secteurReference) ?? profile.secteur
+    setSecteurVm(secteurCible)
 
     let { data: prog, error: programmeError } = await supabase
       .from('programmes_hebdomadaires').select('*')
@@ -52,7 +73,7 @@ export function usePlanning() {
     if (!prog) {
       const { data: created, error: createError } = await supabase
         .from('programmes_hebdomadaires')
-        .insert({ vm_id: vmId, semaine_debut: semaineDebut, secteur: profile.secteur })
+        .insert({ vm_id: vmId, semaine_debut: semaineDebut, secteur: secteurCible })
         .select('*').single()
       if (createError) {
         if (createError.code === '23505') {
@@ -73,6 +94,17 @@ export function usePlanning() {
       } else {
         prog = created
       }
+    } else if (prog.secteur !== secteurCible) {
+      // Corrige aussi un programme cible créé auparavant avec le secteur du profil.
+      const { data: corrected, error: correctionError } = await supabase
+        .from('programmes_hebdomadaires').update({ secteur: secteurCible })
+        .eq('id', prog.id).select('*').single()
+      if (correctionError) {
+        setError(correctionError.message)
+        setLoading(false)
+        return
+      }
+      prog = corrected
     }
     setProgramme(prog)
 
@@ -99,7 +131,7 @@ export function usePlanning() {
         return
       }
       setPortefeuille((clientsData ?? []).filter((client) =>
-        client.secteur === (prog!.secteur ?? profile.secteur) && client.secteur !== null
+        client.secteur === (prog!.secteur ?? secteurCible) && client.secteur !== null
       ))
     }
     setLignes((lignesData as Ligne[]) ?? [])
