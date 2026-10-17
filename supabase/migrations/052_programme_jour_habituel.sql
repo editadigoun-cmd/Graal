@@ -22,7 +22,7 @@ begin
   end if;
 
   -- Strip the time portion, then split common formats such as L/M/MER/J/V 10H.
-  v_habituel := upper(unaccent(btrim(v_habituel)));
+  v_habituel := upper(btrim(v_habituel));
   v_habituel := regexp_replace(v_habituel, '[0-9].*$', '');
   v_jour_tokens := regexp_split_to_array(v_habituel, '[/,;[:space:]]+');
 
