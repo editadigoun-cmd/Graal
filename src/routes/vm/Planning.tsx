@@ -108,7 +108,7 @@ export default function Planning() {
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
     if (picking === 'PHARMACIE' && c.specialite !== 'PHARMACIE') return false
     if (!jourCompatible(c.jour_heure_habituel, jourActif)) return false
-    if (!potentielAutorise(jourActif, c.potentiel, picking)) return false
+    // Afficher aussi les clients dont le potentiel n'est pas autorisé ce jour, mais les désactiver dans la liste avec une explication.
     if (clientIdsUtilises.has(c.id)) return false
     if (recherche && !normalizeText(c.nom).includes(normalizeText(recherche))) return false
     return true
@@ -503,9 +503,10 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
-                  const bloqueFaibleJeudi = faibleJeudiBloque(c.id, c.potentiel)
-                  const bloqueMoyen = moyenDerogationBloque(c.id, c.potentiel)
-                  const bloque = bloqueFaibleJeudi || bloqueMoyen
+                  const bloquePotentiel = !c.potentiel || !potentielAutorise(jourActif, c.potentiel, picking!)
+                  const bloqueFaibleJeudi = faibleJeudiBloque(c.id, c.potentiel ?? '')
+                  const bloqueMoyen = moyenDerogationBloque(c.id, c.potentiel ?? '')
+                  const bloque = bloquePotentiel || bloqueFaibleJeudi || bloqueMoyen
                   return (
                     <button
                       key={c.id} onClick={() => !bloque && toggleSelection(c.id)}
@@ -522,7 +523,9 @@ export default function Planning() {
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-ink-800 truncate">{c.nom}</p>
                           <p className="text-[11px] text-ink-400 truncate">
-                            {bloqueFaibleJeudi
+                            {bloquePotentiel
+                              ? `Potentiel ${c.potentiel ?? 'non renseigné'} non autorisé le ${JOUR_LABEL[jourActif]}`
+                              : bloqueFaibleJeudi
                               ? `Max ${seuils.maxFaibleJeudiPct}% de clients FAIBLE le jeudi atteint`
                               : bloqueMoyen
                               ? `Max ${seuils.maxMoyenLunMarMer} médecin(s) "moyen" atteint pour ce jour`
