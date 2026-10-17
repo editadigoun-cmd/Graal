@@ -89,15 +89,17 @@ export default function Planning() {
 
   const jourCompatible = (habituel: string | null | undefined, jour: Jour) => {
     if (!habituel?.trim()) return true
-    const texte = normalizeText(habituel)
+    const texte = normalizeText(habituel).replace(/[0-9].*$/, '')
+    const tokens = texte.split(/[\/;,\\s]+/).filter(Boolean)
     const alias: Record<Jour, string[]> = {
-      LUNDI: ['lundi', 'lun'], MARDI: ['mardi', 'mar'],
-      MERCREDI: ['mercredi', 'mer'], JEUDI: ['jeudi', 'jeu'],
-      VENDREDI: ['vendredi', 'ven']
+      LUNDI: ['l', 'lu', 'lun', 'lundi'],
+      MARDI: ['m', 'ma', 'mar', 'mardi'],
+      MERCREDI: ['mer', 'mercredi'],
+      JEUDI: ['j', 'je', 'jeu', 'jeudi'],
+      VENDREDI: ['v', 've', 'ven', 'vendredi']
     }
-    // Les valeurs libres non reconnues ne doivent pas provoquer de faux blocage.
-    const joursConnus = Object.values(alias).flat().filter((mot) => texte.includes(mot))
-    return joursConnus.length === 0 || alias[jour].some((mot) => texte.includes(mot))
+    const joursConnus = tokens.filter((token) => Object.values(alias).some((liste) => liste.includes(token)))
+    return joursConnus.length === 0 || joursConnus.some((token) => alias[jour].includes(token))
   }
 
   const candidats = portefeuille.filter((c) => {
