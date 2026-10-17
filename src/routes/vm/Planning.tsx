@@ -520,7 +520,9 @@ export default function Planning() {
                               : bloqueMoyen
                               ? `Max ${seuils.maxMoyenLunMarMer} médecin(s) "moyen" atteint pour ce jour`
                               : potentielIndisponible
-                              ? `${c.centre || c.specialite} · Potentiel ${c.potentiel} non autorisé le ${JOUR_LABEL[jourActif]}`
+                              ? (c.potentiel
+                                  ? `${c.centre || c.specialite} · Potentiel ${c.potentiel} non autorisé le ${JOUR_LABEL[jourActif]}`
+                                  : `${c.centre || c.specialite} · Potentiel non renseigné, programmation impossible`)
                               : c.centre || c.specialite}
                           </p>
                         </div>
