@@ -96,7 +96,7 @@ export default function Planning() {
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
     if (!potentielAutorise(jourActif, c.potentiel, picking)) return false
     if (clientIdsUtilises.has(c.id)) return false
-    if (recherche && !normalizeText(c.nom).includes(normalizeText(recherche))) return false
+    if (recherche && !normalizeText([c.nom, c.centre, c.specialite].filter(Boolean).join(' ')).includes(normalizeText(recherche))) return false
     return true
   })
 
@@ -390,6 +390,14 @@ export default function Planning() {
               <Card className="flex items-center justify-between py-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-ink-800 truncate">{l.clients?.nom}</p>
+                  <p className="mt-0.5 text-[11px] text-ink-500 truncate">
+                    {l.clients?.specialite === 'MATERNITE' ? 'Maternité' :
+                      l.clients?.specialite === 'DISPENSAIRE' ? 'Dispensaire' :
+                      l.clients?.specialite === 'PHARMACIE' ? 'Pharmacie' :
+                      l.clients?.specialite === 'GENERALISTE' ? 'Médecin généraliste' :
+                      l.clients?.specialite ? l.clients.specialite.replaceAll('_', ' ') : 'Client médical'}
+                    {l.clients?.centre && l.clients.centre !== l.clients?.nom ? ` · ${l.clients.centre}` : ''}
+                  </p>
                   <div className="mt-1 flex items-center gap-2">
                     {l.clients?.potentiel && <PotentielBadge potentiel={l.clients.potentiel} compact />}
                     <span className="text-[11px] text-ink-400">{l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
