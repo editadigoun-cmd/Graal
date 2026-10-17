@@ -9,9 +9,16 @@ type Ligne = Database['public']['Tables']['programme_lignes']['Row'] & {
   clients: Pick<Database['public']['Tables']['clients']['Row'], 'id' | 'nom' | 'potentiel' | 'specialite' | 'centre'> | null
 }
 type ClientRow = Database['public']['Tables']['clients']['Row']
+type Secteur = Database['public']['Enums']['secteur_code']
 
 export function targetSemaineDebut() {
   return isoWeekMonday().add(7, 'day').format('YYYY-MM-DD')
+}
+
+function secteurSuivant(secteur: Secteur | null | undefined): Secteur | null {
+  if (secteur === 'A') return 'B'
+  if (secteur === 'B') return 'A'
+  return null
 }
 
 export function usePlanning() {
@@ -25,20 +32,48 @@ export function usePlanning() {
   const load = useCallback(async () => {
     if (!session) return
     setLoading(true)
+    setError(null)
     const vmId = session.user.id
     const semaineDebut = targetSemaineDebut()
 
-    let { data: prog } = await supabase
+    const { data: vmProfile, error: profileError } = await supabase
+      .from('profiles').select('secteur').eq('id', vmId).maybeSingle()
+    if (profileError) {
+      setError(profileError.message)
+      setLoading(false)
+      return
+    }
+
+    const { data: programmePrecedent, error: precedentError } = await supabase
+      .from('programmes_hebdomadaires').select('secteur,semaine_debut')
+      .eq('vm_id', vmId).lt('semaine_debut', semaineDebut)
+      .order('semaine_debut', { ascending: false }).limit(1).maybeSingle()
+    if (precedentError) {
+      setError(precedentError.message)
+      setLoading(false)
+      return
+    }
+
+    // Alternance hebdomadaire obligatoire : A -> B, puis B -> A.
+    const secteurReference = programmePrecedent?.secteur ?? vmProfile?.secteur ?? null
+    const secteurCible = secteurSuivant(secteurReference) ?? vmProfile?.secteur ?? null
+
+    let { data: prog, error: programmeError } = await supabase
       .from('programmes_hebdomadaires').select('*')
       .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).maybeSingle()
+    if (programmeError) {
+      setError(programmeError.message)
+      setLoading(false)
+      return
+    }
 
     if (!prog) {
       const { data: created, error: createError } = await supabase
-        .from('programmes_hebdomadaires').insert({ vm_id: vmId, semaine_debut: semaineDebut }).select('*').single()
+        .from('programmes_hebdomadaires')
+        .insert({ vm_id: vmId, semaine_debut: semaineDebut, ...(secteurCible ? { secteur: secteurCible } : {}) })
+        .select('*').single()
       if (createError) {
         if (createError.code === '23505') {
-          // Course concurrente (ex. rechargement de session ou deux onglets) : un autre appel a
-          // déjà créé la ligne entre le SELECT et l'INSERT — on la relit simplement.
           const { data: existing, error: refetchError } = await supabase
             .from('programmes_hebdomadaires').select('*')
             .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).single()
@@ -56,21 +91,29 @@ export function usePlanning() {
       } else {
         prog = created
       }
+    } else if (secteurCible && prog.secteur !== secteurCible) {
+      const { data: corrected, error: correctionError } = await supabase
+        .from('programmes_hebdomadaires').update({ secteur: secteurCible })
+        .eq('id', prog.id).select('*').single()
+      if (correctionError) {
+        setError(correctionError.message)
+        setLoading(false)
+        return
+      }
+      prog = corrected
     }
     setProgramme(prog)
 
-    const [{ data: lignesData }, { data: clientsData }, { data: vmProfile }] = await Promise.all([
+    const [{ data: lignesData }, { data: clientsData }] = await Promise.all([
       supabase.from('programme_lignes').select('*, clients(id, nom, potentiel, specialite, centre)').eq('programme_id', prog!.id).order('ordre'),
-      supabase.from('clients').select('*').eq('actif', true).order('nom'),
-      supabase.from('profiles').select('secteur').eq('id', vmId).maybeSingle()
+      supabase.from('clients').select('*').eq('actif', true).order('nom')
     ])
     setLignes((lignesData as Ligne[]) ?? [])
 
-    // Le secteur de référence est celui du programme de la semaine, car les secteurs
-    // alternent d'une semaine à l'autre. Le profil sert uniquement de repli pour les
-    // anciens programmes dont le secteur n'aurait pas été renseigné.
-    const secteurSemaine = prog!.secteur ?? vmProfile?.secteur ?? null
-    setPortefeuille((clientsData ?? []).filter((client) => secteurSemaine !== null && client.secteur === secteurSemaine))
+    const secteurSemaine = prog!.secteur ?? secteurCible
+    setPortefeuille((clientsData ?? []).filter((client) =>
+      secteurSemaine !== null && secteurSemaine !== undefined && client.secteur === secteurSemaine
+    ))
     setLoading(false)
   }, [session])
 
