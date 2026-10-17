@@ -89,6 +89,11 @@ export default function Planning() {
 
   const candidats = portefeuille.filter((c) => {
     if (!picking) return false
+    // Le bouton détermine la catégorie : médical = médecins/structures médicales,
+    // pharmacie = pharmacies uniquement. La suppression des contraintes de secteur
+    // ne doit pas mélanger les catégories de clients.
+    if (picking === 'PHARMACIE' && c.specialite !== 'PHARMACIE') return false
+    if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
     if (!potentielAutorise(jourActif, c.potentiel, picking)) return false
     if (clientIdsUtilises.has(c.id)) return false
     if (recherche && !normalizeText(c.nom).includes(normalizeText(recherche))) return false
