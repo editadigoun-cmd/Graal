@@ -101,7 +101,7 @@ $$;
 
 -- La deadline est pilotée par ce paramètre par la RPC et le rappel e-mail/in-app.
 update public.parametres
-set value = '14:00'
+set value = '"14:00"'::jsonb
 where key = 'heure_limite_soumission_programme';
 
 -- Score de ponctualité : utiliser la même échéance (samedi 14h, heure du Bénin).
