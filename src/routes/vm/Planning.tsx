@@ -94,7 +94,9 @@ export default function Planning() {
     // ne doit pas mélanger les catégories de clients.
     if (picking === 'PHARMACIE' && c.specialite !== 'PHARMACIE') return false
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
-    if (!potentielAutorise(jourActif, c.potentiel, picking)) return false
+    // Afficher tout le portefeuille officiel pour permettre la recherche, même si le potentiel
+    // du client ne permet pas de le programmer le jour sélectionné. Le blocage est appliqué
+    // visuellement plus bas et reste cohérent avec les règles serveur.
     if (clientIdsUtilises.has(c.id)) return false
     if (recherche && !normalizeText([c.nom, c.centre, c.specialite].filter(Boolean).join(' ')).includes(normalizeText(recherche))) return false
     return true
@@ -493,9 +495,10 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
+                  const potentielIndisponible = !potentielAutorise(jourActif, c.potentiel, picking!)
                   const bloqueFaibleJeudi = faibleJeudiBloque(c.id, c.potentiel)
                   const bloqueMoyen = moyenDerogationBloque(c.id, c.potentiel)
-                  const bloque = bloqueFaibleJeudi || bloqueMoyen
+                  const bloque = potentielIndisponible || bloqueFaibleJeudi || bloqueMoyen
                   return (
                     <button
                       key={c.id} onClick={() => !bloque && toggleSelection(c.id)}
@@ -516,6 +519,8 @@ export default function Planning() {
                               ? `Max ${seuils.maxFaibleJeudiPct}% de clients FAIBLE le jeudi atteint`
                               : bloqueMoyen
                               ? `Max ${seuils.maxMoyenLunMarMer} médecin(s) "moyen" atteint pour ce jour`
+                              : potentielIndisponible
+                              ? `${c.centre || c.specialite} · Potentiel ${c.potentiel} non autorisé le ${JOUR_LABEL[jourActif]}`
                               : c.centre || c.specialite}
                           </p>
                         </div>
