@@ -99,7 +99,7 @@ export default function Login() {
     setFirstLoginNotice('Adresse vérifiée. Vous pouvez maintenant définir votre mot de passe.')
   }
 
-  async function setFirstLoginPassword(e: React.FormEvent) {
+  async function handleSetFirstLoginPassword(e: React.FormEvent) {
     e.preventDefault()
     setFirstLoginError(null)
     setFirstLoginNotice(null)
@@ -251,7 +251,7 @@ export default function Login() {
                 )}
 
                 {firstLoginStep === 'password' && (
-                  <form onSubmit={setFirstLoginPassword} className="space-y-4">
+                  <form onSubmit={handleSetFirstLoginPassword} className="space-y-4">
                     <div>
                       <label className="text-xs font-semibold text-ink-500 mb-1.5 block">Nouveau mot de passe</label>
                       <input type="password" required minLength={8} autoComplete="new-password" value={firstLoginPassword}
