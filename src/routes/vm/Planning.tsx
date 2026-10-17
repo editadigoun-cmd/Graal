@@ -87,13 +87,34 @@ export default function Planning() {
   const clientIdsUtilises = new Set(lignes.map((l) => l.client_id))
   const pharmacieUniquement = !!programme?.mode_pharmacie_uniquement
 
+  const jourCompatible = (habituel: string | null | undefined, jour: Jour) => {
+    if (!habituel?.trim()) return true
+    const texte = normalizeText(habituel)
+    const alias: Record<Jour, string[]> = {
+      LUNDI: ['lundi', 'lun'], MARDI: ['mardi', 'mar'],
+      MERCREDI: ['mercredi', 'mer'], JEUDI: ['jeudi', 'jeu'],
+      VENDREDI: ['vendredi', 'ven']
+    }
+    // Les valeurs libres non reconnues ne doivent pas provoquer de faux blocage.
+    const joursConnus = Object.values(alias).flat().filter((mot) => texte.includes(mot))
+    return joursConnus.length === 0 || alias[jour].some((mot) => texte.includes(mot))
+  }
+
   const candidats = portefeuille.filter((c) => {
     if (!picking) return false
+    if (!c.actif || c.secteur !== (programme?.secteur ?? secteurVm)) return false
+    if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
+    if (picking === 'PHARMACIE' && c.specialite !== 'PHARMACIE') return false
+    if (!jourCompatible(c.jour_heure_habituel, jourActif)) return false
     if (!potentielAutorise(jourActif, c.potentiel, picking)) return false
     if (clientIdsUtilises.has(c.id)) return false
     if (recherche && !normalizeText(c.nom).includes(normalizeText(recherche))) return false
     return true
-  })
+  }).sort((a, b) =>
+    String(a.secteur ?? '').localeCompare(String(b.secteur ?? '')) ||
+    String(a.specialite ?? '').localeCompare(String(b.specialite ?? '')) ||
+    a.nom.localeCompare(b.nom, 'fr')
+  )
 
   // Jeudi : la part de clients FAIBLE potentiel ne doit pas dépasser seuils.maxFaibleJeudiPct —
   // on bloque la sélection de nouveaux clients FAIBLE dès que l'ajouter dépasserait le seuil,
@@ -467,7 +488,7 @@ export default function Planning() {
             >
               <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink-200" />
               <p className="text-sm font-bold text-ink-800 mb-1">Ajouter des clients — {JOUR_LABEL[jourActif]}</p>
-              <p className="text-xs text-ink-400 mb-3">Seuls les clients autorisés ce jour selon leur potentiel sont affichés. Sélectionnez-en un ou plusieurs.</p>
+              <p className="text-xs text-ink-400 mb-3">Seuls les clients de votre secteur, de votre portefeuille, compatibles avec ce jour et le type de visite sont affichés. La liste est classée par spécialité.</p>
               <div className="relative mb-3">
                 <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
                 <input
@@ -503,7 +524,7 @@ export default function Planning() {
                               ? `Max ${seuils.maxFaibleJeudiPct}% de clients FAIBLE le jeudi atteint`
                               : bloqueMoyen
                               ? `Max ${seuils.maxMoyenLunMarMer} médecin(s) "moyen" atteint pour ce jour`
-                              : c.centre || c.specialite}
+                              : [c.secteur, c.specialite, c.centre].filter(Boolean).join(' · ')}
                           </p>
                         </div>
                       </div>
