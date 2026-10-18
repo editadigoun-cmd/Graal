@@ -77,7 +77,7 @@ export default function Login() {
     }
     setFirstLoginEmail(normalizedEmail)
     setFirstLoginStep('otp')
-    setFirstLoginNotice('Si cette adresse correspond à un compte GRAAL, un code de vérification vient d’être envoyé.')
+    setFirstLoginNotice('Si cette adresse correspond à un compte PROVISIT, un code de vérification vient d’être envoyé.')
   }
 
   async function verifyFirstLoginCode(e: React.FormEvent) {
@@ -163,7 +163,7 @@ export default function Login() {
         >
           <img src={logoMark} alt="" className="h-10 w-10" />
           <div>
-            <p className="text-sm font-extrabold tracking-wide text-white font-display leading-none">GRAAL</p>
+            <p className="text-sm font-extrabold tracking-wide text-white font-display leading-none">PROVISIT</p>
             <p className="text-[10px] font-semibold tracking-wide text-white/50">MEDICAL SOLUTIONS</p>
           </div>
         </motion.div>
@@ -196,7 +196,7 @@ export default function Login() {
         </motion.div>
 
         <p className="relative text-[11px] text-white/35">
-          Document confidentiel — usage réservé aux collaborateurs GRAAL MEDICAL SOLUTIONS
+          Document confidentiel — usage réservé aux collaborateurs PROVISIT MEDICAL SOLUTIONS
         </p>
       </div>
 
@@ -211,7 +211,7 @@ export default function Login() {
           className="relative mx-auto w-full max-w-sm"
         >
           <div className="flex justify-center mb-8 lg:hidden">
-            <img src={logoFull} alt="GRAAL Medical Solutions" className="h-24 w-auto drop-shadow-sm" />
+            <img src={logoFull} alt="PROVISIT Medical Solutions" className="h-24 w-auto drop-shadow-sm" />
           </div>
 
           <div className="glass-panel rounded-xl4 p-7 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
@@ -225,9 +225,9 @@ export default function Login() {
                 {firstLoginStep === 'email' && (
                   <form onSubmit={requestFirstLoginCode} className="space-y-4">
                     <div>
-                      <label className="text-xs font-semibold text-ink-500 mb-1.5 block">E-mail du compte GRAAL</label>
+                      <label className="text-xs font-semibold text-ink-500 mb-1.5 block">E-mail du compte PROVISIT</label>
                       <input type="email" required autoComplete="email" value={firstLoginEmail}
-                        onChange={(e) => setFirstLoginEmail(e.target.value)} placeholder="prenom.nom@graal.com"
+                        onChange={(e) => setFirstLoginEmail(e.target.value)} placeholder="prenom.nom@provisit.app"
                         className="w-full rounded-2xl border border-ink-200 bg-white/80 px-4 py-3 text-[15px] outline-none transition focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
                     </div>
                     <Button type="submit" fullWidth loading={firstLoginLoading}>Recevoir le code par e-mail</Button>
@@ -281,7 +281,7 @@ export default function Login() {
             ) : (
               <>
             <h1 className="text-lg font-bold text-ink-800 text-center lg:text-left font-display">Connexion</h1>
-            <p className="text-sm text-ink-400 text-center lg:text-left mt-1 mb-6">Accédez à votre espace GRAAL</p>
+            <p className="text-sm text-ink-400 text-center lg:text-left mt-1 mb-6">Accédez à votre espace PROVISIT</p>
 
             {successMessage && (
               <p role="status" className="mb-4 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
@@ -295,7 +295,7 @@ export default function Login() {
                 <input
                   type="email" required autoComplete="username" value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="prenom.nom@graal.com"
+                  placeholder="prenom.nom@provisit.app"
                   className="w-full rounded-2xl border border-ink-200 bg-white/80 px-4 py-3 text-[15px] outline-none transition focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
                 />
               </div>
@@ -356,7 +356,7 @@ export default function Login() {
           </div>
 
           <p className="mt-6 text-center lg:text-left text-[11px] text-ink-400">
-            Document confidentiel — usage réservé aux collaborateurs GRAAL MEDICAL SOLUTIONS
+            Document confidentiel — usage réservé aux collaborateurs PROVISIT MEDICAL SOLUTIONS
           </p>
         </motion.div>
       </div>
