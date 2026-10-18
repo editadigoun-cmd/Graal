@@ -148,6 +148,20 @@ export default function Planning() {
     return moyenLunMarMerProjete + 1 > seuils.maxMoyenLunMarMer
   }
 
+  // Une pharmacie MOYENNE est autorisée du lundi au mercredi, indépendamment
+  // du quota distinct des visites médicales MOYENNES : une seule par jour.
+  const pharmaciesMoyennesJour = lignes.filter((l) => l.jour === jourActif && l.type_visite === 'PHARMACIE' && l.clients?.potentiel === 'MOYEN').length
+  const selectionPharmaciesMoyennes = picking === 'PHARMACIE' && JOURS_DEROGATION_MOYEN.includes(jourActif)
+    ? selectionArray.filter((id) => {
+        const client = portefeuille.find((c) => c.id === id)
+        return client?.specialite === 'PHARMACIE' && client?.potentiel === 'MOYEN'
+      }).length
+    : 0
+  function pharmacieMoyenneBloquee(candidatId: string, potentiel: string) {
+    if (picking !== 'PHARMACIE' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
+    return pharmaciesMoyennesJour + selectionPharmaciesMoyennes >= 1
+  }
+
   // Récapitulatif hebdomadaire par spécialité + par potentiel (toute la semaine, tous jours confondus).
   const specialiteCounts: Partial<Record<Specialite, number>> = {}
   const potentielCounts: Record<Potentiel, number> = { GROS: 0, MOYEN: 0, FAIBLE: 0 }
@@ -513,8 +527,9 @@ export default function Planning() {
                   const potentielIndisponible = !potentielAutorise(jourActif, c.potentiel, picking!)
                   const bloqueFaibleJeudi = faibleJeudiBloque(c.id, c.potentiel)
                   const bloqueMoyen = moyenDerogationBloque(c.id, c.potentiel)
+                  const bloquePharmacieMoyenne = pharmacieMoyenneBloquee(c.id, c.potentiel)
                   const bloqueGros = grosJourBloque(c.id, c.potentiel)
-                  const bloque = potentielIndisponible || bloqueFaibleJeudi || bloqueMoyen || bloqueGros
+                  const bloque = potentielIndisponible || bloqueFaibleJeudi || bloqueMoyen || bloquePharmacieMoyenne || bloqueGros
                   return (
                     <button
                       key={c.id} onClick={() => !bloque && toggleSelection(c.id)}
@@ -537,6 +552,8 @@ export default function Planning() {
                               ? `Maximum de clients GROS atteint (${jourActif === 'JEUDI' ? MAX_GROS_JEUDI : MAX_GROS_VENDREDI})`
                               : bloqueMoyen
                               ? `Max ${seuils.maxMoyenLunMarMer} médecin(s) "moyen" atteint pour ce jour`
+                              : bloquePharmacieMoyenne
+                              ? 'Une seule pharmacie MOYENNE autorisée par jour du lundi au mercredi'
                               : potentielIndisponible
                               ? (c.potentiel
                                   ? `${c.centre || c.specialite} · Potentiel ${c.potentiel} non autorisé le ${JOUR_LABEL[jourActif]}`
