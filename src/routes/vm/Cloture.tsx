@@ -9,7 +9,7 @@ import { useVisitesDuJour } from '@/features/data/useVisitesDuJour'
 import { useOfflineClotureSync } from '@/hooks/useOfflineClotureSync'
 import { savePendingCloture, getPendingCloture, type MotifLocal } from '@/lib/offlineCloture'
 import { supabase } from '@/lib/supabase'
-import { todayBenin } from '@/lib/time'
+import { todayBenin, isoWeekMonday } from '@/lib/time'
 import type { Database } from '@/types/database'
 
 type Motif = Database['public']['Tables']['motifs_non_visite']['Row']
@@ -23,6 +23,7 @@ export default function Cloture() {
   const [motifs, setMotifs] = useState<Motif[]>([])
   const [motifChoisi, setMotifChoisi] = useState<Record<string, string>>({})
   const [commentaires, setCommentaires] = useState<Record<string, string>>({})
+  const [reportSelection, setReportSelection] = useState<Record<string, string>>({})
   const [motifsLocaux, setMotifsLocaux] = useState<Record<string, MotifLocal>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [photo, setPhoto] = useState<File | null>(null)
@@ -75,7 +76,10 @@ export default function Cloture() {
     setPhotoPreview(URL.createObjectURL(f))
   }
 
-  const restantesSansMotif = manquantes.filter((l) => !dejaMotivees.has(l.programme_ligne_id))
+  const datesReportables = Array.from({ length: 5 }, (_, i) => isoWeekMonday().add(i, 'day'))
+    .filter((d) => d.isAfter(todayBenin(), 'day'))
+  const reportsSelectionnes = Object.entries(reportSelection).filter(([, date]) => !!date)
+  const restantesSansMotif = manquantes.filter((l) => !dejaMotivees.has(l.programme_ligne_id) && !reportSelection[l.programme_ligne_id])
 
   async function handleCloture() {
     if (!session) return
@@ -111,8 +115,9 @@ export default function Cloture() {
       setError(uploadError.message); setCloturing(false); return
     }
 
-    const { data, error: rpcError } = await supabase.rpc('cloturer_journee', {
-      p_photo_path: path, p_photo_latitude: latitude, p_photo_longitude: longitude
+    const { data, error: rpcError } = await (supabase as any).rpc('cloturer_journee', {
+      p_photo_path: path, p_photo_latitude: latitude, p_photo_longitude: longitude,
+      p_reports: reportsSelectionnes.map(([programme_ligne_id, jour_report]) => ({ programme_ligne_id, jour_report }))
     })
 
     setCloturing(false)
@@ -182,7 +187,36 @@ export default function Cloture() {
                   <p className="text-sm font-semibold text-ink-800">{l.client_nom}</p>
                   {motive && <IconCheckCircle className="h-4 w-4 text-emerald-600" />}
                 </div>
-                {!motive && (
+                {datesReportables.length > 0 && (
+                  <div className="mb-3 rounded-xl border border-royal-100 bg-royal-50 p-3">
+                    <label className="mb-1 block text-xs font-semibold text-royal-800">Reporter cette visite vers un autre jour</label>
+                    <select
+                      value={reportSelection[l.programme_ligne_id!] ?? ''}
+                      onChange={(e) => {
+                        const target = e.target.value
+                        if (target) {
+                          const total = Object.values(reportSelection).filter(Boolean).length
+                          const sameDay = Object.entries(reportSelection).filter(([id, date]) => id !== l.programme_ligne_id && date === target).length
+                          if (!reportSelection[l.programme_ligne_id!] && total >= 5) { setError('Maximum 5 visites reportées dans la semaine.'); return }
+                          if (sameDay >= 2) { setError('Maximum 2 visites reportées vers le même jour.'); return }
+                        }
+                        setError(null)
+                        setReportSelection((s) => {
+                          const next = { ...s }
+                          if (target) next[l.programme_ligne_id!] = target
+                          else delete next[l.programme_ligne_id!]
+                          return next
+                        })
+                      }}
+                      className="w-full rounded-xl border border-royal-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">Ne pas reporter</option>
+                      {datesReportables.map((d) => <option key={d.format('YYYY-MM-DD')} value={d.format('YYYY-MM-DD')}>{d.format('dddd D MMMM')}</option>)}
+                    </select>
+                    {reportSelection[l.programme_ligne_id!] && <p className="mt-1 text-[11px] text-royal-700">Cette visite apparaîtra à part dans les visites du {reportSelection[l.programme_ligne_id!] ? datesReportables.find((d) => d.format('YYYY-MM-DD') === reportSelection[l.programme_ligne_id!])?.format('dddd D MMMM') : ''}. Aucun motif n'est nécessaire pour ce report.</p>}
+                  </div>
+                )}
+                {!motive && !reportSelection[l.programme_ligne_id!] && (
                   <>
                     <select
                       value={motifChoisi[l.programme_ligne_id!] ?? ''}
