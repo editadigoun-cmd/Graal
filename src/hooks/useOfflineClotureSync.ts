@@ -43,7 +43,8 @@ export function useOfflineClotureSync() {
       if (uploadError) return // reste en file, nouvelle tentative à la prochaine reconnexion
 
       const { error: rpcError } = await supabase.rpc('cloturer_journee', {
-        p_photo_path: path, p_photo_latitude: pending.latitude, p_photo_longitude: pending.longitude
+        p_photo_path: path, p_photo_latitude: pending.latitude, p_photo_longitude: pending.longitude,
+        p_reports: pending.reports ?? []
       })
       if (rpcError) return
 
