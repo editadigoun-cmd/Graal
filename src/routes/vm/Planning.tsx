@@ -89,7 +89,7 @@ export default function Planning() {
 
   const candidats = portefeuille.filter((c) => {
     if (!picking) return false
-    if (!c.actif || c.secteur !== (programme?.secteur ?? secteurVm)) return false
+    if (!c.actif) return false
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
     if (picking === 'PHARMACIE' && c.specialite !== 'PHARMACIE') return false
     // Afficher aussi les clients dont le potentiel n'est pas autorisé ce jour, mais les désactiver dans la liste avec une explication.
