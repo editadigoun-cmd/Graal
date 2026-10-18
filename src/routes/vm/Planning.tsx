@@ -57,6 +57,7 @@ export default function Planning() {
   const [submitting, setSubmitting] = useState(false)
   const [resultat, setResultat] = useState<{ statut: string; message?: string; conformite?: unknown[] } | null>(null)
   const [seuils, setSeuils] = useState<Seuils>(SEUILS_DEFAUT)
+  const [jourStatuts, setJourStatuts] = useState<Record<string, { statut: string; date_limite: string | null }>>({})
   const [, forceTick] = useState(0)
 
   const semaineDebut = targetSemaineDebut()
@@ -88,6 +89,19 @@ export default function Planning() {
   }, [])
 
   const lignesJour = lignes.filter((l) => l.jour === jourActif)
+  const etatJourActif = jourStatuts[jourActif]
+  const jourVerrouille = etatJourActif?.statut === 'VALIDE' || (!!etatJourActif?.date_limite && Date.now() > new Date(etatJourActif.date_limite).getTime())
+
+  useEffect(() => {
+    if (!programme?.id) { setJourStatuts({}); return }
+    supabase.from('programme_jours_validation').select('jour, statut, date_limite').eq('programme_id', programme.id)
+      .then(({ data, error }) => {
+        if (error) { setError(error.message); return }
+        const next: Record<string, { statut: string; date_limite: string | null }> = {}
+        for (const item of data ?? []) next[item.jour] = { statut: item.statut, date_limite: item.date_limite }
+        setJourStatuts(next)
+      })
+  }, [programme?.id])
   const clientIdsUtilises = new Set(lignes.map((l) => l.client_id))
   const pharmacieUniquement = !!programme?.mode_pharmacie_uniquement
 
@@ -318,7 +332,7 @@ export default function Planning() {
             >
               {JOUR_LABEL[j]}
               <span className={`text-[10px] ${jourActif === j ? 'text-white/70' : 'text-ink-300'}`}>{count}</span>
-              {ok && <IconCheckCircle className={`h-3 w-3 ${jourActif === j ? 'text-white' : 'text-emerald-500'}`} />}
+              {jourStatuts[j]?.statut === 'VALIDE' ? <IconCheckCircle className={`h-3 w-3 ${jourActif === j ? 'text-white' : 'text-emerald-500'}`} /> : ok && <IconCheckCircle className={`h-3 w-3 ${jourActif === j ? 'text-white' : 'text-emerald-500'}`} />}
             </button>
           )
         })}
@@ -352,7 +366,14 @@ export default function Planning() {
         </Card>
       )}
 
-      {!verrouille && (
+      {jourVerrouille && (
+        <Card className="border-emerald-200 bg-emerald-50/70">
+          <p className="text-sm font-semibold text-emerald-800">{etatJourActif?.statut === 'VALIDE' ? 'Journée validée et verrouillée' : 'Délai de modification dépassé'}</p>
+          <p className="mt-1 text-xs text-emerald-700">{etatJourActif?.statut === 'VALIDE' ? 'Les visites de cette journée ne peuvent plus être modifiées.' : 'Cette journée reste consultable, mais les modifications sont fermées.'}</p>
+        </Card>
+      )}
+
+      {!verrouille && !jourVerrouille && (
         <Card>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-bold text-ink-600">Progression — {JOUR_LABEL[jourActif]}</p>
@@ -434,7 +455,7 @@ export default function Planning() {
                     <span className="text-[11px] text-ink-400">{l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
                   </div>
                 </div>
-                {!verrouille && (
+                {!verrouille && !jourVerrouille && (
                   <button onClick={() => retirerLigne(l.id)} className="rounded-full p-1.5 text-ink-300 hover:bg-red-50 hover:text-red-500">
                     <IconX className="h-4 w-4" />
                   </button>
@@ -444,7 +465,7 @@ export default function Planning() {
           ))}
         </AnimatePresence>
 
-        {!verrouille && (
+        {!verrouille && !jourVerrouille && (
           <div className="grid grid-cols-2 gap-2.5">
             <button onClick={() => ouvrirPicker('MEDICAL')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-royal-200 py-3 text-sm font-semibold text-royal-600">
               <IconPlus className="h-4 w-4" /> Client médical
@@ -456,7 +477,7 @@ export default function Planning() {
         )}
       </div>
 
-      {!verrouille && (
+      {!verrouille && !jourVerrouille && (
         <>
           {countdown && !prêtPourSoumission && (
             <Card className="bg-flame-50/60 border border-flame-200">
