@@ -8,7 +8,7 @@ import { IconChevronLeft, IconCheck, IconMapPin, IconClock, IconMinus, IconPlus,
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { supabase } from '@/lib/supabase'
-import { nowBenin, todayBenin } from '@/lib/time'
+import { nowBenin, todayBenin, isoWeekMonday } from '@/lib/time'
 import { enqueueVisite } from '@/lib/offlineQueue'
 import type { Database } from '@/types/database'
 
@@ -122,6 +122,8 @@ function HorsProgrammeForm() {
   const geo = useGeolocation()
   const [clients, setClients] = useState<ClientRow[]>([])
   const [motifs, setMotifs] = useState<Motif[]>([])
+  const [occasionnelsJour, setOccasionnelsJour] = useState(0)
+  const [occasionnelsSemaine, setOccasionnelsSemaine] = useState(0)
   const [clientId, setClientId] = useState('')
   const [typeVisite, setTypeVisite] = useState<'MEDICAL' | 'PHARMACIE'>('MEDICAL')
   const [motifId, setMotifId] = useState('')
@@ -132,12 +134,26 @@ function HorsProgrammeForm() {
   useEffect(() => {
     supabase.from('clients').select('*').order('nom').then(({ data }) => setClients(data ?? []))
     supabase.from('motifs_non_visite').select('*').eq('actif', true).order('ordre').then(({ data }) => setMotifs(data ?? []))
-  }, [])
+    if (!session) return
+    const today = todayBenin().format('YYYY-MM-DD')
+    const weekStart = isoWeekMonday().format('YYYY-MM-DD')
+    const weekEnd = isoWeekMonday().add(4, 'day').format('YYYY-MM-DD')
+    supabase.from('visites').select('jour')
+      .eq('vm_id', session.user.id).eq('hors_programme', true).is('garde_id', null)
+      .gte('jour', weekStart).lte('jour', weekEnd)
+      .then(({ data }) => {
+        const visitesOccasionnelles = data ?? []
+        setOccasionnelsJour(visitesOccasionnelles.filter((v) => v.jour === today).length)
+        setOccasionnelsSemaine(visitesOccasionnelles.length)
+      })
+  }, [session])
 
   const client = clients.find((c) => c.id === clientId)
 
   async function handleSave(fields: Record<string, unknown>, produitsIds: string[]) {
     if (!session || !clientId || !motifId) { setError('Client et motif sont obligatoires.'); return }
+    if (occasionnelsJour >= 2) { setError('Quota atteint : maximum 2 clients occasionnels par jour.'); return }
+    if (occasionnelsSemaine >= 7) { setError('Quota atteint : maximum 7 clients occasionnels par semaine.'); return }
     if (geo.status !== 'ok' || geo.latitude === null || geo.longitude === null) { setError('Position GPS requise pour enregistrer la visite.'); return }
     setSaving(true)
     setError(null)
@@ -186,6 +202,9 @@ function HorsProgrammeForm() {
 
       <GeoHeader />
       {error && <ErrorBanner message={error} />}
+      <div className="rounded-xl border border-flame-200 bg-flame-50 px-3 py-2.5 text-xs text-flame-800">
+        Clients occasionnels : <strong>{occasionnelsJour}/2 aujourd'hui</strong> · <strong>{occasionnelsSemaine}/7 cette semaine</strong>
+      </div>
 
       <Card>
         <FieldLabel>Client</FieldLabel>
