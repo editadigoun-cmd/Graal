@@ -40,14 +40,14 @@ export function usePlanning() {
 
     if (!prog) {
       const { data: created, error: createError } = await supabase
-        .from('programmes_hebdomadaires').insert({ vm_id: vmId, semaine_debut: semaineDebut }).select('*').single()
+        .from('programmes_hebdomadaires').insert({ vm_id: vmId, semaine_debut: semaineDebut }).select('*').maybeSingle()
       if (createError) {
         if (createError.code === '23505') {
           const { data: existing, error: refetchError } = await supabase
             .from('programmes_hebdomadaires').select('*')
-            .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).single()
-          if (refetchError) {
-            setError(refetchError.message)
+            .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).maybeSingle()
+          if (refetchError || !existing) {
+            setError(refetchError?.message ?? 'Le programme de cette semaine n’a pas pu être relu. Les programmes enregistrés ne sont pas supprimés ; recharge la page ou contacte un administrateur.')
             setLoading(false)
             return
           }
@@ -57,8 +57,18 @@ export function usePlanning() {
           setLoading(false)
           return
         }
-      } else {
+      } else if (created) {
         prog = created
+      } else {
+        const { data: existing, error: refetchError } = await supabase
+          .from('programmes_hebdomadaires').select('*')
+          .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).maybeSingle()
+        if (refetchError || !existing) {
+          setError(refetchError?.message ?? 'La création du programme n’a pas renvoyé de résultat. Les programmes déjà enregistrés sont conservés ; recharge la page.')
+          setLoading(false)
+          return
+        }
+        prog = existing
       }
     }
     setProgramme(prog)
