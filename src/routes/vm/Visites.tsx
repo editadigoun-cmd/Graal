@@ -40,9 +40,7 @@ export default function Visites() {
       .then(({ data }) => setCloture(data ?? null))
   }, [session])
 
-  async function exporterFiche() {
-    const maintenant = nowBenin()
-    const jourFiche = maintenant.hour() >= 20 ? prochainJourOuvrable(todayBenin()) : todayBenin()
+  function exporterFiche() {
     setConfirmationOuverte(true)
   }
 
@@ -208,7 +206,7 @@ function FicheDownloadDialog({ open, date, loading, onCancel, onConfirm }: { ope
         <div className="p-5">
           <p className="text-sm leading-6 text-slate-600">Vous êtes sur le point de télécharger votre fiche de visites pour :</p>
           <div className="mt-3 flex items-center gap-3 rounded-2xl border border-royal-100 bg-royal-50 px-4 py-3">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white text-royal-700 shadow-sm"><icon className="h-5 w-5" /></div>
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white text-royal-700 shadow-sm"><IconCheckCircle className="h-5 w-5" /></div>
             <div><p className="text-[11px] font-semibold uppercase tracking-wide text-royal-600">Date de la fiche</p><p className="text-sm font-bold capitalize text-royal-950">{date}</p></div>
           </div>
           <p className="mt-3 text-xs leading-5 text-slate-500">Vérifiez la date avant de continuer. La fiche sera générée au format PDF.</p>
