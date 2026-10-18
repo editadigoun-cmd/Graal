@@ -389,7 +389,7 @@ export default function Planning() {
               <div className="flex items-center justify-between text-[11px] mb-1">
                 <span className="text-ink-500">Standards de composition</span>
                 <span className={(jourActif === 'JEUDI' ? jeudiStandardsOk : vendrediStandardsOk) ? 'text-emerald-600 font-semibold' : 'text-flame-600 font-semibold'}>
-                  {jourActif === 'JEUDI' ? `Gros ${jeudiGros}/5 · Moyens ${jeudiMoyen} (libre) · Faibles ${jeudiFaible}/3` : `Gros ${vendrediGros}/3 · Moyens ${vendrediMoyen} (libre) · Faibles ${vendrediFaible}/5`}
+                  {jourActif === 'JEUDI' ? `Gros ${jeudiGros}/${estFawaz ? 10 : 5} · Moyens ${jeudiMoyen} (libre) · Faibles ${jeudiFaible}/${estFawaz ? 'libre' : 3}` : `Gros ${vendrediGros}/${estFawaz ? 7 : 3} · Moyens ${vendrediMoyen} (libre) · Faibles ${vendrediFaible}/${estFawaz ? 'libre' : 5}`}
                 </span>
               </div>
             </div>
@@ -460,10 +460,10 @@ export default function Planning() {
                   </>
                 )}
                 {!jeudiStandardsOk && (
-                  <li className="text-xs text-flame-700">• Jeudi : maximum 5 gros et 3 faibles ; les moyens sont sans plafond</li>
+                  <li className="text-xs text-flame-700">• {estFawaz ? 'Jeudi : maximum 10 gros ; les moyens et faibles sont libres' : 'Jeudi : maximum 5 gros et 3 faibles ; les moyens sont sans plafond'}</li>
                 )}
                 {!vendrediStandardsOk && (
-                  <li className="text-xs text-flame-700">• Vendredi : maximum 3 gros et 5 faibles ; les moyens sont sans plafond et les faibles ne doivent pas dépasser les moyens</li>
+                  <li className="text-xs text-flame-700">• {estFawaz ? 'Vendredi : maximum 7 gros ; les moyens et faibles sont libres' : 'Vendredi : maximum 3 gros et 5 faibles ; les moyens sont sans plafond et les faibles ne doivent pas dépasser les moyens'}</li>
                 )}
               </ul>
             </Card>
