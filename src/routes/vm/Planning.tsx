@@ -103,9 +103,6 @@ export default function Planning() {
   )
 
   // Standards de composition du jeudi et du vendredi, calculés en direct dans le picker.
-  const lignesJeudi = lignes.filter((l) => l.jour === 'JEUDI')
-  const jeudiTotalActuel = lignesJeudi.length
-  const jeudiFaibleActuel = lignesJeudi.filter((l) => l.clients?.potentiel === 'FAIBLE').length
   const selectionArray = Array.from(selection)
   const comptePotentiel = (jour: Jour, potentiel: Potentiel) =>
     lignes.filter((l) => l.jour === jour && l.clients?.potentiel === potentiel).length
@@ -389,10 +386,6 @@ export default function Planning() {
                   {jourActif === 'JEUDI' ? `Gros ${jeudiGros}/5 · Moyens ${jeudiMoyen}/7 · Faibles ${jeudiFaible}/3` : `Gros ${vendrediGros}/3 · Moyens ${vendrediMoyen}/7 · Faibles ${vendrediFaible}/5`}
                 </span>
               </div>
-              <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
-                <div className={`h-full rounded-full ${jeudiRatioOk ? 'bg-emerald-500' : 'bg-flame-500'}`}
-                  style={{ width: `${jeudiTotalActuel ? Math.min(100, (jeudiFaibleActuel / jeudiTotalActuel) * 100) : 0}%` }} />
-              </div>
             </div>
           )}
         </Card>
@@ -510,11 +503,10 @@ export default function Planning() {
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
                   const bloquePotentiel = !c.potentiel || !potentielAutorise(jourActif, c.potentiel, picking!)
-                  const bloqueFaibleJeudi = faibleJeudiBloque(c.id, c.potentiel ?? '')
                   const bloqueMoyen = moyenDerogationBloque(c.id, c.potentiel ?? '')
                   const bloquePlafond = plafondPotentielBloque(c.id, c.potentiel ?? '')
                   const bloqueEquilibreVendredi = faibleVendrediBloque(c.id, c.potentiel ?? '')
-                  const bloque = bloquePotentiel || bloqueFaibleJeudi || bloqueMoyen || bloquePlafond || bloqueEquilibreVendredi
+                  const bloque = bloquePotentiel || bloqueMoyen || bloquePlafond || bloqueEquilibreVendredi
                   return (
                     <button
                       key={c.id} onClick={() => !bloque && toggleSelection(c.id)}
@@ -533,8 +525,6 @@ export default function Planning() {
                           <p className="text-[11px] text-ink-400 truncate">
                             {bloquePotentiel
                               ? `Potentiel ${c.potentiel ?? 'non renseigné'} non autorisé le ${JOUR_LABEL[jourActif]}`
-                              : bloqueFaibleJeudi
-                              ? `Max ${seuils.maxFaibleJeudiPct}% de clients FAIBLE le jeudi atteint`
                               : bloqueMoyen
                               ? `Max ${seuils.maxMoyenLunMarMer} médecin(s) "moyen" atteint pour ce jour`
                               : bloquePlafond
