@@ -79,11 +79,15 @@ export default function Cloture() {
   const datesReportables = Array.from({ length: 5 }, (_, i) => isoWeekMonday().add(i, 'day'))
     .filter((d) => d.isAfter(todayBenin(), 'day'))
   const reportsSelectionnes = Object.entries(reportSelection).filter(([, date]) => !!date)
-  const restantesSansMotif = manquantes.filter((l) => !dejaMotivees.has(l.programme_ligne_id) && !reportSelection[l.programme_ligne_id])
+  const restantesSansMotif = manquantes.filter((l) => {
+    const ligneEtendue = l as typeof l & { reportee?: boolean; date_report?: string | null }
+    const reportDuJour = ligneEtendue.reportee && ligneEtendue.date_report === todayBenin().format('YYYY-MM-DD')
+    return !reportSelection[l.programme_ligne_id] && (!dejaMotivees.has(l.programme_ligne_id) || reportDuJour)
+  })
 
   async function handleCloture() {
     if (!session) return
-    if (restantesSansMotif.length > 0) { setError('Un motif est requis pour chaque visite manquante.'); return }
+    if (restantesSansMotif.length > 0) { setError('Chaque visite manquante doit avoir un motif ou être reportée. Une visite déjà reportée mais non réalisée doit être reportée à nouveau.'); return }
     if (!photo) { setError('La photo de la fiche papier est obligatoire.'); return }
     if (geo.status !== 'ok' || geo.latitude === null || geo.longitude === null) { setError('Position GPS requise pour clôturer.'); return }
     const latitude = geo.latitude
