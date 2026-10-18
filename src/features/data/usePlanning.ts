@@ -130,9 +130,7 @@ export function usePlanning() {
         setLoading(false)
         return
       }
-      setPortefeuille((clientsData ?? []).filter((client) =>
-        client.secteur === (prog!.secteur ?? secteurCible) && client.secteur !== null
-      ))
+      setPortefeuille(clientsData ?? [])
     }
     setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
