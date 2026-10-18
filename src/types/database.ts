@@ -1330,6 +1330,7 @@ export type Database = {
           id: string
           mode_pharmacie_uniquement: boolean
           semaine_debut: string
+          secteur: Database["public"]["Enums"]["secteur_code"] | null
           soumis_at: string | null
           statut: Database["public"]["Enums"]["statut_programme"]
           updated_at: string
@@ -1343,6 +1344,7 @@ export type Database = {
           id?: string
           mode_pharmacie_uniquement?: boolean
           semaine_debut: string
+          secteur?: Database["public"]["Enums"]["secteur_code"] | null
           soumis_at?: string | null
           statut?: Database["public"]["Enums"]["statut_programme"]
           updated_at?: string
@@ -1356,6 +1358,7 @@ export type Database = {
           id?: string
           mode_pharmacie_uniquement?: boolean
           semaine_debut?: string
+          secteur?: Database["public"]["Enums"]["secteur_code"] | null
           soumis_at?: string | null
           statut?: Database["public"]["Enums"]["statut_programme"]
           updated_at?: string
