@@ -91,13 +91,37 @@ Deno.serve(async (req) => {
       .eq('semaine_debut', semaineDebut)
       .maybeSingle()
 
-    if (!programme || !['VALIDE', 'VERROUILLE'].includes(programme.statut)) {
-      return jsonError("Le programme de cette semaine n'est pas encore validé.", 400)
-    }
-
     const jourSemaine = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI'][
       (new Date(jour + 'T00:00:00Z').getUTCDay() + 6) % 7
     ]
+
+    if (!programme) {
+      return jsonError("Aucun programme n'a été trouvé pour cette semaine.", 400)
+    }
+
+    // La validation peut être faite jour par jour : elle prime alors sur le statut global
+    // du programme hebdomadaire, qui peut rester en brouillon pour les autres journées.
+    let jourValide = false
+    if (jourSemaine) {
+      const { data: validationJour, error: validationError } = await supabase
+        .from('programme_jours_validation')
+        .select('statut')
+        .eq('programme_id', programme.id)
+        .eq('jour', jourSemaine)
+        .maybeSingle()
+      if (validationError) {
+        return jsonError("Impossible de vérifier la validation de cette journée.", 500)
+      }
+      jourValide = validationJour?.statut === 'VALIDE'
+    }
+
+    const programmeValideGlobalement = ['VALIDE', 'VERROUILLE'].includes(programme.statut)
+    if (!programmeValideGlobalement && !jourValide) {
+      return jsonError("La fiche est disponible lorsque cette journée du programme a été validée.", 400)
+    }
+    if (!jourSemaine) {
+      return jsonError("La fiche journalière est disponible uniquement du lundi au vendredi.", 400)
+    }
 
     const { data: lignesProgramme } = await supabase
       .from('programme_lignes')
