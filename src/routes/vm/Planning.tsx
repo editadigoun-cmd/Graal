@@ -44,7 +44,7 @@ interface Seuils {
 const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50, maxMoyenLunMarMer: 3, poidsMoyenReduit: 2.5 }
 
 export default function Planning() {
-  const { programme, lignes, portefeuille, loading, error, setError, reload } = usePlanning()
+  const { programme, lignes, portefeuille, secteurVm, loading, error, setError, reload } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
   const [picking, setPicking] = useState<TypeVisite | null>(null)
   const [recherche, setRecherche] = useState('')
