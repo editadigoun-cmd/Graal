@@ -20,6 +20,7 @@ export interface PendingCloture {
   latitude: number
   longitude: number
   motifsLocaux: MotifLocal[]
+  reports?: { programme_ligne_id: string; jour_report: string }[]
   createdAt: string
 }
 
