@@ -166,8 +166,7 @@ begin
 
   return new;
 end;
-$function$
-
+$function$;
 
 CREATE OR REPLACE FUNCTION public.cloturer_journee(p_photo_path text, p_photo_latitude double precision, p_photo_longitude double precision, p_reports jsonb)
  RETURNS jsonb
