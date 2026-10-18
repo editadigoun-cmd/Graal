@@ -56,7 +56,7 @@ export default function Planning() {
   const [, forceTick] = useState(0)
 
   const semaineDebut = targetSemaineDebut()
-  const deadline = deadlineSoumission(semaineDebut)
+  const deadline = deadlineSoumission(semaineDebut, programme?.delai_supplementaire_jusqu_a)
   const countdown = formatCountdown(deadline)
 
   useEffect(() => {
@@ -260,7 +260,7 @@ export default function Planning() {
           countdown ? (
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-white/70">Soumission avant samedi 14h00</p>
+                <p className="text-xs text-white/70">Soumission avant le {deadline.format("dddd DD/MM [à] HH[h]mm")}</p>
                 <p className="text-xl font-extrabold font-display">{countdown}</p>
               </div>
               <IconClock className="h-8 w-8 text-white/60" />
