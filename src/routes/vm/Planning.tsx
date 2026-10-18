@@ -102,22 +102,41 @@ export default function Planning() {
     a.nom.localeCompare(b.nom, 'fr')
   )
 
-  // Jeudi : la part de clients FAIBLE potentiel ne doit pas dépasser seuils.maxFaibleJeudiPct —
-  // on bloque la sélection de nouveaux clients FAIBLE dès que l'ajouter dépasserait le seuil,
-  // au lieu de laisser le VM tout construire puis découvrir le refus à la soumission.
+  // Standards de composition du jeudi et du vendredi, calculés en direct dans le picker.
   const lignesJeudi = lignes.filter((l) => l.jour === 'JEUDI')
   const jeudiTotalActuel = lignesJeudi.length
   const jeudiFaibleActuel = lignesJeudi.filter((l) => l.clients?.potentiel === 'FAIBLE').length
   const selectionArray = Array.from(selection)
-  const selectionFaibleCount = selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === 'FAIBLE').length
-  const jeudiTotalProjete = jeudiTotalActuel + selectionArray.length
-  const jeudiFaibleProjete = jeudiFaibleActuel + selectionFaibleCount
+  const comptePotentiel = (jour: Jour, potentiel: Potentiel) =>
+    lignes.filter((l) => l.jour === jour && l.clients?.potentiel === potentiel).length
+  const compteSelectionPotentiel = (potentiel: Potentiel) =>
+    selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === potentiel).length
 
-  function faibleJeudiBloque(candidatId: string, potentiel: string) {
-    if (jourActif !== 'JEUDI' || potentiel !== 'FAIBLE' || selection.has(candidatId)) return false
-    const total = jeudiTotalProjete + 1
-    const faible = jeudiFaibleProjete + 1
-    return (faible / total) * 100 > seuils.maxFaibleJeudiPct
+  const jeudiGros = comptePotentiel('JEUDI', 'GROS')
+  const jeudiMoyen = comptePotentiel('JEUDI', 'MOYEN')
+  const jeudiFaible = comptePotentiel('JEUDI', 'FAIBLE')
+  const vendrediGros = comptePotentiel('VENDREDI', 'GROS')
+  const vendrediMoyen = comptePotentiel('VENDREDI', 'MOYEN')
+  const vendrediFaible = comptePotentiel('VENDREDI', 'FAIBLE')
+  const jeudiStandardsOk = jeudiGros <= 5 && jeudiMoyen <= 7 && jeudiFaible <= 3
+  const vendrediStandardsOk = vendrediGros <= 3 && vendrediMoyen <= 7 && vendrediFaible <= 5 && vendrediFaible <= vendrediMoyen
+
+  function plafondPotentielBloque(candidatId: string, potentiel: string) {
+    if (selection.has(candidatId) || !['JEUDI', 'VENDREDI'].includes(jourActif)) return false
+    const p = potentiel as Potentiel
+    const actuel = comptePotentiel(jourActif, p)
+    const dejaSelectionnes = compteSelectionPotentiel(p)
+    const plafond = jourActif === 'JEUDI'
+      ? ({ GROS: 5, MOYEN: 7, FAIBLE: 3 } as const)[p]
+      : ({ GROS: 3, MOYEN: 7, FAIBLE: 5 } as const)[p]
+    return actuel + dejaSelectionnes + 1 > plafond
+  }
+
+  function faibleVendrediBloque(candidatId: string, potentiel: string) {
+    if (jourActif !== 'VENDREDI' || selection.has(candidatId) || !['FAIBLE', 'MOYEN'].includes(potentiel)) return false
+    const faibles = vendrediFaible + compteSelectionPotentiel('FAIBLE') + (potentiel === 'FAIBLE' ? 1 : 0)
+    const moyens = vendrediMoyen + compteSelectionPotentiel('MOYEN') + (potentiel === 'MOYEN' ? 1 : 0)
+    return faibles > moyens
   }
 
   // Dérogation plafonnée "médecins moyens" lundi/mardi/mercredi (cf. migration 043) : au-delà
@@ -172,10 +191,10 @@ export default function Planning() {
     ? true
     : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
-  const jeudiRatioOk = jeudiTotalActuel === 0 || (jeudiFaibleActuel / jeudiTotalActuel) * 100 <= seuils.maxFaibleJeudiPct
+  const standardsCompositionOk = jeudiStandardsOk && vendrediStandardsOk
   const prêtPourSoumission = pharmacieUniquement
-    ? lignes.length > 0 && jeudiRatioOk
-    : joursCouverts === 5 && JOURS.every(jourOk) && jeudiRatioOk
+    ? lignes.length > 0 && standardsCompositionOk
+    : joursCouverts === 5 && JOURS.every(jourOk) && standardsCompositionOk
 
   function ouvrirPicker(type: TypeVisite) {
     setPicking(type)
@@ -362,12 +381,12 @@ export default function Planning() {
               </div>
             </div>
           </div>
-          {jourActif === 'JEUDI' && (
+          {(jourActif === 'JEUDI' || jourActif === 'VENDREDI') && (
             <div className="mt-3 pt-3 border-t border-ink-100">
               <div className="flex items-center justify-between text-[11px] mb-1">
-                <span className="text-ink-500">Clients FAIBLE potentiel</span>
-                <span className={jeudiRatioOk ? 'text-emerald-600 font-semibold' : 'text-flame-600 font-semibold'}>
-                  {jeudiFaibleActuel}/{jeudiTotalActuel || 0} (max {seuils.maxFaibleJeudiPct}%)
+                <span className="text-ink-500">Standards de composition</span>
+                <span className={(jourActif === 'JEUDI' ? jeudiStandardsOk : vendrediStandardsOk) ? 'text-emerald-600 font-semibold' : 'text-flame-600 font-semibold'}>
+                  {jourActif === 'JEUDI' ? `Gros ${jeudiGros}/5 · Moyens ${jeudiMoyen}/7 · Faibles ${jeudiFaible}/3` : `Gros ${vendrediGros}/3 · Moyens ${vendrediMoyen}/7 · Faibles ${vendrediFaible}/5`}
                 </span>
               </div>
               <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
@@ -441,8 +460,11 @@ export default function Planning() {
                     ))}
                   </>
                 )}
-                {!jeudiRatioOk && (
-                  <li className="text-xs text-flame-700">• Jeudi : trop de clients FAIBLE potentiel (max {seuils.maxFaibleJeudiPct}%)</li>
+                {!jeudiStandardsOk && (
+                  <li className="text-xs text-flame-700">• Jeudi : maximum 5 gros, 7 moyens et 3 faibles</li>
+                )}
+                {!vendrediStandardsOk && (
+                  <li className="text-xs text-flame-700">• Vendredi : maximum 3 gros, 7 moyens et 5 faibles ; les faibles ne doivent pas dépasser les moyens</li>
                 )}
               </ul>
             </Card>
@@ -490,7 +512,9 @@ export default function Planning() {
                   const bloquePotentiel = !c.potentiel || !potentielAutorise(jourActif, c.potentiel, picking!)
                   const bloqueFaibleJeudi = faibleJeudiBloque(c.id, c.potentiel ?? '')
                   const bloqueMoyen = moyenDerogationBloque(c.id, c.potentiel ?? '')
-                  const bloque = bloquePotentiel || bloqueFaibleJeudi || bloqueMoyen
+                  const bloquePlafond = plafondPotentielBloque(c.id, c.potentiel ?? '')
+                  const bloqueEquilibreVendredi = faibleVendrediBloque(c.id, c.potentiel ?? '')
+                  const bloque = bloquePotentiel || bloqueFaibleJeudi || bloqueMoyen || bloquePlafond || bloqueEquilibreVendredi
                   return (
                     <button
                       key={c.id} onClick={() => !bloque && toggleSelection(c.id)}
@@ -513,6 +537,10 @@ export default function Planning() {
                               ? `Max ${seuils.maxFaibleJeudiPct}% de clients FAIBLE le jeudi atteint`
                               : bloqueMoyen
                               ? `Max ${seuils.maxMoyenLunMarMer} médecin(s) "moyen" atteint pour ce jour`
+                              : bloquePlafond
+                              ? `Plafond ${c.potentiel} atteint pour le ${JOUR_LABEL[jourActif]}`
+                              : bloqueEquilibreVendredi
+                              ? 'Le vendredi, les FAIBLES ne peuvent pas dépasser les MOYENS'
                               : [c.secteur, c.specialite, c.centre].filter(Boolean).join(' · ')}
                           </p>
                         </div>
