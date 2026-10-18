@@ -56,6 +56,7 @@ export default function Planning() {
   const [, forceTick] = useState(0)
 
   const semaineDebut = targetSemaineDebut()
+  const estFawaz = programme?.vm_id === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30'
   const deadline = deadlineSoumission(semaineDebut)
   const countdown = formatCountdown(deadline)
 
@@ -115,14 +116,18 @@ export default function Planning() {
   const vendrediGros = comptePotentiel('VENDREDI', 'GROS')
   const vendrediMoyen = comptePotentiel('VENDREDI', 'MOYEN')
   const vendrediFaible = comptePotentiel('VENDREDI', 'FAIBLE')
-  const jeudiStandardsOk = jeudiGros <= 5 && jeudiFaible <= 3
-  const vendrediStandardsOk = vendrediGros <= 3 && vendrediFaible <= 5 && vendrediFaible <= vendrediMoyen
+  const jeudiStandardsOk = estFawaz ? jeudiGros <= 10 : jeudiGros <= 5 && jeudiFaible <= 3
+  const vendrediStandardsOk = estFawaz ? vendrediGros <= 7 : vendrediGros <= 3 && vendrediFaible <= 5 && vendrediFaible <= vendrediMoyen
 
   function plafondPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId) || !['JEUDI', 'VENDREDI'].includes(jourActif)) return false
     const p = potentiel as Potentiel
-    if (p === 'MOYEN') return false
+    if (p === 'MOYEN' || (estFawaz && p === 'FAIBLE')) return false
     const actuel = comptePotentiel(jourActif, p)
+    if (estFawaz && p === 'GROS') {
+      const plafondFawaz = jourActif === 'JEUDI' ? 10 : 7
+      return actuel + compteSelectionPotentiel('GROS') + 1 > plafondFawaz
+    }
     const dejaSelectionnes = compteSelectionPotentiel(p)
     const plafond = jourActif === 'JEUDI'
       ? ({ GROS: 5, MOYEN: 7, FAIBLE: 3 } as const)[p]
@@ -131,7 +136,7 @@ export default function Planning() {
   }
 
   function faibleVendrediBloque(candidatId: string, potentiel: string) {
-    if (jourActif !== 'VENDREDI' || selection.has(candidatId) || !['FAIBLE', 'MOYEN'].includes(potentiel)) return false
+    if (estFawaz || jourActif !== 'VENDREDI' || selection.has(candidatId) || !['FAIBLE', 'MOYEN'].includes(potentiel)) return false
     const faibles = vendrediFaible + compteSelectionPotentiel('FAIBLE') + (potentiel === 'FAIBLE' ? 1 : 0)
     const moyens = vendrediMoyen + compteSelectionPotentiel('MOYEN') + (potentiel === 'MOYEN' ? 1 : 0)
     return faibles > moyens
