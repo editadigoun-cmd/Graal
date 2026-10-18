@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 
 type Profile={id:string;full_name:string;role:string;equipe_id:string|null}
-type Report={id?:string;vm_id:string;semaine_debut:string;points_forts:string;points_faibles:string;commandes_obtenues:string;commandes_negociation:string;objectifs_semaine_prochaine:string;commentaires:string;couverture_prevue:number;couverture_realisee:number;taux_couverture:number;appreciation:string;submitted_at?:string}
+type Report={id?:string;vm_id:string;semaine_debut:string;points_forts:string;points_faibles:string;commandes_obtenues:string;commandes_negociation:string;objectifs_semaine_prochaine:string;commentaires:string;couverture_prevue:number;couverture_realisee:number;taux_couverture:number;appreciation:string;soumis_at?:string}
 
 const monday=(d=dayjs())=>d.startOf('week').add(1,'day')
 const weekOptions=()=>Array.from({length:8},(_,i)=>monday().subtract(i,'week').format('YYYY-MM-DD'))
