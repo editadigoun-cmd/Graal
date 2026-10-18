@@ -115,12 +115,13 @@ export default function Planning() {
   const vendrediGros = comptePotentiel('VENDREDI', 'GROS')
   const vendrediMoyen = comptePotentiel('VENDREDI', 'MOYEN')
   const vendrediFaible = comptePotentiel('VENDREDI', 'FAIBLE')
-  const jeudiStandardsOk = jeudiGros <= 5 && jeudiMoyen <= 7 && jeudiFaible <= 3
-  const vendrediStandardsOk = vendrediGros <= 3 && vendrediMoyen <= 7 && vendrediFaible <= 5 && vendrediFaible <= vendrediMoyen
+  const jeudiStandardsOk = jeudiGros <= 5 && jeudiFaible <= 3
+  const vendrediStandardsOk = vendrediGros <= 3 && vendrediFaible <= 5 && vendrediFaible <= vendrediMoyen
 
   function plafondPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId) || !['JEUDI', 'VENDREDI'].includes(jourActif)) return false
     const p = potentiel as Potentiel
+    if (p === 'MOYEN') return false
     const actuel = comptePotentiel(jourActif, p)
     const dejaSelectionnes = compteSelectionPotentiel(p)
     const plafond = jourActif === 'JEUDI'
@@ -383,7 +384,7 @@ export default function Planning() {
               <div className="flex items-center justify-between text-[11px] mb-1">
                 <span className="text-ink-500">Standards de composition</span>
                 <span className={(jourActif === 'JEUDI' ? jeudiStandardsOk : vendrediStandardsOk) ? 'text-emerald-600 font-semibold' : 'text-flame-600 font-semibold'}>
-                  {jourActif === 'JEUDI' ? `Gros ${jeudiGros}/5 · Moyens ${jeudiMoyen}/7 · Faibles ${jeudiFaible}/3` : `Gros ${vendrediGros}/3 · Moyens ${vendrediMoyen}/7 · Faibles ${vendrediFaible}/5`}
+                  {jourActif === 'JEUDI' ? `Gros ${jeudiGros}/5 · Moyens ${jeudiMoyen} (libre) · Faibles ${jeudiFaible}/3` : `Gros ${vendrediGros}/3 · Moyens ${vendrediMoyen} (libre) · Faibles ${vendrediFaible}/5`}
                 </span>
               </div>
             </div>
@@ -454,10 +455,10 @@ export default function Planning() {
                   </>
                 )}
                 {!jeudiStandardsOk && (
-                  <li className="text-xs text-flame-700">• Jeudi : maximum 5 gros, 7 moyens et 3 faibles</li>
+                  <li className="text-xs text-flame-700">• Jeudi : maximum 5 gros et 3 faibles ; les moyens sont sans plafond</li>
                 )}
                 {!vendrediStandardsOk && (
-                  <li className="text-xs text-flame-700">• Vendredi : maximum 3 gros, 7 moyens et 5 faibles ; les faibles ne doivent pas dépasser les moyens</li>
+                  <li className="text-xs text-flame-700">• Vendredi : maximum 3 gros et 5 faibles ; les moyens sont sans plafond et les faibles ne doivent pas dépasser les moyens</li>
                 )}
               </ul>
             </Card>
