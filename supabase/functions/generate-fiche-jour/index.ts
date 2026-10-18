@@ -32,6 +32,21 @@ function jsonError(message: string, status: number) {
   })
 }
 
+function beninClock() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Porto-Novo', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', hourCycle: 'h23'
+  }).formatToParts(new Date())
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return { date: `${get('year')}-${get('month')}-${get('day')}`, hour: Number(get('hour')) }
+}
+
+function nextBusinessDay(dateStr: string) {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  do { d.setUTCDate(d.getUTCDate() + 1) } while (d.getUTCDay() === 0 || d.getUTCDay() === 6)
+  return d.toISOString().slice(0, 10)
+}
+
 function isoWeekMondayOf(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00Z')
   const day = d.getUTCDay() || 7
@@ -44,8 +59,17 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url)
-    const jour = url.searchParams.get('jour') ?? new Date().toISOString().slice(0, 10)
+    const horlogeBenin = beninClock()
+    const jour = url.searchParams.get('jour') ?? horlogeBenin.date
     const vmIdParam = url.searchParams.get('vm_id')
+    if (jour > horlogeBenin.date) {
+      if (horlogeBenin.hour < 20) {
+        return jsonError('La fiche du lendemain est disponible à partir de 20 h, heure du Bénin.', 403)
+      }
+      if (jour !== nextBusinessDay(horlogeBenin.date)) {
+        return jsonError('Seule la fiche du prochain jour ouvrable peut être téléchargée par anticipation.', 400)
+      }
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -75,12 +99,28 @@ Deno.serve(async (req) => {
       (new Date(jour + 'T00:00:00Z').getUTCDay() + 6) % 7
     ]
 
-    const { data: lignes } = await supabase
+    const { data: lignesProgramme } = await supabase
       .from('programme_lignes')
       .select('id, jour, type_visite, ordre, clients(nom, centre, categorie, potentiel)')
       .eq('programme_id', programme.id)
       .eq('jour', jourSemaine)
       .order('ordre')
+
+    const { data: reports } = await supabase
+      .from('visites_reportees')
+      .select('programme_ligne_id')
+      .eq('vm_id', vmId)
+      .eq('jour_report', jour)
+    const idsReportes = (reports ?? []).map((r: any) => r.programme_ligne_id)
+    let lignesReportees: any[] = []
+    if (idsReportes.length) {
+      const { data: reportLines } = await supabase
+        .from('programme_lignes')
+        .select('id, jour, type_visite, ordre, clients(nom, centre, categorie, potentiel)')
+        .in('id', idsReportes)
+      lignesReportees = (reportLines ?? []).map((l: any) => ({ ...l, ordre: 100000 + (l.ordre ?? 0) }))
+    }
+    const lignes = [...(lignesProgramme ?? []), ...lignesReportees]
 
     const { data: profile } = await supabase.from('profiles').select('full_name, secteur').eq('id', vmId).single()
 
