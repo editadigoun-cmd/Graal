@@ -79,6 +79,7 @@ export default function Visites() {
 
   if (estCloturee) {
     return (
+      <>
       <div className="space-y-4 mt-2 pb-4">
         <div className="mt-6 flex flex-col items-center text-center px-4">
           <div className="rounded-full bg-emerald-50 p-4"><IconCheckCircle className="h-10 w-10 text-emerald-600" /></div>
@@ -104,6 +105,7 @@ export default function Visites() {
         </Link>
       </div>
       {dialogueTelechargement}
+      </>
     )
   }
 
