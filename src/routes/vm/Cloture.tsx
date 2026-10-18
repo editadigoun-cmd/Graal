@@ -96,7 +96,7 @@ export default function Cloture() {
     if (!navigator.onLine) {
       await savePendingCloture({
         jour, photoBlob: photo, photoType: photo.type, latitude, longitude,
-        motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString()
+        motifsLocaux: Object.values(motifsLocaux), reports: reportsSelectionnes.map(([programme_ligne_id, jour_report]) => ({ programme_ligne_id, jour_report })), createdAt: new Date().toISOString()
       })
       setCloturing(false)
       setDoneOffline(true)
@@ -107,7 +107,7 @@ export default function Cloture() {
     const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: photo.type })
     if (uploadError) {
       if (!navigator.onLine) {
-        await savePendingCloture({ jour, photoBlob: photo, photoType: photo.type, latitude, longitude, motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString() })
+        await savePendingCloture({ jour, photoBlob: photo, photoType: photo.type, latitude, longitude, motifsLocaux: Object.values(motifsLocaux), reports: reportsSelectionnes.map(([programme_ligne_id, jour_report]) => ({ programme_ligne_id, jour_report })), createdAt: new Date().toISOString() })
         setCloturing(false)
         setDoneOffline(true)
         return
