@@ -61,8 +61,8 @@ grant execute on function public.valider_jour_programme(uuid,public.jour_semaine
 insert into public.programme_jours_validation(programme_id,jour,statut,date_limite)
 select pr.id, j.jour, 'EN_COURS',
        case when upper(trim(p.full_name)) in ('DENAHOU PENELOPE','HOUNKPATIN CHRISTEL','GNAWOE HERBERT')
-            then ((pr.semaine_debut + 1)::timestamp + time '23:00') at time zone 'Africa/Porto-Novo'
-            else (pr.semaine_debut::timestamp + time '23:00') at time zone 'Africa/Porto-Novo' end
+            then ((pr.semaine_debut + 1)::timestamp + interval '23 hours') at time zone 'Africa/Porto-Novo'
+            else (pr.semaine_debut::timestamp + interval '23 hours') at time zone 'Africa/Porto-Novo' end
 from public.programmes_hebdomadaires pr join public.profiles p on p.id=pr.vm_id
 cross join (values ('LUNDI'::public.jour_semaine),('MARDI'::public.jour_semaine),('MERCREDI'::public.jour_semaine),('JEUDI'::public.jour_semaine),('VENDREDI'::public.jour_semaine)) as j(jour)
 where pr.semaine_debut='2026-10-19'
@@ -77,8 +77,7 @@ join public.programme_lignes pl on pl.programme_id=pr.id
 cross join (select id from public.profiles where lower(role::text)='admin' order by full_name limit 1) admin
 where pr.semaine_debut='2026-10-19'
   and pl.jour='LUNDI'
-  and (upper(trim(p.full_name)) not in ('DENAHOU PENELOPE','HOUNKPATIN CHRISTEL','GNAWOE HERBERT')
-       or upper(trim(p.full_name)) in ('DENAHOU PENELOPE','HOUNKPATIN CHRISTEL','GNAWOE HERBERT'))
+
 on conflict(programme_id,jour) do update set statut='VALIDE',valide_at=now(),valide_par=excluded.valide_par,updated_at=now();
 
 insert into public.programme_jours_validation(programme_id,jour,statut,valide_at,valide_par,updated_at)
