@@ -40,13 +40,18 @@ export default function Visites() {
   }, [session])
 
   async function exporterFiche() {
+    const maintenant = nowBenin()
+    const jourFiche = maintenant.hour() >= 20 ? prochainJourOuvrable(todayBenin()) : todayBenin()
+    const dateLisible = jourFiche.format('dddd D MMMM YYYY')
+    const confirme = window.confirm(`Voulez-vous télécharger votre fiche de visites du ${dateLisible} ?`)
+    if (!confirme) return
+
     setExporting(true)
     try {
-      const maintenant = nowBenin()
-      const jourFiche = maintenant.hour() >= 20 ? prochainJourOuvrable(todayBenin()) : todayBenin()
       await ouvrirFicheJour(jourFiche.format('YYYY-MM-DD'))
     } catch (e) {
-      // Le programme n'est peut-être pas encore validé — silencieux, l'action est secondaire.
+      const message = e instanceof Error ? e.message : "Impossible de télécharger la fiche pour le moment."
+      window.alert(message)
     } finally {
       setExporting(false)
     }
