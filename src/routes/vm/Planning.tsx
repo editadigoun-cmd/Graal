@@ -87,27 +87,11 @@ export default function Planning() {
   const clientIdsUtilises = new Set(lignes.map((l) => l.client_id))
   const pharmacieUniquement = !!programme?.mode_pharmacie_uniquement
 
-  const jourCompatible = (habituel: string | null | undefined, jour: Jour) => {
-    if (!habituel?.trim()) return true
-    const texte = normalizeText(habituel).replace(/[0-9].*$/, '')
-    const tokens = texte.split(/[\/;,\s]+/).filter(Boolean)
-    const alias: Record<Jour, string[]> = {
-      LUNDI: ['l', 'lu', 'lun', 'lundi'],
-      MARDI: ['m', 'ma', 'mar', 'mardi'],
-      MERCREDI: ['mer', 'mercredi'],
-      JEUDI: ['j', 'je', 'jeu', 'jeudi'],
-      VENDREDI: ['v', 've', 'ven', 'vendredi']
-    }
-    const joursConnus = tokens.filter((token) => Object.values(alias).some((liste) => liste.includes(token)))
-    return joursConnus.length === 0 || joursConnus.some((token) => alias[jour].includes(token))
-  }
-
   const candidats = portefeuille.filter((c) => {
     if (!picking) return false
     if (!c.actif || c.secteur !== (programme?.secteur ?? secteurVm)) return false
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
     if (picking === 'PHARMACIE' && c.specialite !== 'PHARMACIE') return false
-    if (!jourCompatible(c.jour_heure_habituel, jourActif)) return false
     // Afficher aussi les clients dont le potentiel n'est pas autorisé ce jour, mais les désactiver dans la liste avec une explication.
     if (clientIdsUtilises.has(c.id)) return false
     if (recherche && !normalizeText(c.nom).includes(normalizeText(recherche))) return false
@@ -490,7 +474,7 @@ export default function Planning() {
             >
               <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink-200" />
               <p className="text-sm font-bold text-ink-800 mb-1">Ajouter des clients — {JOUR_LABEL[jourActif]}</p>
-              <p className="text-xs text-ink-400 mb-3">Seuls les clients de votre secteur, de votre portefeuille, compatibles avec ce jour et le type de visite sont affichés. La liste est classée par spécialité.</p>
+              <p className="text-xs text-ink-400 mb-3">Seuls les clients de votre portefeuille et compatibles avec le type de visite sont affichés. Le jour habituel indiqué dans la fiche du médecin ne bloque plus la programmation. La liste est classée par spécialité.</p>
               <div className="relative mb-3">
                 <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
                 <input
