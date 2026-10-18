@@ -14,8 +14,8 @@ const GREY = rgb(0.38, 0.42, 0.48)
 const LIGHT_GREY = rgb(0.91, 0.93, 0.96)
 const PALE_BLUE = rgb(0.96, 0.975, 0.995)
 const WHITE = rgb(1, 1, 1)
-const PAGE_WIDTH = 595.28
-const PAGE_HEIGHT = 841.89
+const PAGE_WIDTH = 841.89
+const PAGE_HEIGHT = 595.28
 const MARGIN_X = 40
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2
 
@@ -142,11 +142,11 @@ Deno.serve(async (req) => {
     // Pagination automatique : chaque volet peut utiliser autant de pages A4
     // que nécessaire. Les lignes sont découpées en blocs sans perdre ni masquer de visite.
     const medicalHeaders = ['Client programmé', 'Centre', 'Catégorie / potentiel', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions']
-    const medicalWidths = [90, 70, 45, 55, 50, 90, 65, 50]
+    const medicalWidths = [125, 105, 85, 75, 75, 110, 95, 92]
     const pharmacyHeaders = ['Pharmacie programmée', 'Centre', 'Catégorie / potentiel', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle']
-    const pharmacyWidths = [110, 70, 50, 90, 90, 105]
-    const medicalCapacity = 14
-    const pharmacyCapacity = 13
+    const pharmacyWidths = [145, 100, 90, 140, 140, 147]
+    const medicalCapacity = 9
+    const pharmacyCapacity = 9
     // Trois lignes vierges sont toujours ajoutées à la fin de chaque volet pour les ajouts manuscrits.
     // Elles sont incluses dans la pagination afin de ne jamais déborder en bas de page.
     const blankRows = () => Array.from({ length: 3 }, () => ({ __blank: true }))
@@ -160,9 +160,9 @@ Deno.serve(async (req) => {
       const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
       drawPageHeader(page, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', pageNumber, totalPages)
       drawTable(
-        page, font, bold, 698, 'VOLET MÉDICAL',
+        page, font, bold, 438, 'VOLET MÉDICAL',
         medicalHeaders, medicalWidths,
-        chunk, Math.min(chunk.length + 2, 11), 42
+        chunk, Math.min(chunk.length + 2, 11), 30
       )
     }
 
@@ -171,9 +171,9 @@ Deno.serve(async (req) => {
       const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
       drawPageHeader(page, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', pageNumber, totalPages)
       drawTable(
-        page, font, bold, 698, 'VOLET PHARMACIE',
+        page, font, bold, 438, 'VOLET PHARMACIE',
         pharmacyHeaders, pharmacyWidths,
-        chunk, Math.min(chunk.length + 2, 6), 48
+        chunk, Math.min(chunk.length + 2, 6), 30
       )
     }
 
@@ -194,30 +194,30 @@ function drawPageHeader(
   page: any, font: any, bold: any, logo: any, dateLabel: string,
   jourSemaine: string, vmName: string, secteur: string, pageNumber: number, totalPages: number
 ) {
-  // Filet de couleur et bloc de marque.
+  // Mise en page A4 paysage : en-tête compact et tableau large.
   page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 7, width: PAGE_WIDTH, height: 7, color: ROYAL })
   if (logo) {
-    const scale = Math.min(108 / logo.width, 48 / logo.height)
+    const scale = Math.min(108 / logo.width, 42 / logo.height)
     const width = logo.width * scale
     const height = logo.height * scale
-    page.drawImage(logo, { x: MARGIN_X, y: 776 + (48 - height) / 2, width, height })
+    page.drawImage(logo, { x: MARGIN_X, y: 514 + (42 - height) / 2, width, height })
   } else {
-    page.drawText('GRAAL', { x: MARGIN_X, y: 790, size: 23, font: bold, color: ROYAL })
-    page.drawText('MEDICAL SOLUTIONS', { x: MARGIN_X, y: 778, size: 7, font: bold, color: GREY })
+    page.drawText('GRAAL', { x: MARGIN_X, y: 535, size: 23, font: bold, color: ROYAL })
+    page.drawText('MEDICAL SOLUTIONS', { x: MARGIN_X, y: 523, size: 7, font: bold, color: GREY })
   }
 
   const titleX = 164
-  page.drawText('FICHE JOURNALIÈRE', { x: titleX, y: 805, size: 15, font: bold, color: ROYAL_DARK })
-  page.drawText('SUIVI DES VISITES TERRAIN', { x: titleX, y: 789, size: 8, font: bold, color: GREY })
-  page.drawText(`${jourSemaine} • ${dateLabel}`, { x: titleX, y: 773, size: 9, font, color: INK })
+  page.drawText('FICHE JOURNALIÈRE', { x: titleX, y: 548, size: 15, font: bold, color: ROYAL_DARK })
+  page.drawText('SUIVI DES VISITES TERRAIN', { x: titleX, y: 532, size: 8, font: bold, color: GREY })
+  page.drawText(`${jourSemaine} • ${dateLabel}`, { x: titleX, y: 516, size: 9, font, color: INK })
+  page.drawText(`DOCUMENT TERRAIN  •  ${pageNumber}/${totalPages}`, { x: PAGE_WIDTH - MARGIN_X - 140, y: 548, size: 6.5, font, color: GREY })
 
-  page.drawRectangle({ x: MARGIN_X, y: 724, width: CONTENT_WIDTH, height: 35, color: PALE_BLUE })
-  page.drawRectangle({ x: MARGIN_X, y: 724, width: 3, height: 35, color: ROYAL })
-  page.drawText('VISITEUR MÉDICAL', { x: 50, y: 746, size: 6.5, font: bold, color: GREY })
-  page.drawText(vmName || '—', { x: 50, y: 733, size: 9, font: bold, color: INK, maxWidth: 245 })
-  page.drawText('SECTEUR', { x: 375, y: 746, size: 6.5, font: bold, color: GREY })
-  page.drawText(secteur || '—', { x: 375, y: 733, size: 9, font: bold, color: INK })
-  page.drawText(`DOCUMENT TERRAIN  •  ${pageNumber}/${totalPages}`, { x: 405, y: 805, size: 6.5, font, color: GREY })
+  page.drawRectangle({ x: MARGIN_X, y: 463, width: CONTENT_WIDTH, height: 35, color: PALE_BLUE })
+  page.drawRectangle({ x: MARGIN_X, y: 463, width: 3, height: 35, color: ROYAL })
+  page.drawText('VISITEUR MÉDICAL', { x: 50, y: 485, size: 6.5, font: bold, color: GREY })
+  page.drawText(vmName || '—', { x: 50, y: 472, size: 9, font: bold, color: INK, maxWidth: 300 })
+  page.drawText('SECTEUR', { x: 430, y: 485, size: 6.5, font: bold, color: GREY })
+  page.drawText(secteur || '—', { x: 430, y: 472, size: 9, font: bold, color: INK })
 }
 
 function chunkRows<T>(rows: T[], capacity: number): T[][] {
