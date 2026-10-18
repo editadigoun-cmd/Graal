@@ -38,9 +38,9 @@ export function usePlanning() {
     const semaineDebut = targetSemaineDebut()
 
     const { data: profile, error: profileError } = await supabase
-      .from('profiles').select('secteur').eq('id', vmId).single()
-    if (profileError) {
-      setError(profileError.message)
+      .from('profiles').select('secteur').eq('id', vmId).maybeSingle()
+    if (profileError || !profile) {
+      setError(profileError?.message ?? 'Profil utilisateur introuvable. Contacte un administrateur ; aucun programme n’a été supprimé.')
       setLoading(false)
       return
     }
@@ -74,14 +74,14 @@ export function usePlanning() {
       const { data: created, error: createError } = await supabase
         .from('programmes_hebdomadaires')
         .insert({ vm_id: vmId, semaine_debut: semaineDebut, secteur: secteurCible })
-        .select('*').single()
+        .select('*').maybeSingle()
       if (createError) {
         if (createError.code === '23505') {
           const { data: existing, error: refetchError } = await supabase
             .from('programmes_hebdomadaires').select('*')
-            .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).single()
-          if (refetchError) {
-            setError(refetchError.message)
+            .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).maybeSingle()
+          if (refetchError || !existing) {
+            setError(refetchError?.message ?? 'Le programme existe peut-être déjà, mais il n’a pas pu être relu. Recharge la page ; les données enregistrées ne sont pas supprimées.')
             setLoading(false)
             return
           }
@@ -91,16 +91,26 @@ export function usePlanning() {
           setLoading(false)
           return
         }
-      } else {
+      } else if (created) {
         prog = created
+      } else {
+        const { data: existing, error: refetchError } = await supabase
+          .from('programmes_hebdomadaires').select('*')
+          .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).maybeSingle()
+        if (refetchError || !existing) {
+          setError(refetchError?.message ?? 'Le programme n’a pas pu être relu après sa création. Recharge la page ; aucun programme existant n’a été supprimé.')
+          setLoading(false)
+          return
+        }
+        prog = existing
       }
     } else if (prog.secteur !== secteurCible) {
       // Corrige aussi un programme cible créé auparavant avec le secteur du profil.
       const { data: corrected, error: correctionError } = await supabase
         .from('programmes_hebdomadaires').update({ secteur: secteurCible })
-        .eq('id', prog.id).select('*').single()
-      if (correctionError) {
-        setError(correctionError.message)
+        .eq('id', prog.id).select('*').maybeSingle()
+      if (correctionError || !corrected) {
+        setError(correctionError?.message ?? 'Impossible de relire le programme après mise à jour du secteur. Les lignes du programme sont conservées.')
         setLoading(false)
         return
       }
