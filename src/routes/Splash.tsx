@@ -13,9 +13,9 @@ export default function Splash() {
         <motion.div
           animate={{ scale: [1, 1.08, 1] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute inset-0 -z-10 rounded-full bg-gradient-to-br from-royal-500/20 to-emerald-500/20 blur-2xl"
+          className="absolute inset-0 -z-10 rounded-full bg-gradient-to-br from-royal-500/20 to-teal-500/20 blur-2xl"
         />
-        <img src={logoMark} alt="GRAAL" className="h-24 w-24" />
+        <img src={logoMark} alt="PROVISIT" className="h-24 w-24" />
       </motion.div>
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -23,8 +23,8 @@ export default function Splash() {
         transition={{ delay: 0.35, duration: 0.5 }}
         className="mt-5 text-center"
       >
-        <p className="text-xl font-extrabold font-display bg-gradient-to-r from-royal-600 to-emerald-500 bg-clip-text text-transparent">
-          GRAAL MEDICAL SOLUTIONS
+        <p className="text-xl font-extrabold font-display bg-gradient-to-r from-royal-600 to-teal-500 bg-clip-text text-transparent">
+          PROVISIT MEDICAL SOLUTIONS
         </p>
         <p className="text-xs text-ink-400 mt-1">Performance terrain, simplifiée</p>
       </motion.div>
@@ -32,7 +32,7 @@ export default function Splash() {
         initial={{ width: 0 }}
         animate={{ width: 120 }}
         transition={{ delay: 0.5, duration: 1.1, ease: 'easeInOut' }}
-        className="mt-8 h-1 rounded-full bg-gradient-to-r from-royal-500 to-emerald-500"
+        className="mt-8 h-1 rounded-full bg-gradient-to-r from-royal-500 to-teal-500"
       />
     </div>
   )
