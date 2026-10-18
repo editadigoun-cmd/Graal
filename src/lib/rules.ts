@@ -17,7 +17,7 @@ export const MAX_GROS_JEUDI = 7
 export const MAX_GROS_VENDREDI = 3
 
 export function potentielAutorise(jour: Jour, potentiel: Potentiel, typeVisite: TypeVisite): boolean {
-  if (typeVisite === 'MEDICAL' && potentiel === 'MOYEN' && JOURS_DEROGATION_MOYEN.includes(jour)) {
+  if ((typeVisite === 'MEDICAL' || typeVisite === 'PHARMACIE') && potentiel === 'MOYEN' && JOURS_DEROGATION_MOYEN.includes(jour)) {
     return true
   }
   switch (jour) {
