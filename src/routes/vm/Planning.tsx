@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { IconPlus, IconX, IconClock, IconCheckCircle, IconAlert, IconSearch, IconCheck } from '@/components/ui/icons'
 import { usePlanning, targetSemaineDebut } from '@/features/data/usePlanning'
 import { supabase } from '@/lib/supabase'
-import { JOURS, JOURS_DEROGATION_MOYEN, potentielAutorise } from '@/lib/rules'
+import { JOURS, JOURS_DEROGATION_MOYEN, MAX_GROS_JEUDI, MAX_GROS_VENDREDI, potentielAutorise } from '@/lib/rules'
 import { JOUR_LABEL } from '@/lib/theme'
 import { deadlineSoumission, formatCountdown, nowBenin } from '@/lib/time'
 import { normalizeText } from '@/lib/text'
@@ -42,6 +42,10 @@ interface Seuils {
 }
 
 const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50, maxMoyenLunMarMer: 3, poidsMoyenReduit: 2.5 }
+
+function selectionGrosCountSafe(selection: Set<string>, portefeuille: Database['public']['Tables']['clients']['Row'][]) {
+  return Array.from(selection).filter((id) => portefeuille.find((client) => client.id === id)?.potentiel === 'GROS').length
+}
 
 export default function Planning() {
   const { programme, lignes, portefeuille, loading, error, setError, reload } = usePlanning()
@@ -106,6 +110,10 @@ export default function Planning() {
   // on bloque la sélection de nouveaux clients FAIBLE dès que l'ajouter dépasserait le seuil,
   // au lieu de laisser le VM tout construire puis découvrir le refus à la soumission.
   const lignesJeudi = lignes.filter((l) => l.jour === 'JEUDI')
+  const lignesVendredi = lignes.filter((l) => l.jour === 'VENDREDI')
+  const grosJeudiActuel = lignesJeudi.filter((l) => l.clients?.potentiel === 'GROS').length
+  const grosVendrediActuel = lignesVendredi.filter((l) => l.clients?.potentiel === 'GROS').length
+  const selectionGrosCount = selectionGrosCountSafe(selection, portefeuille)
   const jeudiTotalActuel = lignesJeudi.length
   const jeudiFaibleActuel = lignesJeudi.filter((l) => l.clients?.potentiel === 'FAIBLE').length
   const selectionArray = Array.from(selection)
@@ -118,6 +126,13 @@ export default function Planning() {
     const total = jeudiTotalProjete + 1
     const faible = jeudiFaibleProjete + 1
     return (faible / total) * 100 > seuils.maxFaibleJeudiPct
+  }
+
+  function grosJourBloque(candidatId: string, potentiel: string) {
+    if (potentiel !== 'GROS' || selection.has(candidatId)) return false
+    if (jourActif === 'JEUDI') return grosJeudiActuel + selectionGrosCount + 1 > MAX_GROS_JEUDI
+    if (jourActif === 'VENDREDI') return grosVendrediActuel + selectionGrosCount + 1 > MAX_GROS_VENDREDI
+    return false
   }
 
   // Dérogation plafonnée "médecins moyens" lundi/mardi/mercredi (cf. migration 043) : au-delà
@@ -498,7 +513,8 @@ export default function Planning() {
                   const potentielIndisponible = !potentielAutorise(jourActif, c.potentiel, picking!)
                   const bloqueFaibleJeudi = faibleJeudiBloque(c.id, c.potentiel)
                   const bloqueMoyen = moyenDerogationBloque(c.id, c.potentiel)
-                  const bloque = potentielIndisponible || bloqueFaibleJeudi || bloqueMoyen
+                  const bloqueGros = grosJourBloque(c.id, c.potentiel)
+                  const bloque = potentielIndisponible || bloqueFaibleJeudi || bloqueMoyen || bloqueGros
                   return (
                     <button
                       key={c.id} onClick={() => !bloque && toggleSelection(c.id)}
@@ -517,6 +533,8 @@ export default function Planning() {
                           <p className="text-[11px] text-ink-400 truncate">
                             {bloqueFaibleJeudi
                               ? `Max ${seuils.maxFaibleJeudiPct}% de clients FAIBLE le jeudi atteint`
+                              : bloqueGros
+                              ? `Maximum de clients GROS atteint (${jourActif === 'JEUDI' ? MAX_GROS_JEUDI : MAX_GROS_VENDREDI})`
                               : bloqueMoyen
                               ? `Max ${seuils.maxMoyenLunMarMer} médecin(s) "moyen" atteint pour ce jour`
                               : potentielIndisponible
