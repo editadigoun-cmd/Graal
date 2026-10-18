@@ -17,6 +17,7 @@ export default function Visites() {
   const { session } = useAuth()
   const { lignes, loading } = useVisitesDuJour()
   const [exporting, setExporting] = useState(false)
+  const [confirmationOuverte, setConfirmationOuverte] = useState(false)
   const [, setHorloge] = useState(0)
   const [cloture, setCloture] = useState<{ statut: string; heure_cloture: string | null } | null | undefined>(undefined)
   const restantes = lignes.filter((l) => l.statut_reel === 'EN_ATTENTE')
@@ -42,13 +43,16 @@ export default function Visites() {
   async function exporterFiche() {
     const maintenant = nowBenin()
     const jourFiche = maintenant.hour() >= 20 ? prochainJourOuvrable(todayBenin()) : todayBenin()
-    const dateLisible = jourFiche.format('dddd D MMMM YYYY')
-    const confirme = window.confirm(`Voulez-vous télécharger votre fiche de visites du ${dateLisible} ?`)
-    if (!confirme) return
+    setConfirmationOuverte(true)
+  }
 
+  async function confirmerTelechargement() {
+    const maintenant = nowBenin()
+    const jourFiche = maintenant.hour() >= 20 ? prochainJourOuvrable(todayBenin()) : todayBenin()
     setExporting(true)
     try {
       await ouvrirFicheJour(jourFiche.format('YYYY-MM-DD'))
+      setConfirmationOuverte(false)
     } catch (e) {
       const message = e instanceof Error ? e.message : "Impossible de télécharger la fiche pour le moment."
       window.alert(message)
@@ -65,6 +69,15 @@ export default function Visites() {
   const cibleCloture = maintenant.isBefore(limiteNormale) ? limiteNormale : limiteAutomatique
   const secondesRestantes = Math.max(0, cibleCloture.diff(maintenant, 'second'))
   const compteARebours = `${String(Math.floor(secondesRestantes / 3600)).padStart(2, '0')}:${String(Math.floor((secondesRestantes % 3600) / 60)).padStart(2, '0')}:${String(secondesRestantes % 60).padStart(2, '0')}`
+  const dialogueTelechargement = (
+    <FicheDownloadDialog
+      open={confirmationOuverte}
+      date={jourFicheAffiche.format('dddd D MMMM YYYY')}
+      loading={exporting}
+      onCancel={() => setConfirmationOuverte(false)}
+      onConfirm={confirmerTelechargement}
+    />
+  )
 
   if (estCloturee) {
     return (
@@ -92,6 +105,7 @@ export default function Visites() {
           </div>
         </Link>
       </div>
+      {dialogueTelechargement}
     )
   }
 
@@ -174,6 +188,36 @@ export default function Visites() {
           <IconChevronRight className="h-4 w-4 text-flame-500" />
         </div>
       </Link>
+      {dialogueTelechargement}
+    </div>
+  )
+}
+
+function FicheDownloadDialog({ open, date, loading, onCancel, onConfirm }: { open: boolean; date: string; loading: boolean; onCancel: () => void; onConfirm: () => void }) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm" role="presentation">
+      <div role="dialog" aria-modal="true" aria-labelledby="fiche-dialog-title" className="w-full max-w-sm overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl">
+        <div className="bg-gradient-to-br from-royal-700 to-royal-900 px-5 pb-5 pt-6 text-white">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
+            <IconDownload className="h-6 w-6" />
+          </div>
+          <p className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-white/70">Graal Medical Solutions</p>
+          <h2 id="fiche-dialog-title" className="mt-1 text-xl font-extrabold">Votre fiche de visites</h2>
+        </div>
+        <div className="p-5">
+          <p className="text-sm leading-6 text-slate-600">Vous êtes sur le point de télécharger votre fiche de visites pour :</p>
+          <div className="mt-3 flex items-center gap-3 rounded-2xl border border-royal-100 bg-royal-50 px-4 py-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white text-royal-700 shadow-sm"><icon className="h-5 w-5" /></div>
+            <div><p className="text-[11px] font-semibold uppercase tracking-wide text-royal-600">Date de la fiche</p><p className="text-sm font-bold capitalize text-royal-950">{date}</p></div>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-slate-500">Vérifiez la date avant de continuer. La fiche sera générée au format PDF.</p>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <button type="button" onClick={onCancel} disabled={loading} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">Annuler</button>
+            <button type="button" onClick={onConfirm} disabled={loading} className="flex items-center justify-center rounded-xl bg-royal-700 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-royal-700/20 transition hover:bg-royal-800 disabled:opacity-60">{loading ? 'Préparation…' : 'Confirmer'}</button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
