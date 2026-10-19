@@ -9,7 +9,7 @@ import { usePlanning, targetSemaineDebut } from '@/features/data/usePlanning'
 import { supabase } from '@/lib/supabase'
 import { JOURS, JOURS_DEROGATION_MOYEN, potentielAutorise } from '@/lib/rules'
 import { JOUR_LABEL } from '@/lib/theme'
-import { deadlineSoumission, formatCountdown, nowBenin } from '@/lib/time'
+import { deadlineSoumission, formatCountdown, nowBenin, isoWeekMonday } from '@/lib/time'
 import { normalizeText } from '@/lib/text'
 import type { Database } from '@/types/database'
 import dayjs from 'dayjs'
@@ -55,9 +55,13 @@ export default function Planning() {
   const [seuils, setSeuils] = useState<Seuils>(SEUILS_DEFAUT)
   const [, forceTick] = useState(0)
 
-  const semaineDebut = targetSemaineDebut()
+  const semaineDebut = programme?.semaine_debut ?? targetSemaineDebut()
   const estFawaz = programme?.vm_id === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30'
-  const deadline = deadlineSoumission(semaineDebut)
+  const estSemaineActuelle = semaineDebut === isoWeekMonday().format('YYYY-MM-DD')
+  const delaiMardi = ['45a172c9-8e94-402b-90e5-a39f59bd584b', 'fd879be3-1200-48be-a1ff-77d15bd4dc06', '4519e59c-ae91-44d7-98a8-b906662a7f2d'].includes(programme?.vm_id ?? '')
+  const deadline = estSemaineActuelle
+    ? isoWeekMonday().add(delaiMardi ? 1 : 0, 'day').hour(23).minute(0).second(0).millisecond(0)
+    : deadlineSoumission(semaineDebut)
   const countdown = formatCountdown(deadline)
 
   useEffect(() => {
