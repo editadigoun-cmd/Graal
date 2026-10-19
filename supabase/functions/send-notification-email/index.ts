@@ -104,30 +104,48 @@ Deno.serve(async (req) => {
 
     const brevoKey = Deno.env.get('BREVO_API_KEY')
     const resendKey = Deno.env.get('RESEND_API_KEY')
-    if (!brevoKey && !resendKey) return new Response('email not configured', { status: 200 })
+    if (!brevoKey && !resendKey) { console.error('EMAIL_CONFIG_MISSING: configure BREVO_API_KEY + BREVO_FROM_EMAIL, or RESEND_API_KEY + RESEND_FROM_EMAIL.'); return new Response('email provider not configured', { status: 503 }) }
 
     const { notification_id } = await req.json()
-    const { data: notif } = await admin.from('notifications')
+    const { data: notif, error: notifError } = await admin.from('notifications')
       .select('profile_id, titre, corps').eq('id', notification_id).single()
-    if (!notif) return new Response('ok', { status: 200 })
+    if (notifError || !notif) { console.error('NOTIFICATION_NOT_FOUND:', notifError?.message ?? 'notification absent'); return new Response('notification not found', { status: 404 }) }
 
-    const { data: profile } = await admin.from('profiles')
+    const { data: profile, error: profileError } = await admin.from('profiles')
       .select('email, full_name, role').eq('id', notif.profile_id).single()
-    if (!profile?.email) return new Response('ok', { status: 200 })
+    if (profileError || !profile) { console.error('PROFILE_NOT_FOUND:', profileError?.message ?? 'profil absent'); return new Response('profile not found', { status: 404 }) }
+    if (!profile.email?.trim()) { console.error('PROFILE_EMAIL_MISSING:', profile.id); return new Response('recipient email missing', { status: 422 }) }
 
     const actionLink = `${BASE_URL}${ROUTE_PAR_ROLE[profile.role] ?? '/'}`
     const lienLabel = profile.role === 'vm' ? 'Voir mes notifications' : "Voir l'activité"
     const html = emailHtml(profile.full_name, notif.titre, notif.corps, lienLabel, actionLink)
 
-    try {
-      if (brevoKey) await sendViaBrevo(brevoKey, profile.email, profile.full_name, notif.titre, html)
-      else await sendViaResend(resendKey!, profile.email, notif.titre, html)
-    } catch (mailError) {
-      // Best-effort : la notification in-app existe déjà, l'email est un canal complémentaire.
-      console.error('send-notification-email:', mailError)
+    let sent = false
+    let brevoError: unknown = null
+    if (brevoKey) {
+      try {
+        await sendViaBrevo(brevoKey, profile.email, profile.full_name, notif.titre, html)
+        sent = true
+      } catch (e) {
+        brevoError = e
+        console.error('BREVO_SEND_FAILED:', e instanceof Error ? e.message : String(e))
+      }
     }
-
-    return new Response('ok', { status: 200 })
+    if (!sent && resendKey) {
+      try {
+        await sendViaResend(resendKey, profile.email, notif.titre, html)
+        sent = true
+      } catch (e) {
+        console.error('RESEND_SEND_FAILED:', e instanceof Error ? e.message : String(e))
+        return new Response('email provider rejected the message', { status: 502 })
+      }
+    }
+    if (!sent) {
+      console.error('EMAIL_DELIVERY_FAILED: no provider succeeded', brevoError instanceof Error ? brevoError.message : String(brevoError ?? 'unknown'))
+      return new Response('email delivery failed', { status: 502 })
+    }
+    console.log('EMAIL_ACCEPTED_BY_PROVIDER:', JSON.stringify({ provider: brevoKey && !brevoError ? 'brevo' : 'resend', notification_id, profile_id: profile.id }))
+    return new Response('email accepted by provider', { status: 200 })
   } catch (e) {
     return new Response(`error: ${e instanceof Error ? e.message : String(e)}`, { status: 500 })
   }
