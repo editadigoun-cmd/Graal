@@ -11,6 +11,7 @@ on:
       - 'capacitor.config.ts'
       - 'package.json'
       - 'package-lock.json'
+      - '.env.example'
       - '.github/workflows/build-android.yml'
 
 jobs:
@@ -23,6 +24,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Configure frontend environment
+        run: cp .env.example .env
 
       - run: npm ci
       - run: npm run build
