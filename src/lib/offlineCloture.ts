@@ -15,8 +15,8 @@ export interface MotifLocal {
 
 export interface PendingCloture {
   jour: string
-  photoBlob: Blob
-  photoType: string
+  photoBlobs: Blob[]
+  photoTypes: string[]
   latitude: number
   longitude: number
   motifsLocaux: MotifLocal[]
