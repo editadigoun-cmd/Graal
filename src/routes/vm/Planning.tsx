@@ -514,10 +514,13 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
-                  const bloquePotentiel = !estFawaz && (!c.potentiel || !potentielAutorise(jourActif, c.potentiel, picking!))
-                  const bloqueMoyen = moyenDerogationBloque(c.id, c.potentiel ?? '')
-                  const bloquePlafond = plafondPotentielBloque(c.id, c.potentiel ?? '')
-                  const bloqueEquilibreVendredi = faibleVendrediBloque(c.id, c.potentiel ?? '')
+                  // Une pharmacie FAIBLE reste programmable indépendamment des quotas
+                  // et du nombre de visites médicales FAIBLES déjà prévues.
+                  const pharmacieFaibleLibre = picking === 'PHARMACIE' && c.potentiel === 'FAIBLE'
+                  const bloquePotentiel = !pharmacieFaibleLibre && !estFawaz && (!c.potentiel || !potentielAutorise(jourActif, c.potentiel, picking!))
+                  const bloqueMoyen = !pharmacieFaibleLibre && moyenDerogationBloque(c.id, c.potentiel ?? '')
+                  const bloquePlafond = !pharmacieFaibleLibre && plafondPotentielBloque(c.id, c.potentiel ?? '')
+                  const bloqueEquilibreVendredi = !pharmacieFaibleLibre && faibleVendrediBloque(c.id, c.potentiel ?? '')
                   const bloque = bloquePotentiel || bloqueMoyen || bloquePlafond || bloqueEquilibreVendredi
                   return (
                     <button
