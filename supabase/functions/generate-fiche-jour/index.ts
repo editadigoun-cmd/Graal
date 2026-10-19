@@ -1,14 +1,18 @@
 // Génère la fiche journalière imprimable (PDF) pour un VM, pré-remplie avec les clients
-// programmés du jour, dans l'ordre de passage prévu — conformément à la section 3.8 du
-// cahier des charges. Respecte les RLS : le client Supabase de cette fonction est créé avec
-// le JWT de l'appelant, donc un VM ne peut générer que sa propre fiche, un superviseur/admin
-// celle de son périmètre.
+// programmés du jour. Format A4 paysage avec des lignes hautes pour faciliter l'apposition des cachets.
+// Les potentiels commerciaux ne sont jamais affichés sur la fiche.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
 
 const ROYAL = rgb(0.082, 0.294, 0.678)
 const INK = rgb(0.11, 0.13, 0.16)
 const GREY = rgb(0.6, 0.63, 0.68)
+const BORDER = rgb(0.85, 0.87, 0.9)
+const WHITE = rgb(1, 1, 1)
+const PAGE_WIDTH = 841.89
+const PAGE_HEIGHT = 595.28
+const MARGIN = 32
+const ROW_HEIGHT = 68
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,9 +49,7 @@ Deno.serve(async (req) => {
     )
 
     const { data: userData, error: userError } = await supabase.auth.getUser()
-    if (userError || !userData.user) {
-      return jsonError('Non authentifié', 401)
-    }
+    if (userError || !userData.user) return jsonError('Non authentifié', 401)
     const vmId = vmIdParam || userData.user.id
 
     const semaineDebut = isoWeekMondayOf(jour)
@@ -74,32 +76,48 @@ Deno.serve(async (req) => {
       .order('ordre')
 
     const { data: profile } = await supabase.from('profiles').select('full_name, secteur').eq('id', vmId).single()
-
     const medical = (lignes ?? []).filter((l: any) => l.type_visite === 'MEDICAL')
     const pharmacie = (lignes ?? []).filter((l: any) => l.type_visite === 'PHARMACIE')
 
     const pdf = await PDFDocument.create()
     const font = await pdf.embedFont(StandardFonts.Helvetica)
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-    const page = pdf.addPage([595.28, 841.89]) // A4
-    let y = 800
 
-    page.drawText('GRAAL MEDICAL SOLUTIONS', { x: 40, y, size: 16, font: bold, color: ROYAL })
-    y -= 20
-    page.drawText(`Fiche journalière — ${jourSemaine} ${jour}`, { x: 40, y, size: 11, font, color: INK })
-    y -= 15
-    page.drawText(`VM : ${profile?.full_name ?? ''}    Secteur : ${profile?.secteur ?? ''}`, { x: 40, y, size: 10, font, color: GREY })
-    y -= 30
+    const medicalHeaders = [
+      'Médecin / prospect', 'Centre', 'Catégorie', 'Cachet prospect',
+      'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions'
+    ]
+    const medicalWidths = [142, 86, 62, 92, 88, 106, 88, 145]
+    const pharmacyHeaders = [
+      'Pharmacie', 'Centre', 'Catégorie', 'Stock disponible',
+      'Commande obtenue', 'Veille concurrentielle'
+    ]
+    const pharmacyWidths = [150, 100, 70, 130, 130, 170]
 
-    y = drawTable(page, font, bold, y, 'VOLET MÉDICAL', [
-      'Client programmé', 'Centre', 'Catégorie', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions'
-    ], [90, 70, 45, 55, 50, 90, 65, 50], medical, Math.min(medical.length + 2, 11))
+    drawSection(pdf, font, bold, {
+      title: 'VOLET MÉDICAL',
+      jour, jourSemaine, vmName: profile?.full_name ?? '', secteur: profile?.secteur ?? '',
+      headers: medicalHeaders, widths: medicalWidths,
+      rows: medical.map((l: any) => ({
+        nom: l.clients?.nom ?? '',
+        centre: l.clients?.centre ?? '',
+        // Afficher uniquement la catégorie du client, jamais son potentiel commercial.
+        categorie: l.clients?.categorie ?? ''
+      })),
+      minRows: 5
+    })
 
-    y -= 20
-
-    drawTable(page, font, bold, y, 'VOLET PHARMACIE', [
-      'Pharmacie programmée', 'Centre', 'Catégorie', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle'
-    ], [110, 70, 50, 90, 90, 105], pharmacie, Math.min(pharmacie.length + 2, 6))
+    drawSection(pdf, font, bold, {
+      title: 'VOLET PHARMACIE',
+      jour, jourSemaine, vmName: profile?.full_name ?? '', secteur: profile?.secteur ?? '',
+      headers: pharmacyHeaders, widths: pharmacyWidths,
+      rows: pharmacie.map((l: any) => ({
+        nom: l.clients?.nom ?? '',
+        centre: l.clients?.centre ?? '',
+        categorie: l.clients?.categorie ?? ''
+      })),
+      minRows: 4
+    })
 
     const bytes = await pdf.save()
     return new Response(bytes, {
@@ -114,36 +132,92 @@ Deno.serve(async (req) => {
   }
 })
 
-function drawTable(page: any, font: any, bold: any, startY: number, title: string, headers: string[], widths: number[], rows: any[], minRows: number) {
-  const x0 = 40
-  let y = startY
-  page.drawText(title, { x: x0, y, size: 11, font: bold, color: ROYAL })
-  y -= 16
-  // Lignes volontairement hautes : le VM y appose le cachet du client lors de la visite.
-  const rowHeight = 34
-  let x = x0
-  headers.forEach((h, i) => {
-    page.drawRectangle({ x, y: y - 16, width: widths[i], height: 16, color: ROYAL })
-    page.drawText(h, { x: x + 3, y: y - 12, size: 7, font: bold, color: rgb(1, 1, 1) })
-    x += widths[i]
-  })
-  y -= 16
+type SectionOptions = {
+  title: string
+  jour: string
+  jourSemaine: string
+  vmName: string
+  secteur: string
+  headers: string[]
+  widths: number[]
+  rows: { nom: string; centre: string; categorie: string }[]
+  minRows: number
+}
 
-  const total = Math.max(rows.length, minRows)
-  for (let r = 0; r < total; r++) {
-    x = x0
-    const ligne = rows[r]
-    const nom = ligne?.clients?.nom ?? ''
-    const centre = ligne?.clients?.centre ?? ''
-    const categorie = ligne?.clients?.potentiel ?? ligne?.clients?.categorie ?? ''
-    const nbExtra = headers.length - 3
-    const cells = [nom, centre, categorie, ...Array(nbExtra).fill('')]
-    cells.forEach((c, i) => {
-      page.drawRectangle({ x, y: y - rowHeight, width: widths[i], height: rowHeight, borderColor: rgb(0.85, 0.87, 0.9), borderWidth: 0.5 })
-      if (c) page.drawText(String(c), { x: x + 3, y: y - rowHeight + rowHeight - 12, size: 7.5, font })
-      x += widths[i]
+function drawSection(pdf: PDFDocument, font: any, bold: any, options: SectionOptions) {
+  const { title, jour, jourSemaine, vmName, secteur, headers, widths, rows, minRows } = options
+  const usableWidth = PAGE_WIDTH - MARGIN * 2
+  const sumWidths = widths.reduce((a, b) => a + b, 0)
+  // Les largeurs sont proportionnellement ajustées à la largeur imprimable A4 paysage.
+  const scaledWidths = widths.map(w => w * usableWidth / sumWidths)
+  const dataRows = Math.max(rows.length, minRows)
+  const headerHeight = 28
+  const topY = PAGE_HEIGHT - 34
+  const titleBlock = 68
+  const bottomY = 30
+  const rowsPerPage = Math.max(1, Math.floor((topY - titleBlock - headerHeight - bottomY) / ROW_HEIGHT))
+  const pageCount = Math.max(1, Math.ceil(dataRows / rowsPerPage))
+
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+    const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
+    page.drawText('GRAAL MEDICAL SOLUTIONS', { x: MARGIN, y: topY, size: 15, font: bold, color: ROYAL })
+    page.drawText(`Fiche journalière — ${jourSemaine} ${jour}`, { x: MARGIN, y: topY - 20, size: 10, font, color: INK })
+    page.drawText(`VM : ${vmName}     Secteur : ${secteur}`, { x: MARGIN, y: topY - 36, size: 9, font, color: GREY })
+    page.drawText(pageCount > 1 ? `${title} — suite ${pageIndex + 1}/${pageCount}` : title, {
+      x: MARGIN, y: topY - titleBlock + 8, size: 10, font: bold, color: ROYAL
     })
-    y -= rowHeight
+
+    let y = topY - titleBlock
+    let x = MARGIN
+    headers.forEach((header, i) => {
+      page.drawRectangle({ x, y: y - headerHeight, width: scaledWidths[i], height: headerHeight, color: ROYAL })
+      drawWrappedText(page, header, x + 4, y - 10, scaledWidths[i] - 8, 7, bold, WHITE, 2)
+      x += scaledWidths[i]
+    })
+    y -= headerHeight
+
+    const start = pageIndex * rowsPerPage
+    const end = Math.min(dataRows, start + rowsPerPage)
+    for (let r = start; r < end; r++) {
+      const row = rows[r] ?? { nom: '', centre: '', categorie: '' }
+      const cells = [row.nom, row.centre, row.categorie, ...Array(headers.length - 3).fill('')]
+      x = MARGIN
+      cells.forEach((value, i) => {
+        page.drawRectangle({
+          x, y: y - ROW_HEIGHT, width: scaledWidths[i], height: ROW_HEIGHT,
+          borderColor: BORDER, borderWidth: 0.6
+        })
+        if (value) drawWrappedText(page, String(value), x + 4, y - 12, scaledWidths[i] - 8, 8, font, INK, 4)
+        x += scaledWidths[i]
+      })
+      y -= ROW_HEIGHT
+    }
+
+    page.drawText('GRAAL MEDICAL SOLUTIONS', {
+      x: MARGIN, y: 14, size: 7, font, color: GREY
+    })
+    page.drawText(`Page ${pageIndex + 1}/${pageCount}`, {
+      x: PAGE_WIDTH - MARGIN - 45, y: 14, size: 7, font, color: GREY
+    })
   }
-  return y
+}
+
+function drawWrappedText(page: any, text: string, x: number, y: number, maxWidth: number, size: number, font: any, color: any, maxLines: number) {
+  const words = text.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    const candidate = current ? current + ' ' + word : word
+    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      current = candidate
+    } else {
+      if (current) lines.push(current)
+      current = word
+    }
+  }
+  if (current) lines.push(current)
+  const visible = lines.slice(0, maxLines)
+  visible.forEach((line, index) => {
+    page.drawText(line, { x, y: y - index * (size + 2), size, font, color })
+  })
 }
