@@ -27,7 +27,45 @@ export function usePlanning() {
     setLoading(true)
     setError(null)
     const vmId = session.user.id
-    const semaineDebut = targetSemaineDebut()
+    const semaineActuelle = isoWeekMonday().format('YYYY-MM-DD')
+    const semaineSuivante = targetSemaineDebut()
+
+    // Tant qu'il reste des jours non validés et que leur échéance individuelle n'est pas passée,
+    // le VM doit continuer à voir le programme de la semaine en cours. La semaine suivante
+    // ne devient active qu'après l'expiration de la dernière échéance encore ouverte.
+    const { data: programmeActuel, error: erreurProgrammeActuel } = await supabase
+      .from('programmes_hebdomadaires').select('*')
+      .eq('vm_id', vmId).eq('semaine_debut', semaineActuelle).maybeSingle()
+    if (erreurProgrammeActuel) {
+      setError(erreurProgrammeActuel.message)
+      setLoading(false)
+      return
+    }
+
+    let semaineDebut = semaineSuivante
+    if (programmeActuel?.statut === 'BROUILLON') {
+      const { data: validations, error: erreurValidations } = await supabase
+        .from('programme_jours_validation').select('statut, date_limite')
+        .eq('programme_id', programmeActuel.id)
+      if (erreurValidations) {
+        setError(erreurValidations.message)
+        setLoading(false)
+        return
+      }
+
+      const maintenant = Date.now()
+      const joursOuverts = (validations ?? []).filter((jour) => jour.statut !== 'VALIDE')
+      const echeancesOuvertes = joursOuverts
+        .map((jour) => jour.date_limite ? new Date(jour.date_limite).getTime() : 0)
+        .filter((echeance) => Number.isFinite(echeance) && echeance > maintenant)
+      const delaiSupplementaire = programmeActuel.delai_supplementaire_jusqu_a
+        ? new Date(programmeActuel.delai_supplementaire_jusqu_a).getTime()
+        : 0
+
+      if (joursOuverts.length > 0 && (echeancesOuvertes.length > 0 || delaiSupplementaire > maintenant)) {
+        semaineDebut = semaineActuelle
+      }
+    }
 
     let { data: prog, error: programmeError } = await supabase
       .from('programmes_hebdomadaires').select('*')
