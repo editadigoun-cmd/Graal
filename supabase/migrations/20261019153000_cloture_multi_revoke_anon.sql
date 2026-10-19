@@ -1,0 +1,2 @@
+revoke execute on function public.cloturer_journee_multi(text[], double precision, double precision, jsonb) from anon;
+grant execute on function public.cloturer_journee_multi(text[], double precision, double precision, jsonb) to authenticated;
