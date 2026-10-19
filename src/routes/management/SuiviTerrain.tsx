@@ -46,6 +46,7 @@ export default function SuiviTerrain() {
   const [loading, setLoading] = useState(true)
   const [loadingJour, setLoadingJour] = useState(false)
   const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoUrls, setPhotoUrls] = useState<string[]>([])
 
   const isAdmin = profile?.role === 'admin'
 
@@ -130,12 +131,14 @@ export default function SuiviTerrain() {
     return `https://www.google.com/maps?q=${lat},${lng}`
   }
 
-  async function voirPhotoCloture() {
-    if (!cloture?.photo_path) return
+  async function voirPhotosCloture() {
+    if (!cloture) return
+    const paths = [...new Set([...(cloture.photo_paths ?? []), ...(cloture.photo_path ? [cloture.photo_path] : [])])]
+    if (!paths.length) return
     setPhotoBusy(true)
-    const { data, error } = await supabase.storage.from('fiches-papier').createSignedUrl(cloture.photo_path, 3600)
+    const results = await Promise.all(paths.map((path) => supabase.storage.from('fiches-papier').createSignedUrl(path, 3600)))
     setPhotoBusy(false)
-    if (!error && data) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+    setPhotoUrls(results.flatMap((result) => !result.error && result.data ? [result.data.signedUrl] : []))
   }
 
   function DetailVisite({ v }: { v: Visite }) {
@@ -220,13 +223,27 @@ export default function SuiviTerrain() {
                       {cloture.statut === 'CLOTUREE_FORCEE' && ' · clôture forcée'}
                     </p>
                   </div>
-                  {cloture.photo_path ? (
-                    <Button size="sm" variant="secondary" loading={photoBusy} icon={<IconCamera className="h-3.5 w-3.5" />} onClick={voirPhotoCloture}>
-                      Voir la photo
+                  {(cloture.photo_paths?.length || cloture.photo_path) ? (
+                    <Button size="sm" variant="secondary" loading={photoBusy} icon={<IconCamera className="h-3.5 w-3.5" />} onClick={voirPhotosCloture}>
+                      Voir {cloture.photo_paths?.length || 1} photo{(cloture.photo_paths?.length || 1) > 1 ? 's' : ''}
                     </Button>
                   ) : (
                     <span className="text-[10px] text-ink-400 shrink-0">Sans photo</span>
                   )}
+                </Card>
+              )}
+
+              {photoUrls.length > 0 && (
+                <Card>
+                  <p className="mb-3 text-sm font-bold text-ink-800">Photos de clôture</p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {photoUrls.map((url, index) => (
+                      <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                        <img src={url} alt={`Photo de clôture ${index + 1}`} className="h-36 w-full rounded-xl object-cover" />
+                        <span className="mt-1 block text-xs text-royal-600 underline">Ouvrir la photo {index + 1}</span>
+                      </a>
+                    ))}
+                  </div>
                 </Card>
               )}
 
