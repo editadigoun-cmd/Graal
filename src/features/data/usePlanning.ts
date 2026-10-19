@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { isoWeekMonday } from '@/lib/time'
+import { isoWeekMonday, nowBenin } from '@/lib/time'
 import type { Database } from '@/types/database'
 
 type Programme = Database['public']['Tables']['programmes_hebdomadaires']['Row']
@@ -11,8 +11,23 @@ type Ligne = Database['public']['Tables']['programme_lignes']['Row'] & {
 type ClientRow = Database['public']['Tables']['clients']['Row']
 type Secteur = Database['public']['Enums']['secteur_code']
 
-export function targetSemaineDebut() {
-  return isoWeekMonday().add(7, 'day').format('YYYY-MM-DD')
+// Les délais exceptionnels portent sur la semaine en cours : on ne bascule vers
+// la semaine suivante qu'après l'échéance individuelle, à 23 h (heure du Bénin).
+const DELAI_MARDI_VM_IDS = new Set([
+  '45a172c9-8e94-402b-90e5-a39f59bd584b', // Pénélope
+  'fd879be3-1200-48be-a1ff-77d15bd4dc06', // Christel
+  '4519e59c-ae91-44d7-98a8-b906662a7f2d', // Herbert
+])
+
+export function targetSemaineDebut(vmId?: string) {
+  const lundi = isoWeekMonday()
+  const echeance = DELAI_MARDI_VM_IDS.has(vmId ?? '')
+    ? lundi.add(1, 'day').hour(23).minute(0).second(0).millisecond(0)
+    : lundi.hour(23).minute(0).second(0).millisecond(0)
+
+  // Avant l'échéance, rester sur la semaine actuelle. Après l'échéance,
+  // ouvrir la programmation de la semaine suivante.
+  return (nowBenin().isBefore(echeance) ? lundi : lundi.add(7, 'day')).format('YYYY-MM-DD')
 }
 
 function secteurSuivant(secteur: Secteur | null | undefined): Secteur | null {
