@@ -57,6 +57,7 @@ export default function Planning() {
 
   const semaineDebut = programme?.semaine_debut ?? targetSemaineDebut()
   const estFawaz = programme?.vm_id === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30'
+  const autoriseSoumissionPartielle = ['e86efe52-ed01-4d04-8eec-e539fd1e4b30', 'bb2519e6-04d8-4740-b878-a0b999ad7606'].includes(programme?.vm_id ?? '')
   // Fawaz n'a aucune pharmacie : ne jamais afficher de lignes ni de libellés de ce type.
   const lignes = estFawaz ? lignesBrutes.filter((l) => l.type_visite !== 'PHARMACIE') : lignesBrutes
   const estSemaineActuelle = semaineDebut === isoWeekMonday().format('YYYY-MM-DD')
@@ -203,9 +204,13 @@ export default function Planning() {
       : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
   const standardsCompositionOk = estFawaz || (jeudiStandardsOk && vendrediStandardsOk)
-  const prêtPourSoumission = pharmacieUniquement
-    ? lignes.length > 0 && standardsCompositionOk
-    : joursCouverts === 5 && JOURS.every(jourOk) && standardsCompositionOk
+  // Fawaz et Frankel peuvent soumettre un brouillon incomplet : le superviseur
+  // verra le rapport de conformité et pourra demander les compléments nécessaires.
+  const prêtPourSoumission = autoriseSoumissionPartielle
+    ? lignes.length > 0
+    : pharmacieUniquement
+      ? lignes.length > 0 && standardsCompositionOk
+      : joursCouverts === 5 && JOURS.every(jourOk) && standardsCompositionOk
 
   function ouvrirPicker(type: TypeVisite) {
     setPicking(type)
@@ -477,7 +482,7 @@ export default function Planning() {
             </Card>
           )}
           <Button fullWidth loading={submitting} onClick={soumettre} disabled={!countdown || !prêtPourSoumission}>
-            Soumettre le programme
+            {autoriseSoumissionPartielle ? 'Soumettre le programme (même incomplet)' : 'Soumettre le programme'}
           </Button>
         </>
       )}
