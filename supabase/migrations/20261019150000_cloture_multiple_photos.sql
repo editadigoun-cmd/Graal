@@ -34,4 +34,4 @@ end;
 $$;
 
 revoke all on function public.cloturer_journee_multi(text[], double precision, double precision, jsonb) from public;
-grant execute on function public.cloturer_journee_multi(text[], double precision, double precision) to authenticated;
+grant execute on function public.cloturer_journee_multi(text[], double precision, double precision, jsonb) to authenticated;
