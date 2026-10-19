@@ -60,8 +60,17 @@ export default function Planning() {
   const [jourStatuts, setJourStatuts] = useState<Record<string, { statut: string; date_limite: string | null }>>({})
   const [, forceTick] = useState(0)
 
-  const semaineDebut = targetSemaineDebut()
-  const deadline = deadlineSoumission(semaineDebut, programme?.delai_supplementaire_jusqu_a)
+  const semaineDebut = programme?.semaine_debut ?? targetSemaineDebut()
+  const echeancesJoursOuverts = Object.values(jourStatuts)
+    .filter((jour) => jour.statut !== 'VALIDE' && jour.date_limite)
+    .map((jour) => new Date(jour.date_limite as string).getTime())
+    .filter((date) => Number.isFinite(date))
+  const derniereEcheanceJour = echeancesJoursOuverts.length
+    ? Math.max(...echeancesJoursOuverts)
+    : null
+  const deadline = derniereEcheanceJour !== null
+    ? dayjs(derniereEcheanceJour)
+    : deadlineSoumission(semaineDebut, programme?.delai_supplementaire_jusqu_a)
   const countdown = formatCountdown(deadline)
 
   useEffect(() => {
