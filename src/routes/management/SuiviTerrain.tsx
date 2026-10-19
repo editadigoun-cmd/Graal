@@ -32,6 +32,22 @@ const STATUT_LABEL: Record<string, string> = {
   EN_ATTENTE: 'En attente'
 }
 
+function afficherSpecialite(value: string | null | undefined) {
+  const labels: Record<string, string> = {
+    GENERALISTE: 'Généraliste',
+    GYNECOLOGUE: 'Gynécologue',
+    PEDIATRE: 'Pédiatre',
+    CARDIOLOGUE: 'Cardiologue',
+    RHUMATOLOGUE: 'Rhumatologue',
+    ORL: 'ORL',
+    AUTRE_SPECIALITE: 'Autre spécialité',
+    MATERNITE: 'Maternité',
+    DISPENSAIRE: 'Dispensaire',
+    PHARMACIE: 'Pharmacie'
+  }
+  return value ? labels[value] ?? value.replace(/_/g, ' ') : ''
+}
+
 export default function SuiviTerrain() {
   const { profile } = useAuth()
   const [vms, setVms] = useState<{ id: string; full_name: string; equipe_id: string | null }[]>([])
@@ -275,7 +291,7 @@ export default function SuiviTerrain() {
                           <p className="text-sm font-semibold text-ink-800 truncate">{l.client_nom}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             {l.potentiel && <PotentielBadge potentiel={l.potentiel} compact />}
-                            {l.specialite && <span className="text-[11px] font-medium text-royal-600">{l.specialite}</span>}
+                            {l.specialite && <span className="text-[11px] font-medium text-royal-600">{afficherSpecialite(l.specialite)}</span>}
                             <span className="text-[11px] text-ink-400">{l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
                           </div>
                         </div>
@@ -303,7 +319,7 @@ export default function SuiviTerrain() {
                             <p className="text-sm font-semibold text-ink-800 truncate">{v.clients?.nom}</p>
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               {v.clients?.potentiel && <PotentielBadge potentiel={v.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
-                              {v.clients?.specialite && <span className="text-[11px] font-medium text-royal-600">{v.clients.specialite}</span>}
+                              {v.clients?.specialite && <span className="text-[11px] font-medium text-royal-600">{afficherSpecialite(v.clients.specialite)}</span>}
                               <span className="text-[11px] text-ink-400">{v.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
                             </div>
                           </div>
