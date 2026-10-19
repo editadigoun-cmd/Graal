@@ -116,11 +116,11 @@ export default function Planning() {
   const vendrediGros = comptePotentiel('VENDREDI', 'GROS')
   const vendrediMoyen = comptePotentiel('VENDREDI', 'MOYEN')
   const vendrediFaible = comptePotentiel('VENDREDI', 'FAIBLE')
-  const jeudiStandardsOk = estFawaz ? jeudiGros <= 10 : jeudiGros <= 5 && jeudiFaible <= 3
-  const vendrediStandardsOk = estFawaz ? vendrediGros <= 7 : vendrediGros <= 3 && vendrediFaible <= 5 && vendrediFaible <= vendrediMoyen
+  const jeudiStandardsOk = estFawaz || (jeudiGros <= 5 && jeudiFaible <= 3)
+  const vendrediStandardsOk = estFawaz || (vendrediGros <= 3 && vendrediFaible <= 5 && vendrediFaible <= vendrediMoyen)
 
   function plafondPotentielBloque(candidatId: string, potentiel: string) {
-    if (selection.has(candidatId) || !['JEUDI', 'VENDREDI'].includes(jourActif)) return false
+    if (estFawaz || selection.has(candidatId) || !['JEUDI', 'VENDREDI'].includes(jourActif)) return false
     const p = potentiel as Potentiel
     if (p === 'MOYEN' || (estFawaz && p === 'FAIBLE')) return false
     const actuel = comptePotentiel(jourActif, p)
@@ -151,7 +151,7 @@ export default function Planning() {
   const moyenLunMarMerProjete = lignesJourActifMoyenMedical + selectionMoyenCount
 
   function moyenDerogationBloque(candidatId: string, potentiel: string) {
-    if (picking !== 'MEDICAL' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
+    if (estFawaz || picking !== 'MEDICAL' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
     return moyenLunMarMerProjete + 1 > seuils.maxMoyenLunMarMer
   }
 
@@ -192,9 +192,11 @@ export default function Planning() {
   // pas bloquer une soumission que le serveur accepterait.
   const jourOk = (j: Jour) => pharmacieUniquement
     ? true
-    : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
+    : estFawaz
+      ? pointsMedical(j) >= 100 - 0.01
+      : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
-  const standardsCompositionOk = jeudiStandardsOk && vendrediStandardsOk
+  const standardsCompositionOk = estFawaz || (jeudiStandardsOk && vendrediStandardsOk)
   const prêtPourSoumission = pharmacieUniquement
     ? lignes.length > 0 && standardsCompositionOk
     : joursCouverts === 5 && JOURS.every(jourOk) && standardsCompositionOk
@@ -351,7 +353,7 @@ export default function Planning() {
             <p className="text-xs font-bold text-ink-600">Progression — {JOUR_LABEL[jourActif]}</p>
             <p className="text-[11px] text-ink-400">{joursCouverts}/5 jours couverts</p>
           </div>
-          <div className={`grid ${pharmacieUniquement ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
+          <div className={`grid ${pharmacieUniquement || estFawaz ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
             {!pharmacieUniquement && (
               <div>
                 <div className="flex items-center justify-between text-[11px] mb-1">
@@ -371,7 +373,7 @@ export default function Planning() {
                 )}
               </div>
             )}
-            <div>
+            {!estFawaz && <div>
               <div className="flex items-center justify-between text-[11px] mb-1">
                 <span className="text-ink-500">Pharmacie</span>
                 <span className={parJour[jourActif].pharmacie >= seuils.minPharmacie ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
@@ -382,9 +384,9 @@ export default function Planning() {
                 <div className={`h-full rounded-full ${parJour[jourActif].pharmacie >= seuils.minPharmacie ? 'bg-emerald-500' : 'bg-royal-400'}`}
                   style={{ width: `${Math.min(100, (parJour[jourActif].pharmacie / seuils.minPharmacie) * 100)}%` }} />
               </div>
-            </div>
+            </div>}
           </div>
-          {(jourActif === 'JEUDI' || jourActif === 'VENDREDI') && (
+          {!estFawaz && (jourActif === 'JEUDI' || jourActif === 'VENDREDI') && (
             <div className="mt-3 pt-3 border-t border-ink-100">
               <div className="flex items-center justify-between text-[11px] mb-1">
                 <span className="text-ink-500">Standards de composition</span>
@@ -426,13 +428,13 @@ export default function Planning() {
         </AnimatePresence>
 
         {!verrouille && (
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className={`grid ${estFawaz ? 'grid-cols-1' : 'grid-cols-2'} gap-2.5`}>
             <button onClick={() => ouvrirPicker('MEDICAL')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-royal-200 py-3 text-sm font-semibold text-royal-600">
               <IconPlus className="h-4 w-4" /> Client médical
             </button>
-            <button onClick={() => ouvrirPicker('PHARMACIE')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-emerald-200 py-3 text-sm font-semibold text-emerald-600">
+            {!estFawaz && <button onClick={() => ouvrirPicker('PHARMACIE')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-emerald-200 py-3 text-sm font-semibold text-emerald-600">
               <IconPlus className="h-4 w-4" /> Pharmacie
-            </button>
+            </button>}
           </div>
         )}
       </div>
@@ -454,15 +456,15 @@ export default function Planning() {
                     )}
                     {JOURS.filter((j) => !jourOk(j)).map((j) => (
                       <li key={j} className="text-xs text-flame-700">
-                        • {JOUR_LABEL[j]} : {Math.round(pointsMedical(j))}%/100% médical, {parJour[j].pharmacie}/{seuils.minPharmacie} pharmacie
+                        • {JOUR_LABEL[j]} : {Math.round(pointsMedical(j))}%/100% médical{!estFawaz ? `, ${parJour[j].pharmacie}/${seuils.minPharmacie} pharmacie` : ''}
                       </li>
                     ))}
                   </>
                 )}
-                {!jeudiStandardsOk && (
+                {!estFawaz && !jeudiStandardsOk && (
                   <li className="text-xs text-flame-700">• {estFawaz ? 'Jeudi : maximum 10 gros ; les moyens et faibles sont libres' : 'Jeudi : maximum 5 gros et 3 faibles ; les moyens sont sans plafond'}</li>
                 )}
-                {!vendrediStandardsOk && (
+                {!estFawaz && !vendrediStandardsOk && (
                   <li className="text-xs text-flame-700">• {estFawaz ? 'Vendredi : maximum 7 gros ; les moyens et faibles sont libres' : 'Vendredi : maximum 3 gros et 5 faibles ; les moyens sont sans plafond et les faibles ne doivent pas dépasser les moyens'}</li>
                 )}
               </ul>
@@ -508,7 +510,7 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
-                  const bloquePotentiel = !c.potentiel || !potentielAutorise(jourActif, c.potentiel, picking!)
+                  const bloquePotentiel = !estFawaz && (!c.potentiel || !potentielAutorise(jourActif, c.potentiel, picking!))
                   const bloqueMoyen = moyenDerogationBloque(c.id, c.potentiel ?? '')
                   const bloquePlafond = plafondPotentielBloque(c.id, c.potentiel ?? '')
                   const bloqueEquilibreVendredi = faibleVendrediBloque(c.id, c.potentiel ?? '')
