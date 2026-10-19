@@ -165,8 +165,8 @@ Deno.serve(async (req) => {
 
     // Pagination automatique : chaque volet peut utiliser autant de pages A4
     // que nécessaire. Les lignes sont découpées en blocs sans perdre ni masquer de visite.
-    const medicalHeaders = ['Client programmé', 'Centre', 'Catégorie', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions']
-    const medicalWidths = [125, 105, 85, 75, 75, 110, 95, 92]
+    const medicalHeaders = ['Nom du prospect', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses obtenues', 'Prescriptions constatées']
+    const medicalWidths = [115, 105, 105, 150, 155, 132]
     const pharmacyHeaders = ['Pharmacie programmée', 'Centre', 'Catégorie', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle']
     const pharmacyWidths = [145, 100, 90, 140, 140, 147]
     const medicalCapacity = 5
@@ -314,9 +314,9 @@ function drawTable(
   for (let r = 0; r < total; r++) {
     const ligne = rows[r]
     const nom = ligne?.clients?.nom ?? ''
-    const centre = ligne?.clients?.centre ?? ''
-    const categorie = ligne?.clients?.categorie ?? ''
-    const cells = [nom, centre, categorie, ...Array(headers.length - 3).fill('')]
+    // Le volet médical commence par le nom du prospect, puis les cinq colonnes de suivi.
+    // Les champs de cachet et d'observation restent vierges pour être remplis pendant la visite.
+    const cells = [nom, ...Array(headers.length - 1).fill('')]
     x = x0
     for (let i = 0; i < headers.length; i++) {
       page.drawRectangle({
