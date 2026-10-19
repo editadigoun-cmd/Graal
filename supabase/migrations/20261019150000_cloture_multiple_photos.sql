@@ -31,7 +31,7 @@ begin
   update public.clotures_journalieres
      set photo_paths = p_photo_paths
    where vm_id = auth.uid()
-     and jour = (now() at time zone 'Africa/Porto-Novo')::date;
+     and jour = public.benin_today();
 
   return true;
 end;
