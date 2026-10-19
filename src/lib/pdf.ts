@@ -1,4 +1,21 @@
+import { Capacitor, registerPlugin } from '@capacitor/core'
 import { supabase } from './supabase'
+
+interface NativePdfPlugin {
+  savePdf(options: { filename: string; data: string }): Promise<{ saved: boolean }>
+}
+
+const NativePdf = registerPlugin<NativePdfPlugin>('NativePdf')
+
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 0x8000
+  let binary = ''
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
+  }
+  return btoa(binary)
+}
 
 async function openFunctionPdf(fn: string, params: Record<string, string>) {
   const { data } = await supabase.auth.getSession()
@@ -16,13 +33,21 @@ async function openFunctionPdf(fn: string, params: Record<string, string>) {
   const blob = await res.blob()
   if (!blob.size) throw new Error("Le PDF généré est vide. Réessayez dans un instant.")
 
-  // Déclenche un vrai téléchargement plutôt qu'un nouvel onglet ouvert après
-  // une requête asynchrone (souvent bloqué par Chrome/Android comme popup).
-  const objectUrl = URL.createObjectURL(blob)
-  const link = document.createElement('a')
   const filename = params.jour
     ? `fiche-${params.jour}.pdf`
     : `reporting-${params.semaine_debut ?? 'hebdomadaire'}.pdf`
+
+  // Dans l'APK Capacitor, écrit directement le PDF dans Téléchargements/Graal,
+  // sans ouvrir de nouvel onglet ni dépendre du téléchargement de la WebView.
+  if (Capacitor.isNativePlatform()) {
+    const data = arrayBufferToBase64(await blob.arrayBuffer())
+    await NativePdf.savePdf({ filename, data })
+    return
+  }
+
+  // Sur le site web, déclenche un téléchargement du navigateur.
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
   link.href = objectUrl
   link.download = filename
   link.style.display = 'none'
