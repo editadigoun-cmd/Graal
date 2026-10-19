@@ -1,18 +1,23 @@
 // Génère la fiche journalière imprimable (PDF) pour un VM, pré-remplie avec les clients
-// programmés du jour. Format A4 paysage avec des lignes hautes pour faciliter l'apposition des cachets.
-// Les potentiels commerciaux ne sont jamais affichés sur la fiche.
+// programmés du jour, dans l'ordre de passage prévu — conformément à la section 3.8 du
+// cahier des charges. Respecte les RLS : le client Supabase de cette fonction est créé avec
+// le JWT de l'appelant, donc un VM ne peut générer que sa propre fiche, un superviseur/admin
+// celle de son périmètre.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
+import { LOGO_PNG_BASE64 } from './logo.ts'
 
 const ROYAL = rgb(0.082, 0.294, 0.678)
+const ROYAL_DARK = rgb(0.055, 0.19, 0.43)
 const INK = rgb(0.11, 0.13, 0.16)
-const GREY = rgb(0.6, 0.63, 0.68)
-const BORDER = rgb(0.85, 0.87, 0.9)
+const GREY = rgb(0.38, 0.42, 0.48)
+const LIGHT_GREY = rgb(0.91, 0.93, 0.96)
+const PALE_BLUE = rgb(0.96, 0.975, 0.995)
 const WHITE = rgb(1, 1, 1)
 const PAGE_WIDTH = 841.89
 const PAGE_HEIGHT = 595.28
-const MARGIN = 32
-const ROW_HEIGHT = 68
+const MARGIN_X = 40
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,6 +32,21 @@ function jsonError(message: string, status: number) {
   })
 }
 
+function beninClock() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Porto-Novo', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', hourCycle: 'h23'
+  }).formatToParts(new Date())
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return { date: `${get('year')}-${get('month')}-${get('day')}`, hour: Number(get('hour')) }
+}
+
+function nextBusinessDay(dateStr: string) {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  do { d.setUTCDate(d.getUTCDate() + 1) } while (d.getUTCDay() === 0 || d.getUTCDay() === 6)
+  return d.toISOString().slice(0, 10)
+}
+
 function isoWeekMondayOf(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00Z')
   const day = d.getUTCDay() || 7
@@ -39,8 +59,17 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url)
-    const jour = url.searchParams.get('jour') ?? new Date().toISOString().slice(0, 10)
+    const horlogeBenin = beninClock()
+    const jour = url.searchParams.get('jour') ?? horlogeBenin.date
     const vmIdParam = url.searchParams.get('vm_id')
+    if (jour > horlogeBenin.date) {
+      if (horlogeBenin.hour < 20) {
+        return jsonError('La fiche du lendemain est disponible à partir de 20 h, heure du Bénin.', 403)
+      }
+      if (jour !== nextBusinessDay(horlogeBenin.date)) {
+        return jsonError('Seule la fiche du prochain jour ouvrable peut être téléchargée par anticipation.', 400)
+      }
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -49,7 +78,9 @@ Deno.serve(async (req) => {
     )
 
     const { data: userData, error: userError } = await supabase.auth.getUser()
-    if (userError || !userData.user) return jsonError('Non authentifié', 401)
+    if (userError || !userData.user) {
+      return jsonError('Non authentifié', 401)
+    }
     const vmId = vmIdParam || userData.user.id
 
     const semaineDebut = isoWeekMondayOf(jour)
@@ -60,22 +91,63 @@ Deno.serve(async (req) => {
       .eq('semaine_debut', semaineDebut)
       .maybeSingle()
 
-    if (!programme || !['VALIDE', 'VERROUILLE'].includes(programme.statut)) {
-      return jsonError("Le programme de cette semaine n'est pas encore validé.", 400)
-    }
-
     const jourSemaine = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI'][
       (new Date(jour + 'T00:00:00Z').getUTCDay() + 6) % 7
     ]
 
-    const { data: lignes } = await supabase
+    if (!programme) {
+      return jsonError("Aucun programme n'a été trouvé pour cette semaine.", 400)
+    }
+
+    // La validation peut être faite jour par jour : elle prime alors sur le statut global
+    // du programme hebdomadaire, qui peut rester en brouillon pour les autres journées.
+    let jourValide = false
+    if (jourSemaine) {
+      const { data: validationJour, error: validationError } = await supabase
+        .from('programme_jours_validation')
+        .select('statut')
+        .eq('programme_id', programme.id)
+        .eq('jour', jourSemaine)
+        .maybeSingle()
+      if (validationError) {
+        return jsonError("Impossible de vérifier la validation de cette journée.", 500)
+      }
+      jourValide = validationJour?.statut === 'VALIDE'
+    }
+
+    const programmeValideGlobalement = ['VALIDE', 'VERROUILLE'].includes(programme.statut)
+    if (!programmeValideGlobalement && !jourValide) {
+      return jsonError("La fiche est disponible lorsque cette journée du programme a été validée.", 400)
+    }
+    if (!jourSemaine) {
+      return jsonError("La fiche journalière est disponible uniquement du lundi au vendredi.", 400)
+    }
+
+    const { data: lignesProgramme } = await supabase
       .from('programme_lignes')
-      .select('id, jour, type_visite, ordre, clients(nom, centre, categorie, potentiel)')
+      .select('id, jour, type_visite, ordre, clients(nom, centre, categorie)')
       .eq('programme_id', programme.id)
       .eq('jour', jourSemaine)
       .order('ordre')
 
+    const { data: reports } = await supabase
+      .from('visites_reportees')
+      .select('programme_ligne_id')
+      .eq('vm_id', vmId)
+      .eq('jour_report', jour)
+    const idsReportes = (reports ?? []).map((r: any) => r.programme_ligne_id)
+    let lignesReportees: any[] = []
+    if (idsReportes.length) {
+      const { data: reportLines } = await supabase
+        .from('programme_lignes')
+        .select('id, jour, type_visite, ordre, clients(nom, centre, categorie)')
+        .in('id', idsReportes)
+      lignesReportees = (reportLines ?? []).map((l: any) => ({ ...l, ordre: 100000 + (l.ordre ?? 0) }))
+    }
+    const lignes = [...(lignesProgramme ?? []), ...lignesReportees]
+
     const { data: profile } = await supabase.from('profiles').select('full_name, secteur').eq('id', vmId).single()
+
     const medical = (lignes ?? []).filter((l: any) => l.type_visite === 'MEDICAL')
     const pharmacie = (lignes ?? []).filter((l: any) => l.type_visite === 'PHARMACIE')
 
@@ -83,48 +155,58 @@ Deno.serve(async (req) => {
     const font = await pdf.embedFont(StandardFonts.Helvetica)
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
 
-    const medicalHeaders = [
-      'Médecin / prospect', 'Centre', 'Catégorie', 'Cachet prospect',
-      'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions'
-    ]
-    const medicalWidths = [142, 86, 62, 92, 88, 106, 88, 145]
-    const pharmacyHeaders = [
-      'Pharmacie', 'Centre', 'Catégorie', 'Stock disponible',
-      'Commande obtenue', 'Veille concurrentielle'
-    ]
-    const pharmacyWidths = [150, 100, 70, 130, 130, 170]
+    // Logo embarqué localement : aucune requête externe n'est nécessaire à la génération.
+    const logoBytes = Uint8Array.from(atob(LOGO_PNG_BASE64), (char) => char.charCodeAt(0))
+    const logo: any = await pdf.embedPng(logoBytes)
 
-    drawSection(pdf, font, bold, {
-      title: 'VOLET MÉDICAL',
-      jour, jourSemaine, vmName: profile?.full_name ?? '', secteur: profile?.secteur ?? '',
-      headers: medicalHeaders, widths: medicalWidths,
-      rows: medical.map((l: any) => ({
-        nom: l.clients?.nom ?? '',
-        centre: l.clients?.centre ?? '',
-        // Afficher uniquement la catégorie du client, jamais son potentiel commercial.
-        categorie: l.clients?.categorie ?? ''
-      })),
-      minRows: 5
+    const dateLabel = new Date(jour + 'T12:00:00Z').toLocaleDateString('fr-FR', {
+      day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC'
     })
 
-    drawSection(pdf, font, bold, {
-      title: 'VOLET PHARMACIE',
-      jour, jourSemaine, vmName: profile?.full_name ?? '', secteur: profile?.secteur ?? '',
-      headers: pharmacyHeaders, widths: pharmacyWidths,
-      rows: pharmacie.map((l: any) => ({
-        nom: l.clients?.nom ?? '',
-        centre: l.clients?.centre ?? '',
-        categorie: l.clients?.categorie ?? ''
-      })),
-      minRows: 4
-    })
+    // Pagination automatique : chaque volet peut utiliser autant de pages A4
+    // que nécessaire. Les lignes sont découpées en blocs sans perdre ni masquer de visite.
+    const medicalHeaders = ['Client programmé', 'Centre', 'Catégorie', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions']
+    const medicalWidths = [125, 105, 85, 75, 75, 110, 95, 92]
+    const pharmacyHeaders = ['Pharmacie programmée', 'Centre', 'Catégorie', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle']
+    const pharmacyWidths = [145, 100, 90, 140, 140, 147]
+    const medicalCapacity = 5
+    const pharmacyCapacity = 5
+    // Trois lignes vierges sont toujours ajoutées à la fin de chaque volet pour les ajouts manuscrits.
+    // Elles sont incluses dans la pagination afin de ne jamais déborder en bas de page.
+    const blankRows = () => Array.from({ length: 3 }, () => ({ __blank: true }))
+    const medicalChunks = chunkRows([...medical, ...blankRows()], medicalCapacity)
+    const pharmacyChunks = chunkRows([...pharmacie, ...blankRows()], pharmacyCapacity)
+    const totalPages = medicalChunks.length + pharmacyChunks.length
+    let pageNumber = 0
+
+    for (const chunk of medicalChunks) {
+      pageNumber++
+      const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
+      drawPageHeader(page, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', pageNumber, totalPages)
+      drawTable(
+        page, font, bold, 438, 'VOLET MÉDICAL',
+        medicalHeaders, medicalWidths,
+        chunk, chunk.length, 60
+      )
+    }
+
+    for (const chunk of pharmacyChunks) {
+      pageNumber++
+      const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
+      drawPageHeader(page, font, bold, logo, dateLabel, jourSemaine, profile?.full_name ?? '', profile?.secteur ?? '', pageNumber, totalPages)
+      drawTable(
+        page, font, bold, 438, 'VOLET PHARMACIE',
+        pharmacyHeaders, pharmacyWidths,
+        chunk, chunk.length, 60
+      )
+    }
 
     const bytes = await pdf.save()
     return new Response(bytes, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="fiche-${jour}.pdf"`
+        'Content-Disposition': `attachment; filename="fiche-${jour}.pdf"`
       }
     })
   } catch (e) {
@@ -132,92 +214,143 @@ Deno.serve(async (req) => {
   }
 })
 
-type SectionOptions = {
-  title: string
-  jour: string
-  jourSemaine: string
-  vmName: string
-  secteur: string
-  headers: string[]
-  widths: number[]
-  rows: { nom: string; centre: string; categorie: string }[]
-  minRows: number
-}
-
-function drawSection(pdf: PDFDocument, font: any, bold: any, options: SectionOptions) {
-  const { title, jour, jourSemaine, vmName, secteur, headers, widths, rows, minRows } = options
-  const usableWidth = PAGE_WIDTH - MARGIN * 2
-  const sumWidths = widths.reduce((a, b) => a + b, 0)
-  // Les largeurs sont proportionnellement ajustées à la largeur imprimable A4 paysage.
-  const scaledWidths = widths.map(w => w * usableWidth / sumWidths)
-  const dataRows = Math.max(rows.length, minRows)
-  const headerHeight = 28
-  const topY = PAGE_HEIGHT - 34
-  const titleBlock = 68
-  const bottomY = 30
-  const rowsPerPage = Math.max(1, Math.floor((topY - titleBlock - headerHeight - bottomY) / ROW_HEIGHT))
-  const pageCount = Math.max(1, Math.ceil(dataRows / rowsPerPage))
-
-  for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
-    const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
-    page.drawText('GRAAL MEDICAL SOLUTIONS', { x: MARGIN, y: topY, size: 15, font: bold, color: ROYAL })
-    page.drawText(`Fiche journalière — ${jourSemaine} ${jour}`, { x: MARGIN, y: topY - 20, size: 10, font, color: INK })
-    page.drawText(`VM : ${vmName}     Secteur : ${secteur}`, { x: MARGIN, y: topY - 36, size: 9, font, color: GREY })
-    page.drawText(pageCount > 1 ? `${title} — suite ${pageIndex + 1}/${pageCount}` : title, {
-      x: MARGIN, y: topY - titleBlock + 8, size: 10, font: bold, color: ROYAL
-    })
-
-    let y = topY - titleBlock
-    let x = MARGIN
-    headers.forEach((header, i) => {
-      page.drawRectangle({ x, y: y - headerHeight, width: scaledWidths[i], height: headerHeight, color: ROYAL })
-      drawWrappedText(page, header, x + 4, y - 10, scaledWidths[i] - 8, 7, bold, WHITE, 2)
-      x += scaledWidths[i]
-    })
-    y -= headerHeight
-
-    const start = pageIndex * rowsPerPage
-    const end = Math.min(dataRows, start + rowsPerPage)
-    for (let r = start; r < end; r++) {
-      const row = rows[r] ?? { nom: '', centre: '', categorie: '' }
-      const cells = [row.nom, row.centre, row.categorie, ...Array(headers.length - 3).fill('')]
-      x = MARGIN
-      cells.forEach((value, i) => {
-        page.drawRectangle({
-          x, y: y - ROW_HEIGHT, width: scaledWidths[i], height: ROW_HEIGHT,
-          borderColor: BORDER, borderWidth: 0.6
-        })
-        if (value) drawWrappedText(page, String(value), x + 4, y - 12, scaledWidths[i] - 8, 8, font, INK, 4)
-        x += scaledWidths[i]
-      })
-      y -= ROW_HEIGHT
-    }
-
-    page.drawText('GRAAL MEDICAL SOLUTIONS', {
-      x: MARGIN, y: 14, size: 7, font, color: GREY
-    })
-    page.drawText(`Page ${pageIndex + 1}/${pageCount}`, {
-      x: PAGE_WIDTH - MARGIN - 45, y: 14, size: 7, font, color: GREY
-    })
+function drawPageHeader(
+  page: any, font: any, bold: any, logo: any, dateLabel: string,
+  jourSemaine: string, vmName: string, secteur: string, pageNumber: number, totalPages: number
+) {
+  // Mise en page A4 paysage : en-tête compact et tableau large.
+  page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 7, width: PAGE_WIDTH, height: 7, color: ROYAL })
+  if (logo) {
+    const scale = Math.min(108 / logo.width, 42 / logo.height)
+    const width = logo.width * scale
+    const height = logo.height * scale
+    page.drawImage(logo, { x: MARGIN_X, y: 514 + (42 - height) / 2, width, height })
+  } else {
+    page.drawText('GRAAL', { x: MARGIN_X, y: 535, size: 23, font: bold, color: ROYAL })
+    page.drawText('MEDICAL SOLUTIONS', { x: MARGIN_X, y: 523, size: 7, font: bold, color: GREY })
   }
+
+  const titleX = 164
+  page.drawText('FICHE JOURNALIÈRE', { x: titleX, y: 548, size: 15, font: bold, color: ROYAL_DARK })
+  page.drawText('SUIVI DES VISITES TERRAIN', { x: titleX, y: 532, size: 8, font: bold, color: GREY })
+  page.drawText(`${jourSemaine} • ${dateLabel}`, { x: titleX, y: 516, size: 9, font, color: INK })
+  page.drawText(`DOCUMENT TERRAIN  •  ${pageNumber}/${totalPages}`, { x: PAGE_WIDTH - MARGIN_X - 140, y: 548, size: 6.5, font, color: GREY })
+
+  page.drawRectangle({ x: MARGIN_X, y: 463, width: CONTENT_WIDTH, height: 35, color: PALE_BLUE })
+  page.drawRectangle({ x: MARGIN_X, y: 463, width: 3, height: 35, color: ROYAL })
+  page.drawText('VISITEUR MÉDICAL', { x: 50, y: 485, size: 6.5, font: bold, color: GREY })
+  page.drawText(vmName || '—', { x: 50, y: 472, size: 9, font: bold, color: INK, maxWidth: 300 })
+  page.drawText('SECTEUR', { x: 430, y: 485, size: 6.5, font: bold, color: GREY })
+  page.drawText(secteur || '—', { x: 430, y: 472, size: 9, font: bold, color: INK })
 }
 
-function drawWrappedText(page: any, text: string, x: number, y: number, maxWidth: number, size: number, font: any, color: any, maxLines: number) {
-  const words = text.split(/\s+/).filter(Boolean)
+function chunkRows<T>(rows: T[], capacity: number): T[][] {
+  if (!rows.length) return [[]]
+  const chunks: T[][] = []
+  for (let index = 0; index < rows.length; index += capacity) {
+    chunks.push(rows.slice(index, index + capacity))
+  }
+  return chunks
+}
+
+function wrapText(text: string, font: any, size: number, maxWidth: number): string[] {
+  const words = String(text ?? '').trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return ['']
   const lines: string[] = []
-  let current = ''
+  let line = ''
   for (const word of words) {
-    const candidate = current ? current + ' ' + word : word
+    const candidate = line ? `${line} ${word}` : word
     if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
-      current = candidate
-    } else {
-      if (current) lines.push(current)
-      current = word
+      line = candidate
+      continue
     }
+    if (line) lines.push(line)
+    // Long identifiers/words are split character-by-character instead of crossing a border.
+    if (font.widthOfTextAtSize(word, size) > maxWidth) {
+      let chunk = ''
+      for (const char of word) {
+        if (chunk && font.widthOfTextAtSize(chunk + char, size) > maxWidth) {
+          lines.push(chunk)
+          chunk = char
+        } else chunk += char
+      }
+      line = chunk
+    } else line = word
   }
-  if (current) lines.push(current)
-  const visible = lines.slice(0, maxLines)
-  visible.forEach((line, index) => {
-    page.drawText(line, { x, y: y - index * (size + 2), size, font, color })
+  if (line) lines.push(line)
+  return lines
+}
+
+function drawTable(
+  page: any, font: any, bold: any, startY: number, title: string,
+  headers: string[], widths: number[], rows: any[], minRows: number, rowHeight: number
+) {
+  const x0 = MARGIN_X
+  let y = startY
+  const headerHeight = 34
+  page.drawText(title, { x: x0, y: y + 8, size: 11, font: bold, color: ROYAL_DARK })
+  const visitCount = rows.filter((row: any) => !row?.__blank).length
+  page.drawText(`${visitCount} VISITE(S) PRÉVUE(S)`, {
+    x: PAGE_WIDTH - MARGIN_X - 130, y: y + 9, size: 7, font: bold, color: GREY
+  })
+  y -= 5
+
+  let x = x0
+  headers.forEach((header, i) => {
+    page.drawRectangle({ x, y: y - headerHeight, width: widths[i], height: headerHeight, color: ROYAL })
+    const lines = wrapText(header, bold, 7, widths[i] - 8).slice(0, 4)
+    const lineHeight = 8
+    const textBlockHeight = lines.length * lineHeight
+    let textY = y - (headerHeight - textBlockHeight) / 2 - 6
+    for (const line of lines) {
+      page.drawText(line, { x: x + 4, y: textY, size: 7, font: bold, color: WHITE, maxWidth: widths[i] - 8 })
+      textY -= lineHeight
+    }
+    x += widths[i]
+  })
+  y -= headerHeight
+
+  const total = Math.max(rows.length, minRows)
+  for (let r = 0; r < total; r++) {
+    const ligne = rows[r]
+    const nom = ligne?.clients?.nom ?? ''
+    const centre = ligne?.clients?.centre ?? ''
+    const categorie = ligne?.clients?.categorie ?? ''
+    const cells = [nom, centre, categorie, ...Array(headers.length - 3).fill('')]
+    x = x0
+    for (let i = 0; i < headers.length; i++) {
+      page.drawRectangle({
+        x, y: y - rowHeight, width: widths[i], height: rowHeight,
+        color: r % 2 === 0 ? WHITE : PALE_BLUE,
+        borderColor: LIGHT_GREY, borderWidth: 0.7
+      })
+
+      const value = String(cells[i] ?? '').trim()
+      if (value) {
+        const lines = wrapText(value, font, 7.5, widths[i] - 10)
+        const lineHeight = 9
+        const maxLines = Math.max(1, Math.floor((rowHeight - 10) / lineHeight))
+        let textY = y - 7.5
+        for (const line of lines.slice(0, maxLines)) {
+          page.drawText(line, { x: x + 5, y: textY, size: 7.5, font, color: INK, maxWidth: widths[i] - 10 })
+          textY -= lineHeight
+        }
+      }
+      x += widths[i]
+    }
+    y -= rowHeight
+  }
+
+  // La ligne de clôture donne un repère visuel net et laisse une marge pour annotations.
+  page.drawLine({
+    start: { x: x0, y: y - 3 },
+    end: { x: x0 + widths.reduce((sum, width) => sum + width, 0), y: y - 3 },
+    thickness: 1.2, color: ROYAL
+  })
+  page.drawText('GRAAL MEDICAL SOLUTIONS  •  Fiche de suivi interne', {
+    x: x0, y: 12, size: 7, font, color: GREY
+  })
+  page.drawText('Cachets et observations à renseigner sur place', {
+    x: PAGE_WIDTH - MARGIN_X - 205, y: 12, size: 7, font, color: GREY
   })
 }
