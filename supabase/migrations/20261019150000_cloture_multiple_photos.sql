@@ -5,7 +5,8 @@ alter table public.clotures_journalieres
 create or replace function public.cloturer_journee_multi(
   p_photo_paths text[],
   p_photo_latitude double precision,
-  p_photo_longitude double precision
+  p_photo_longitude double precision,
+  p_reports jsonb default '[]'::jsonb
 ) returns boolean
 language plpgsql
 security definer
@@ -19,7 +20,8 @@ begin
   perform public.cloturer_journee(
     p_photo_path := p_photo_paths[1],
     p_photo_latitude := p_photo_latitude,
-    p_photo_longitude := p_photo_longitude
+    p_photo_longitude := p_photo_longitude,
+    p_reports := p_reports
   );
 
   update public.clotures_journalieres
@@ -31,5 +33,5 @@ begin
 end;
 $$;
 
-revoke all on function public.cloturer_journee_multi(text[], double precision, double precision) from public;
+revoke all on function public.cloturer_journee_multi(text[], double precision, double precision, jsonb) from public;
 grant execute on function public.cloturer_journee_multi(text[], double precision, double precision) to authenticated;
