@@ -15,8 +15,11 @@ export interface MotifLocal {
 
 export interface PendingCloture {
   jour: string
-  photoBlobs: Blob[]
-  photoTypes: string[]
+  photoBlobs?: Blob[]
+  photoTypes?: string[]
+  /** Compatibilité avec les clôtures mises en attente par une ancienne version. */
+  photoBlob?: Blob
+  photoType?: string
   latitude: number
   longitude: number
   motifsLocaux: MotifLocal[]
