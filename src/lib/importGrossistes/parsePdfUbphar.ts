@@ -5,7 +5,7 @@ import { extraireTextePdf, type ItemTexte } from './pdfText'
 import { dateFrVersMois, type ResultatImportGrossiste } from './types'
 import { parseNumFr } from './types'
 
-const REF_REGEX = /^[A-Z]{3,6}\\d{2,4}$/
+const REF_REGEX = /^[A-Z]{3,6}\d{2,4}$/
 const COL_NOMS = ['ref', 'designation', 'stock', 'depuis1er', 'juillet', 'juin', 'mai', 'avril', 'mars', 'cmde'] as const
 type ColNom = typeof COL_NOMS[number]
 const ENTETES: Record<ColNom, string[]> = {
@@ -15,7 +15,7 @@ const ENTETES: Record<ColNom, string[]> = {
   cmde: ['commande', 'command']
 }
 function normaliser(s: string) {
-  return s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/\\s+/g, ' ').trim()
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
 }
 function trouverXEntete(items: ItemTexte[], motifs: string[]): number | null {
   for (const it of items) {
@@ -46,7 +46,7 @@ function parsePage(items: ItemTexte[]): { fournisseur: string; moisReference: st
     for (const nom of COL_NOMS) if (inRange(x, cols[nom])) return nom
     return null
   }
-  const dateItem = items.find((it) => /^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(it.str.trim()) && inRange(it.x, cols.depuis1er))
+  const dateItem = items.find((it) => /^\d{2}\\/\d{2}\\/\d{4}$/.test(it.str.trim()) && inRange(it.x, cols.depuis1er))
   const moisReference = dateItem ? dateFrVersMois(dateItem.str.trim()) : null
   const realAnchors = items.filter((it) => inRange(it.x, cols.ref) && REF_REGEX.test(it.str.trim())).sort((a, b) => b.y - a.y)
   if (realAnchors.length === 0) return { fournisseur, moisReference, lignes: [] }
@@ -70,7 +70,7 @@ function parsePage(items: ItemTexte[]): { fournisseur: string; moisReference: st
     if (c) buckets[ancrePlusProche(it.y)][c].push(it)
   }
   function joinCol(bucket: Record<ColNom, ItemTexte[]>, key: ColNom): string {
-    return bucket[key].sort((a, b) => b.y - a.y || a.x - b.x).map((it) => it.str).join(' ').replace(/\\s+/g, ' ').trim()
+    return bucket[key].sort((a, b) => b.y - a.y || a.x - b.x).map((it) => it.str).join(' ').replace(/\s+/g, ' ').trim()
   }
   const lignes = anchors.slice(1).map((a, i) => {
     const bucket = buckets[i + 1]
