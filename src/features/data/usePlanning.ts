@@ -75,7 +75,13 @@ export function usePlanning() {
       return
     }
 
-    const secteurReference = programmePrecedent?.secteur ?? profile.secteur
+    // Un ancien brouillon peut avoir secteur = null (création antérieure à la règle d'alternance).
+    // Dans ce cas, on reconstitue son secteur attendu comme l'opposé du secteur du profil,
+    // puis on calcule le secteur de la semaine cible. Sans ce fallback, deux semaines
+    // consécutives peuvent être affectées au même secteur.
+    const secteurReference = programmePrecedent
+      ? (programmePrecedent.secteur ?? secteurSuivant(profile.secteur) ?? profile.secteur)
+      : profile.secteur
     const secteurCible = secteurSuivant(secteurReference) ?? profile.secteur
     setSecteurVm(secteurCible)
 
