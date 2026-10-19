@@ -37,13 +37,20 @@ export function useOfflineClotureSync() {
         // le RPC cloturer_journee ci-dessous revalidera de toute façon qu'il ne reste rien en attente.
       }
 
-      const path = `${uid}/${pending.jour}-${Date.now()}.jpg`
-      const { error: uploadError } = await supabase.storage.from('fiches-papier')
-        .upload(path, pending.photoBlob, { contentType: pending.photoType })
-      if (uploadError) return // reste en file, nouvelle tentative à la prochaine reconnexion
+      const paths: string[] = []
+      for (let i = 0; i < pending.photoBlobs.length; i++) {
+        const blob = pending.photoBlobs[i]
+        const type = pending.photoTypes[i] || blob.type || 'image/jpeg'
+        const extension = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg'
+        const path = `${uid}/${pending.jour}-${Date.now()}-${i + 1}.${extension}`
+        const { error: uploadError } = await supabase.storage.from('fiches-papier')
+          .upload(path, blob, { contentType: type })
+        if (uploadError) return
+        paths.push(path)
+      }
 
-      const { error: rpcError } = await (supabase as any).rpc('cloturer_journee', {
-        p_photo_path: path, p_photo_latitude: pending.latitude, p_photo_longitude: pending.longitude,
+      const { error: rpcError } = await (supabase as any).rpc('cloturer_journee_multi', {
+        p_photo_paths: paths, p_photo_latitude: pending.latitude, p_photo_longitude: pending.longitude,
         p_reports: pending.reports ?? []
       })
       if (rpcError) return
