@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
 import { Button } from '@/components/ui/Button'
 import { TrajetCarte, type PointTrajet } from '@/components/ui/TrajetCarte'
-import { IconMapPin, IconCheckCircle, IconClock, IconAlert, IconMoon, IconCamera } from '@/components/ui/icons'
+import { IconMapPin, IconCheckCircle, IconClock, IconAlert, IconMoon, IconCamera, IconTrendingUp } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { todayBenin } from '@/lib/time'
@@ -43,6 +43,8 @@ export default function SuiviTerrain() {
   const [manquants, setManquants] = useState<Manquant[]>([])
   const [cloture, setCloture] = useState<ClotureRow | null>(null)
   const [garde, setGarde] = useState<GardeRow | null>(null)
+  const [scoreJour, setScoreJour] = useState<number | null>(null)
+  const [scoreSemaine, setScoreSemaine] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingJour, setLoadingJour] = useState(false)
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -77,13 +79,18 @@ export default function SuiviTerrain() {
     if (!vmId) return
     async function loadJour() {
       setLoadingJour(true)
-      const [{ data: lignesData }, { data: visitesData }, { data: clotureData }, { data: gardeData }] = await Promise.all([
+      const semaineDebut = dayjs(date).isoWeekday(1).format('YYYY-MM-DD')
+      const [{ data: lignesData }, { data: visitesData }, { data: clotureData }, { data: gardeData }, { data: scoreJourData }, { data: scoreSemaineData }] = await Promise.all([
         supabase.from('v_lignes_avec_statut').select('*').eq('vm_id', vmId).eq('date_visite', date).order('type_visite'),
         supabase.from('visites').select('*, clients(nom, potentiel, specialite, centre, secteur), visite_produits(produits(nom))')
           .eq('vm_id', vmId).eq('jour', date),
         supabase.from('clotures_journalieres').select('*').eq('vm_id', vmId).eq('jour', date).maybeSingle(),
-        supabase.from('gardes').select('*').eq('vm_id', vmId).eq('jour', date).maybeSingle()
+        supabase.from('gardes').select('*').eq('vm_id', vmId).eq('jour', date).maybeSingle(),
+        supabase.from('v_taux_realisation_journalier').select('taux_realisation').eq('vm_id', vmId).eq('jour', date).maybeSingle(),
+        supabase.from('v_score_hebdomadaire_pondere').select('score_pondere_pourcentage').eq('vm_id', vmId).eq('semaine_debut', semaineDebut).maybeSingle()
       ])
+      setScoreJour(scoreJourData?.taux_realisation == null ? null : Math.round(Number(scoreJourData.taux_realisation) * 100))
+      setScoreSemaine(scoreSemaineData?.score_pondere_pourcentage == null ? null : Number(scoreSemaineData.score_pondere_pourcentage))
       setLignes(lignesData ?? [])
       setVisites((visitesData as unknown as Visite[]) ?? [])
       setCloture(clotureData ?? null)
@@ -204,10 +211,20 @@ export default function SuiviTerrain() {
             <Skeleton className="h-64" />
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
                 <StatCard label="Prévues" value={total} tone="ink" icon={<IconClock className="h-4 w-4" />} />
                 <StatCard label="Réalisées" value={realisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
                 <StatCard label="Non faites" value={nonFaites} tone="flame" icon={<IconAlert className="h-4 w-4" />} />
+                <Card className="relative overflow-hidden rounded-xl3 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-semibold text-ink-500">Scores</p>
+                    <div className="rounded-xl bg-gradient-to-br from-royal-600 to-royal-500 p-1.5 text-white"><IconTrendingUp className="h-4 w-4" /></div>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-sm font-bold text-ink-800">Jour : <span className="text-royal-600">{scoreJour == null ? '—' : `${scoreJour}%`}</span></p>
+                    <p className="text-sm font-bold text-ink-800">Semaine : <span className="text-emerald-600">{scoreSemaine == null ? '—' : `${Math.round(scoreSemaine)}%`}</span></p>
+                  </div>
+                </Card>
               </div>
 
               {cloture && (
@@ -260,6 +277,7 @@ export default function SuiviTerrain() {
                             {l.potentiel && <PotentielBadge potentiel={l.potentiel} compact />}
                             <span className="text-[11px] text-ink-400">{l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
                           </div>
+                          {l.type_visite === 'MEDICAL' && l.specialite && <p className="mt-1 text-xs text-royal-600">Spécialité : {l.specialite}</p>}
                         </div>
                         <Badge tone={STATUT_TONE[l.statut_reel ?? ''] ?? 'neutral'}>{STATUT_LABEL[l.statut_reel ?? ''] ?? l.statut_reel}</Badge>
                       </div>
@@ -287,6 +305,7 @@ export default function SuiviTerrain() {
                               {v.clients?.potentiel && <PotentielBadge potentiel={v.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
                               <span className="text-[11px] text-ink-400">{v.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
                             </div>
+                            {v.type_visite === 'MEDICAL' && v.clients?.specialite && <p className="mt-1 text-xs text-royal-600">Spécialité : {v.clients.specialite}</p>}
                           </div>
                           <Badge tone="info">Hors programme</Badge>
                         </div>
