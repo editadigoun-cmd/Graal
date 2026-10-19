@@ -46,7 +46,7 @@ function parsePage(items: ItemTexte[]): { fournisseur: string; moisReference: st
     for (const nom of COL_NOMS) if (inRange(x, cols[nom])) return nom
     return null
   }
-  const dateItem = items.find((it) => /^\d{2}\\/\d{2}\\/\d{4}$/.test(it.str.trim()) && inRange(it.x, cols.depuis1er))
+  const dateItem = items.find((it) => /^\d{2}\/\d{2}\/\d{4}$/.test(it.str.trim()) && inRange(it.x, cols.depuis1er))
   const moisReference = dateItem ? dateFrVersMois(dateItem.str.trim()) : null
   const realAnchors = items.filter((it) => inRange(it.x, cols.ref) && REF_REGEX.test(it.str.trim())).sort((a, b) => b.y - a.y)
   if (realAnchors.length === 0) return { fournisseur, moisReference, lignes: [] }
