@@ -63,7 +63,7 @@ export default function Planning() {
   const estSemaineActuelle = semaineDebut === isoWeekMonday().format('YYYY-MM-DD')
   const delaiMardi = ['45a172c9-8e94-402b-90e5-a39f59bd584b', 'fd879be3-1200-48be-a1ff-77d15bd4dc06', '4519e59c-ae91-44d7-98a8-b906662a7f2d'].includes(programme?.vm_id ?? '')
   const deadline = estSemaineActuelle
-    ? isoWeekMonday().add(delaiMardi ? 1 : 0, 'day').hour(23).minute(0).second(0).millisecond(0)
+    ? isoWeekMonday().add(delaiMardi ? 1 : 0, 'day').hour(23).minute(delaiMardi ? 0 : 50).second(0).millisecond(0)
     : deadlineSoumission(semaineDebut)
   const countdown = formatCountdown(deadline)
 
@@ -295,7 +295,7 @@ export default function Planning() {
           countdown ? (
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-white/70">Soumission avant jeudi 21h00</p>
+                <p className="text-xs text-white/70">Soumission avant {delaiMardi ? "mardi 23h00" : "lundi 23h50"}</p>
                 <p className="text-xl font-extrabold font-display">{countdown}</p>
               </div>
               <IconClock className="h-8 w-8 text-white/60" />
