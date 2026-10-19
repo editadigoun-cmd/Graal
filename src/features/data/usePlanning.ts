@@ -21,7 +21,10 @@ const DELAI_MARDI_VM_IDS = new Set([
 
 export function targetSemaineDebut(vmId?: string) {
   const lundi = isoWeekMonday()
-  const echeance = DELAI_MARDI_VM_IDS.has(vmId ?? '')
+  // Sans VM connue (affichage transitoire), appliquer le délai le plus long
+  // pour éviter de faire apparaître brièvement la semaine suivante trop tôt.
+  const delaiMardi = vmId ? DELAI_MARDI_VM_IDS.has(vmId) : true
+  const echeance = delaiMardi
     ? lundi.add(1, 'day').hour(23).minute(0).second(0).millisecond(0)
     : lundi.hour(23).minute(0).second(0).millisecond(0)
 
