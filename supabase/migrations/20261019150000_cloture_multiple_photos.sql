@@ -13,6 +13,10 @@ security definer
 set search_path = public
 as $$
 begin
+  if auth.uid() is null then
+    raise exception 'Authentification requise.';
+  end if;
+
   if p_photo_paths is null or cardinality(p_photo_paths) = 0 then
     raise exception 'Au moins une photo est obligatoire.';
   end if;
