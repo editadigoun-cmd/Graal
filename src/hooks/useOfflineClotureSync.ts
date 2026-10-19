@@ -38,9 +38,16 @@ export function useOfflineClotureSync() {
       }
 
       const paths: string[] = []
-      for (let i = 0; i < pending.photoBlobs.length; i++) {
-        const blob = pending.photoBlobs[i]
-        const type = pending.photoTypes[i] || blob.type || 'image/jpeg'
+      const blobs = pending.photoBlobs?.length
+        ? pending.photoBlobs
+        : pending.photoBlob ? [pending.photoBlob] : []
+      const types = pending.photoTypes?.length
+        ? pending.photoTypes
+        : [pending.photoType || blobs[0]?.type || 'image/jpeg']
+      if (blobs.length === 0) return
+      for (let i = 0; i < blobs.length; i++) {
+        const blob = blobs[i]
+        const type = types[i] || blob.type || 'image/jpeg'
         const extension = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg'
         const path = `${uid}/${pending.jour}-${Date.now()}-${i + 1}.${extension}`
         const { error: uploadError } = await supabase.storage.from('fiches-papier')
