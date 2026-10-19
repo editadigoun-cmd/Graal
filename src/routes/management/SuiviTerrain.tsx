@@ -258,6 +258,7 @@ export default function SuiviTerrain() {
                           <p className="text-sm font-semibold text-ink-800 truncate">{l.client_nom}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             {l.potentiel && <PotentielBadge potentiel={l.potentiel} compact />}
+                            {l.specialite && <span className="text-[11px] font-medium text-royal-600">{l.specialite}</span>}
                             <span className="text-[11px] text-ink-400">{l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
                           </div>
                         </div>
@@ -285,6 +286,7 @@ export default function SuiviTerrain() {
                             <p className="text-sm font-semibold text-ink-800 truncate">{v.clients?.nom}</p>
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               {v.clients?.potentiel && <PotentielBadge potentiel={v.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
+                              {v.clients?.specialite && <span className="text-[11px] font-medium text-royal-600">{v.clients.specialite}</span>}
                               <span className="text-[11px] text-ink-400">{v.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
                             </div>
                           </div>
