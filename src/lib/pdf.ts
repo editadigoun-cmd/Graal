@@ -14,8 +14,22 @@ async function openFunctionPdf(fn: string, params: Record<string, string>) {
     throw new Error(body.error ?? "Impossible de générer le PDF.")
   }
   const blob = await res.blob()
+  if (!blob.size) throw new Error("Le PDF généré est vide. Réessayez dans un instant.")
+
+  // Déclenche un vrai téléchargement plutôt qu'un nouvel onglet ouvert après
+  // une requête asynchrone (souvent bloqué par Chrome/Android comme popup).
   const objectUrl = URL.createObjectURL(blob)
-  window.open(objectUrl, '_blank')
+  const link = document.createElement('a')
+  const filename = params.jour
+    ? `fiche-${params.jour}.pdf`
+    : `reporting-${params.semaine_debut ?? 'hebdomadaire'}.pdf`
+  link.href = objectUrl
+  link.download = filename
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
 }
 
 export function ouvrirFicheJour(jour: string) {
