@@ -17,6 +17,7 @@ export default function Visites() {
   const { session } = useAuth()
   const { lignes, loading } = useVisitesDuJour()
   const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
   const [cloture, setCloture] = useState<{ statut: string; heure_cloture: string | null } | null | undefined>(undefined)
   const restantes = lignes.filter((l) => l.statut_reel === 'EN_ATTENTE')
   const faites = lignes.filter((l) => l.statut_reel !== 'EN_ATTENTE')
@@ -30,10 +31,20 @@ export default function Visites() {
 
   async function exporterFiche() {
     setExporting(true)
+    setExportError(null)
     try {
-      await ouvrirFicheJour(todayBenin().format('YYYY-MM-DD'))
+      const maintenant = nowBenin()
+      let jourCible = todayBenin()
+      // À partir de 20 h, la fiche du prochain jour ouvrable devient téléchargeable.
+      if (maintenant.hour() >= 20) {
+        jourCible = jourCible.add(1, 'day')
+        while (jourCible.day() === 0 || jourCible.day() === 6) {
+          jourCible = jourCible.add(1, 'day')
+        }
+      }
+      await ouvrirFicheJour(jourCible.format('YYYY-MM-DD'))
     } catch (e) {
-      // Le programme n'est peut-être pas encore validé — silencieux, l'action est secondaire.
+      setExportError(e instanceof Error ? e.message : 'Impossible de télécharger la fiche. Réessayez.')
     } finally {
       setExporting(false)
     }
@@ -51,6 +62,11 @@ export default function Visites() {
             {cloture?.heure_cloture ? `Clôturée à ${dayjs(cloture.heure_cloture).format('HH:mm')}. ` : ''}
             Vos résultats alimentent votre score de performance. À demain !
           </p>
+          <button onClick={exporterFiche} disabled={exporting} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-royal-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">
+            <IconDownload className="h-4 w-4" />
+            {exporting ? 'Préparation du PDF…' : 'Télécharger la fiche du prochain jour ouvrable'}
+          </button>
+          {exportError && <p role="alert" className="mt-3 max-w-sm text-sm text-red-600">{exportError}</p>}
         </div>
 
         <Link to="/app/garde">
@@ -83,6 +99,8 @@ export default function Visites() {
           </Link>
         </div>
       </div>
+
+      {exportError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{exportError}</p>}
 
       {loading && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
 
