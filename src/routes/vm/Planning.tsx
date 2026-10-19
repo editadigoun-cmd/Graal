@@ -44,7 +44,7 @@ interface Seuils {
 const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50, maxMoyenLunMarMer: 3, poidsMoyenReduit: 2.5 }
 
 export default function Planning() {
-  const { programme, lignes, portefeuille, secteurVm, loading, error, setError, reload } = usePlanning()
+  const { programme, lignes: lignesBrutes, portefeuille, secteurVm, loading, error, setError, reload } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
   const [picking, setPicking] = useState<TypeVisite | null>(null)
   const [recherche, setRecherche] = useState('')
@@ -57,6 +57,8 @@ export default function Planning() {
 
   const semaineDebut = programme?.semaine_debut ?? targetSemaineDebut()
   const estFawaz = programme?.vm_id === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30'
+  // Fawaz n'a aucune pharmacie : ne jamais afficher de lignes ni de libellés de ce type.
+  const lignes = estFawaz ? lignesBrutes.filter((l) => l.type_visite !== 'PHARMACIE') : lignesBrutes
   const estSemaineActuelle = semaineDebut === isoWeekMonday().format('YYYY-MM-DD')
   const delaiMardi = ['45a172c9-8e94-402b-90e5-a39f59bd584b', 'fd879be3-1200-48be-a1ff-77d15bd4dc06', '4519e59c-ae91-44d7-98a8-b906662a7f2d'].includes(programme?.vm_id ?? '')
   const deadline = estSemaineActuelle
@@ -330,7 +332,7 @@ export default function Planning() {
             <p className="text-sm font-extrabold text-royal-600">{lignes.length} visites</p>
           </div>
           <div className="space-y-1.5">
-            {RECAP_SPECIALITES.map(({ cles, label }) => {
+            {RECAP_SPECIALITES.filter(({ cles }) => !estFawaz || !cles.includes('PHARMACIE')).map(({ cles, label }) => {
               const count = cles.reduce((s, c) => s + (specialiteCounts[c] ?? 0), 0)
               if (count === 0) return null
               return (
@@ -418,7 +420,7 @@ export default function Planning() {
                   <p className="text-sm font-semibold text-ink-800 truncate">{l.clients?.nom}</p>
                   <div className="mt-1 flex items-center gap-2">
                     {l.clients?.potentiel && <PotentielBadge potentiel={l.clients.potentiel} compact />}
-                    <span className="text-[11px] text-ink-400">{l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
+                    <span className="text-[11px] text-ink-400">{estFawaz ? 'Médical' : l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
                   </div>
                 </div>
                 {!verrouille && (
