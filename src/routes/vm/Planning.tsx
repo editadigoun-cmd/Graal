@@ -68,8 +68,15 @@ export default function Planning() {
   const derniereEcheanceJour = echeancesJoursOuverts.length
     ? Math.max(...echeancesJoursOuverts)
     : null
-  const deadline = derniereEcheanceJour !== null
-    ? dayjs(derniereEcheanceJour)
+  const echeanceSupplementaire = programme?.delai_supplementaire_jusqu_a
+    ? new Date(programme.delai_supplementaire_jusqu_a).getTime()
+    : null
+  const echeancesPossibles = [
+    derniereEcheanceJour,
+    echeanceSupplementaire !== null && Number.isFinite(echeanceSupplementaire) ? echeanceSupplementaire : null
+  ].filter((date): date is number => date !== null)
+  const deadline = echeancesPossibles.length
+    ? dayjs(Math.max(...echeancesPossibles))
     : deadlineSoumission(semaineDebut, programme?.delai_supplementaire_jusqu_a)
   const countdown = formatCountdown(deadline)
 
@@ -99,7 +106,15 @@ export default function Planning() {
 
   const lignesJour = lignes.filter((l) => l.jour === jourActif)
   const etatJourActif = jourStatuts[jourActif]
-  const jourVerrouille = etatJourActif?.statut === 'VALIDE' || (!!etatJourActif?.date_limite && Date.now() > new Date(etatJourActif.date_limite).getTime())
+  const limiteJour = etatJourActif?.date_limite ? new Date(etatJourActif.date_limite).getTime() : null
+  const limiteSupplementaire = programme?.delai_supplementaire_jusqu_a
+    ? new Date(programme.delai_supplementaire_jusqu_a).getTime()
+    : null
+  const limiteEffectiveJour = Math.max(
+    limiteJour !== null && Number.isFinite(limiteJour) ? limiteJour : 0,
+    limiteSupplementaire !== null && Number.isFinite(limiteSupplementaire) ? limiteSupplementaire : 0
+  )
+  const jourVerrouille = etatJourActif?.statut === 'VALIDE' || (limiteEffectiveJour > 0 && Date.now() > limiteEffectiveJour)
 
   useEffect(() => {
     if (!programme?.id) { setJourStatuts({}); return }
