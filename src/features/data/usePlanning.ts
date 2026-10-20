@@ -53,7 +53,24 @@ export function usePlanning() {
     setLoading(true)
     setError(null)
     const vmId = session.user.id
-    const semaineDebut = targetSemaineDebut()
+    let semaineDebut = targetSemaineDebut(vmId)
+
+    // Fawaz peut passer à la semaine suivante dès que son programme courant est validé,
+    // sans attendre l'échéance horaire générale. Son brouillon suivant est conservé.
+    if (vmId === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30') {
+      const semaineActuelle = isoWeekMonday().format('YYYY-MM-DD')
+      const { data: programmeActuel, error: erreurProgrammeActuel } = await supabase
+        .from('programmes_hebdomadaires').select('statut')
+        .eq('vm_id', vmId).eq('semaine_debut', semaineActuelle).maybeSingle()
+      if (erreurProgrammeActuel) {
+        setError(erreurProgrammeActuel.message)
+        setLoading(false)
+        return
+      }
+      if (programmeActuel && ['VALIDE', 'VERROUILLE'].includes(programmeActuel.statut)) {
+        semaineDebut = isoWeekMonday().add(7, 'day').format('YYYY-MM-DD')
+      }
+    }
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles').select('secteur').eq('id', vmId).maybeSingle()
