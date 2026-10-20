@@ -121,9 +121,11 @@ export default function Planning() {
     // ne doit pas mélanger les catégories de clients.
     if (picking === 'PHARMACIE' && c.specialite !== 'PHARMACIE') return false
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
-    // Afficher tout le portefeuille officiel pour permettre la recherche, même si le potentiel
-    // du client ne permet pas de le programmer le jour sélectionné. Le blocage est appliqué
-    // visuellement plus bas et reste cohérent avec les règles serveur.
+    // Le programme fixe le secteur autorisé pour cette semaine : secteur courant cette semaine,
+    // secteur opposé pour la semaine suivante. Le serveur applique la même règle.
+    if (programme?.secteur && c.secteur !== programme.secteur) return false
+    // Afficher les clients du secteur autorisé même si leur potentiel ne permet pas de les
+    // programmer le jour sélectionné ; les règles de potentiel restent appliquées plus bas.
     if (clientIdsUtilises.has(c.id)) return false
     if (recherche && !normalizeText([c.nom, c.centre, c.specialite].filter(Boolean).join(' ')).includes(normalizeText(recherche))) return false
     return true
