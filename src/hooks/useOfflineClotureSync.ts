@@ -37,14 +37,14 @@ export function useOfflineClotureSync() {
         // le RPC cloturer_journee ci-dessous revalidera de toute façon qu'il ne reste rien en attente.
       }
 
-      const path = `${uid}/${pending.jour}-${Date.now()}.jpg`
-      const { error: uploadError } = await supabase.storage.from('fiches-papier')
-        .upload(path, pending.photoBlob, { contentType: pending.photoType })
-      if (uploadError) return // reste en file, nouvelle tentative à la prochaine reconnexion
-
-      const { error: rpcError } = await supabase.rpc('cloturer_journee', {
-        p_photo_path: path, p_photo_latitude: pending.latitude, p_photo_longitude: pending.longitude
-      })
+      const paths: string[] = []
+      for (const [index, photo] of pending.photoBlobs.entries()) {
+        const path = `${uid}/${pending.jour}-${Date.now()}-${index + 1}.jpg`
+        const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: pending.photoTypes[index] || 'image/jpeg' })
+        if (uploadError) return
+        paths.push(path)
+      }
+      const { error: rpcError } = await supabase.rpc('cloturer_journee_multi', { p_photo_paths: paths, p_photo_latitude: pending.latitude, p_photo_longitude: pending.longitude, p_reports: pending.motifsLocaux.map((m) => ({ programme_ligne_id: m.programmeLigneId, motif_id: m.motifId, commentaire: m.commentaire })) })
       if (rpcError) return
 
       await clearPendingCloture()
