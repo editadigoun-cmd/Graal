@@ -25,8 +25,8 @@ export default function Cloture() {
   const [commentaires, setCommentaires] = useState<Record<string, string>>({})
   const [motifsLocaux, setMotifsLocaux] = useState<Record<string, MotifLocal>>({})
   const [saving, setSaving] = useState<string | null>(null)
-  const [photo, setPhoto] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [cloturing, setCloturing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -69,10 +69,13 @@ export default function Cloture() {
   }
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    if (!f) return
-    setPhoto(f)
-    setPhotoPreview(URL.createObjectURL(f))
+    const files = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith('image/'))
+    if (files.length) { setPhotos((current) => [...current, ...files]); setPhotoPreviews((current) => [...current, ...files.map((f) => URL.createObjectURL(f))]); setError(null) }
+    e.target.value = ''
+  }
+  function supprimerPhoto(index: number) {
+    setPhotos((current) => current.filter((_, i) => i !== index))
+    setPhotoPreviews((current) => { if (current[index]) URL.revokeObjectURL(current[index]); return current.filter((_, i) => i !== index) })
   }
 
   const restantesSansMotif = manquantes.filter((l) => !dejaMotivees.has(l.programme_ligne_id))
@@ -80,7 +83,7 @@ export default function Cloture() {
   async function handleCloture() {
     if (!session) return
     if (restantesSansMotif.length > 0) { setError('Un motif est requis pour chaque visite manquante.'); return }
-    if (!photo) { setError('La photo de la fiche papier est obligatoire.'); return }
+    if (photos.length === 0) { setError('Ajoutez au moins une photo de la fiche papier.'); return }
     if (geo.status !== 'ok' || geo.latitude === null || geo.longitude === null) { setError('Position GPS requise pour clôturer.'); return }
     const latitude = geo.latitude
     const longitude = geo.longitude
@@ -90,30 +93,24 @@ export default function Cloture() {
     setError(null)
 
     if (!navigator.onLine) {
-      await savePendingCloture({
-        jour, photoBlob: photo, photoType: photo.type, latitude, longitude,
-        motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString()
-      })
+      await savePendingCloture({ jour, photoBlobs: photos, photoTypes: photos.map((p) => p.type), latitude, longitude, motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString() })
       setCloturing(false)
       setDoneOffline(true)
       return
     }
 
-    const path = `${session.user.id}/${jour}-${Date.now()}.jpg`
-    const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: photo.type })
-    if (uploadError) {
-      if (!navigator.onLine) {
-        await savePendingCloture({ jour, photoBlob: photo, photoType: photo.type, latitude, longitude, motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString() })
-        setCloturing(false)
-        setDoneOffline(true)
-        return
+    const paths: string[] = []
+    for (const [index, photo] of photos.entries()) {
+      const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const path = `${session.user.id}/${jour}-${Date.now()}-${index + 1}.${extension}`
+      const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: photo.type })
+      if (uploadError) {
+        if (!navigator.onLine) { await savePendingCloture({ jour, photoBlobs: photos, photoTypes: photos.map((p) => p.type), latitude, longitude, motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString() }); setCloturing(false); setDoneOffline(true); return }
+        setError(`Photo ${index + 1} : ${uploadError.message}`); setCloturing(false); return
       }
-      setError(uploadError.message); setCloturing(false); return
+      paths.push(path)
     }
-
-    const { data, error: rpcError } = await supabase.rpc('cloturer_journee', {
-      p_photo_path: path, p_photo_latitude: latitude, p_photo_longitude: longitude
-    })
+    const { data, error: rpcError } = await supabase.rpc('cloturer_journee_multi', { p_photo_paths: paths, p_photo_latitude: latitude, p_photo_longitude: longitude, p_reports: Object.values(motifsLocaux).map((m) => ({ programme_ligne_id: m.programmeLigneId, motif_id: m.motifId, commentaire: m.commentaire })) })
 
     setCloturing(false)
     if (rpcError) setError(rpcError.message)
@@ -212,26 +209,13 @@ export default function Cloture() {
       )}
 
       <Card>
-        <p className="text-sm font-bold text-ink-800 mb-3">Photo de la fiche papier</p>
+        <div className="mb-3 flex items-center justify-between gap-2"><p className="text-sm font-bold text-ink-800">Photos de la fiche papier</p><span className="text-xs text-ink-400">{photos.length} photo{photos.length > 1 ? 's' : ''}</span></div>
         <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
-        {photoPreview ? (
-          <div className="relative">
-            <img src={photoPreview} alt="Fiche papier" className="w-full rounded-2xl object-cover max-h-64" />
-            <button onClick={() => fileRef.current?.click()} className="absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold shadow">Reprendre</button>
-          </div>
-        ) : (
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-10 text-royal-600"
-          >
-            <IconCamera className="h-8 w-8" />
-            <span className="text-sm font-semibold">Prendre en photo la fiche papier</span>
-            <span className="text-[11px] text-ink-400">Cadrez la fiche entière dans le viseur</span>
-          </button>
-        )}
+        {photoPreviews.length > 0 && <div className="mb-3 grid grid-cols-2 gap-3">{photoPreviews.map((src, index) => <div key={`${src}-${index}`} className="relative overflow-hidden rounded-xl border border-ink-100"><img src={src} alt={`Fiche papier ${index + 1}`} className="h-36 w-full object-cover" /><span className="absolute left-2 top-2 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-white">Photo {index + 1}</span><button type="button" onClick={() => supprimerPhoto(index)} className="absolute right-2 top-2 rounded-full bg-white px-2 py-1 text-xs font-bold text-red-600 shadow" aria-label={`Supprimer la photo ${index + 1}`}>✕</button></div>)}</div>}
+        <button type="button" onClick={() => fileRef.current?.click()} className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-6 text-royal-600"><IconCamera className="h-7 w-7" /><span className="text-sm font-semibold">{photos.length ? 'Prendre une autre photo' : 'Prendre la première photo'}</span><span className="text-[11px] text-ink-400">Vous pouvez ajouter plusieurs photos successivement</span></button>
       </Card>
 
-      <Button fullWidth loading={cloturing} onClick={handleCloture} disabled={restantesSansMotif.length > 0 || !photo}>
+      <Button fullWidth loading={cloturing} onClick={handleCloture} disabled={restantesSansMotif.length > 0 || photos.length === 0}>
         Valider la clôture
       </Button>
     </div>
