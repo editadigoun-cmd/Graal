@@ -294,10 +294,15 @@ function drawTable(
     x: PAGE_WIDTH - MARGIN_X - 130, y: y + 9, size: 7, font: bold, color: GREY
   })
   y -= 5
+  const tableTopY = y
+  const separatorColor = rgb(0.48, 0.54, 0.63)
 
   let x = x0
   headers.forEach((header, i) => {
-    page.drawRectangle({ x, y: y - headerHeight, width: widths[i], height: headerHeight, color: ROYAL })
+    page.drawRectangle({
+      x, y: y - headerHeight, width: widths[i], height: headerHeight,
+      color: ROYAL, borderColor: WHITE, borderWidth: 0.8
+    })
     const lines = wrapText(header, bold, 7, widths[i] - 8).slice(0, 4)
     const lineHeight = 8
     const textBlockHeight = lines.length * lineHeight
@@ -322,7 +327,7 @@ function drawTable(
       page.drawRectangle({
         x, y: y - rowHeight, width: widths[i], height: rowHeight,
         color: r % 2 === 0 ? WHITE : PALE_BLUE,
-        borderColor: LIGHT_GREY, borderWidth: 0.7
+        borderColor: separatorColor, borderWidth: 0.9
       })
 
       const value = String(cells[i] ?? '').trim()
@@ -339,6 +344,23 @@ function drawTable(
       x += widths[i]
     }
     y -= rowHeight
+  }
+
+  // Séparateurs verticaux explicites : visibles à l'impression et sur les photos/scans.
+  const tableBottomY = y
+  let separatorX = x0
+  page.drawLine({
+    start: { x: separatorX, y: tableTopY },
+    end: { x: separatorX, y: tableBottomY },
+    thickness: 1, color: separatorColor
+  })
+  for (const width of widths) {
+    separatorX += width
+    page.drawLine({
+      start: { x: separatorX, y: tableTopY },
+      end: { x: separatorX, y: tableBottomY },
+      thickness: 1, color: separatorColor
+    })
   }
 
   // La ligne de clôture donne un repère visuel net et laisse une marge pour annotations.
