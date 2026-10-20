@@ -270,7 +270,7 @@ export default function Cloture() {
           <p className="text-sm font-bold text-ink-800">Photos de la fiche papier</p>
           <span className="text-xs text-ink-400">{photos.length} photo{photos.length > 1 ? 's' : ''}</span>
         </div>
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
+        <input key={photos.length} ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onClick={(e) => { e.currentTarget.value = "" }} onChange={handlePhoto} />
         {photoPreviews.length > 0 && (
           <div className="mb-3 grid grid-cols-2 gap-3">
             {photoPreviews.map((src, index) => (
