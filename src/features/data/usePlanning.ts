@@ -171,6 +171,27 @@ export function usePlanning() {
     }
 
     const clientIds = [...new Set((portefeuilleData ?? []).map((item) => item.client_id))]
+
+    // Règle générale : un client effectivement visité la semaine précédente
+    // n'est pas reprogrammable cette semaine. Une visite NON_FAITE ne bloque pas.
+    const debutCible = new Date(`${semaineDebut}T00:00:00Z`)
+    debutCible.setUTCDate(debutCible.getUTCDate() - 7)
+    const debutSemainePrecedente = debutCible.toISOString().slice(0, 10)
+    const finSemainePrecedente = new Date(`${semaineDebut}T00:00:00Z`)
+    finSemainePrecedente.setUTCDate(finSemainePrecedente.getUTCDate() - 1)
+    const { data: visitesPrecedentes, error: visitesPrecedentesError } = await supabase
+      .from('visites').select('client_id')
+      .eq('vm_id', vmId)
+      .gte('jour', debutSemainePrecedente)
+      .lt('jour', semaineDebut)
+      .in('statut', ['REALISEE', 'HORS_PROGRAMME'])
+    if (visitesPrecedentesError) {
+      setError(visitesPrecedentesError.message)
+      setLoading(false)
+      return
+    }
+    const clientsDejaVus = new Set((visitesPrecedentes ?? []).map((visite) => visite.client_id))
+
     if (clientIds.length === 0) {
       setPortefeuille([])
     } else {
@@ -181,7 +202,7 @@ export function usePlanning() {
         setLoading(false)
         return
       }
-      setPortefeuille(clientsData ?? [])
+      setPortefeuille((clientsData ?? []).filter((client) => !clientsDejaVus.has(client.id)))
     }
     setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
