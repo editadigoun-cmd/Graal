@@ -1,4 +1,4 @@
-// File d'attente hors-ligne pour la clôture de journée (motifs + photo + RPC).
+// File d'attente hors-ligne pour la clôture de journée (motifs + plusieurs photos + RPC).
 // Contrairement à la saisie de visite (petits objets JSON en localStorage), la clôture
 // embarque une photo binaire : on utilise IndexedDB, seul stockage local adapté à des
 // blobs de plusieurs centaines de Ko sans risquer de dépasser le quota localStorage.
@@ -15,8 +15,8 @@ export interface MotifLocal {
 
 export interface PendingCloture {
   jour: string
-  photoBlob: Blob
-  photoType: string
+  photoBlobs: Blob[]
+  photoTypes: string[]
   latitude: number
   longitude: number
   motifsLocaux: MotifLocal[]
