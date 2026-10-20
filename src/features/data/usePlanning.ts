@@ -15,7 +15,7 @@ export function targetSemaineDebut() {
 }
 
 export function usePlanning() {
-  const { session } = useAuth()
+  const { session, profile } = useAuth()
   const [programme, setProgramme] = useState<Programme | null>(null)
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [portefeuille, setPortefeuille] = useState<ClientRow[]>([])
@@ -67,6 +67,10 @@ export function usePlanning() {
       }
     }
 
+    const secteurProgramme = semaineDebut === semaineActuelle
+      ? profile?.secteur
+      : profile?.secteur === 'A' ? 'B' : profile?.secteur === 'B' ? 'A' : null
+
     let { data: prog, error: programmeError } = await supabase
       .from('programmes_hebdomadaires').select('*')
       .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).maybeSingle()
@@ -78,7 +82,7 @@ export function usePlanning() {
 
     if (!prog) {
       const { data: created, error: createError } = await supabase
-        .from('programmes_hebdomadaires').insert({ vm_id: vmId, semaine_debut: semaineDebut }).select('*').maybeSingle()
+        .from('programmes_hebdomadaires').insert({ vm_id: vmId, semaine_debut: semaineDebut, ...(secteurProgramme ? { secteur: secteurProgramme } : {}) }).select('*').maybeSingle()
       if (createError) {
         if (createError.code === '23505') {
           const { data: existing, error: refetchError } = await supabase
@@ -109,6 +113,16 @@ export function usePlanning() {
         prog = existing
       }
     }
+    if (secteurProgramme && prog!.secteur !== secteurProgramme && prog!.statut === 'BROUILLON') {
+      const { data: secteurCorrige, error: erreurSecteur } = await supabase
+        .from('programmes_hebdomadaires').update({ secteur: secteurProgramme }).eq('id', prog!.id).select('*').maybeSingle()
+      if (erreurSecteur) {
+        setError(erreurSecteur.message)
+        setLoading(false)
+        return
+      }
+      if (secteurCorrige) prog = secteurCorrige
+    }
     setProgramme(prog)
 
     const [{ data: lignesData, error: lignesError }, { data: clientsData, error: clientsError }, { data: portefeuilleData, error: portefeuilleError }] = await Promise.all([
@@ -127,7 +141,7 @@ export function usePlanning() {
     setPortefeuille((clientsData ?? []).filter((client) => idsPortefeuille.has(client.id)))
     setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
-  }, [session])
+  }, [session, profile?.secteur])
 
   useEffect(() => { load() }, [load])
 
