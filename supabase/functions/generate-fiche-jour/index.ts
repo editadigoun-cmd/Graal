@@ -167,8 +167,8 @@ Deno.serve(async (req) => {
     // que nécessaire. Les lignes sont découpées en blocs sans perdre ni masquer de visite.
     const medicalHeaders = ['Nom du prospect', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses obtenues', 'Prescriptions constatées']
     const medicalWidths = [115, 105, 105, 150, 155, 132]
-    const pharmacyHeaders = ['Pharmacie programmée', 'Centre', 'Catégorie', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle']
-    const pharmacyWidths = [145, 100, 90, 140, 140, 147]
+    const pharmacyHeaders = ['PHARMACIE PROGRAMMÉE', 'STOCKS DISPONIBLES', 'NÉGOCIATIONS OBTENUES', 'CONSTAT DE PRESCRIPTION / VEILLE CONCURRENTIELLE']
+    const pharmacyWidths = [150, 180, 180, 251]
     const medicalCapacity = 5
     const pharmacyCapacity = 5
     // Trois lignes vierges sont toujours ajoutées à la fin de chaque volet pour les ajouts manuscrits.
@@ -330,8 +330,10 @@ function drawTable(
         const lines = wrapText(value, font, 7.5, widths[i] - 10)
         const lineHeight = 9
         const maxLines = Math.max(1, Math.floor((rowHeight - 10) / lineHeight))
-        let textY = y - 7.5
-        for (const line of lines.slice(0, maxLines)) {
+        const visibleLines = lines.slice(0, maxLines)
+        const blockHeight = visibleLines.length * lineHeight
+        let textY = y - (rowHeight - blockHeight) / 2 - lineHeight + 2
+        for (const line of visibleLines) {
           page.drawText(line, { x: x + 5, y: textY, size: 7.5, font, color: INK, maxWidth: widths[i] - 10 })
           textY -= lineHeight
         }
