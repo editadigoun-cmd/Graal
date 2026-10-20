@@ -4,15 +4,22 @@ import { Card } from '@/components/ui/Card'
 import { PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { IconSearch, IconChevronRight, IconAlert } from '@/components/ui/icons'
+import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
 type ClientFreq = Database['public']['Views']['v_client_frequence']['Row']
 
 export default function Portefeuille() {
+  const { profile } = useAuth()
   const [clients, setClients] = useState<ClientFreq[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
+
+  const isFawaz = (profile?.full_name ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().includes('FAWAZ')
+  const secteurLabel = !isFawaz && profile?.secteur
+    ? `Secteur ${profile.secteur} uniquement`
+    : null
 
   useEffect(() => {
     supabase.from('v_client_frequence').select('*').order('nom')
@@ -29,7 +36,15 @@ export default function Portefeuille() {
 
   return (
     <div className="space-y-3 mt-2 pb-4">
-      <h1 className="text-lg font-bold text-ink-800 font-display">Portefeuille clients</h1>
+      <div className="space-y-2">
+        <h1 className="text-lg font-bold text-ink-800 font-display">Portefeuille clients</h1>
+        {secteurLabel && (
+          <div className="flex items-center gap-2 rounded-xl border border-royal-200 bg-royal-50 px-3 py-2.5 text-sm font-semibold text-royal-800" role="status">
+            <span className="h-2 w-2 flex-shrink-0 rounded-full bg-royal-600" />
+            <span>{secteurLabel}</span>
+          </div>
+        )}
+      </div>
 
       <div className="relative">
         <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
