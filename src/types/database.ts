@@ -303,6 +303,7 @@ export type Database = {
           photo_latitude: number | null
           photo_longitude: number | null
           photo_path: string | null
+          photo_paths: string[] | null
           statut: Database["public"]["Enums"]["statut_cloture"]
           vm_id: string
         }
@@ -545,6 +546,7 @@ export type Database = {
           photo_latitude: number | null
           photo_longitude: number | null
           photo_path: string | null
+          photo_paths: string[] | null
           statut: Database["public"]["Enums"]["statut_garde"]
           terminee_at: string | null
           vm_id: string
@@ -2138,12 +2140,12 @@ export type Database = {
         Returns: string
       }
       cloturer_journee: {
-        Args: {
-          p_photo_latitude: number
-          p_photo_longitude: number
-          p_photo_path: string
-        }
+        Args: { p_photo_latitude: number; p_photo_longitude: number; p_photo_path: string }
         Returns: Json
+      }
+      cloturer_journee_multi: {
+        Args: { p_photo_paths: string[]; p_photo_latitude: number; p_photo_longitude: number; p_reports?: Json }
+        Returns: boolean
       }
       coord_plausible: {
         Args: { p_lat: number; p_lon: number }
