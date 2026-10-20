@@ -177,8 +177,6 @@ export function usePlanning() {
     const debutCible = new Date(`${semaineDebut}T00:00:00Z`)
     debutCible.setUTCDate(debutCible.getUTCDate() - 7)
     const debutSemainePrecedente = debutCible.toISOString().slice(0, 10)
-    const finSemainePrecedente = new Date(`${semaineDebut}T00:00:00Z`)
-    finSemainePrecedente.setUTCDate(finSemainePrecedente.getUTCDate() - 1)
     const { data: visitesPrecedentes, error: visitesPrecedentesError } = await supabase
       .from('visites').select('client_id')
       .eq('vm_id', vmId)
