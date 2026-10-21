@@ -14,6 +14,12 @@ import dayjs from 'dayjs'
 
 type Ligne = Database['public']['Views']['v_lignes_avec_statut']['Row']
 type Visite = Database['public']['Tables']['visites']['Row'] & {
+  client_nom_libre?: string | null
+  client_specialite_libre?: string | null
+  client_centre_libre?: string | null
+  activites_menees?: string | null
+  motif_hors_programme_commentaire?: string | null
+  commande_photo_path?: string | null
   clients: { nom: string; potentiel: string; specialite: string; centre: string | null; secteur: string } | null
   visite_produits: { produits: { nom: string } | null }[]
 }
@@ -227,6 +233,11 @@ export default function SuiviTerrain() {
             <IconMapPin className="h-3 w-3" /> Voir la localisation
           </a>
         </div>
+        {v.client_nom_libre && <p className="text-ink-700"><strong>Client hors portefeuille :</strong> {v.client_nom_libre}</p>}
+        {v.client_specialite_libre && <p className="text-ink-600"><strong>Spécialité :</strong> {v.client_specialite_libre}</p>}
+        {v.client_centre_libre && <p className="text-ink-600"><strong>Centre :</strong> {v.client_centre_libre}</p>}
+        {v.hors_programme && v.motif_hors_programme_commentaire && <p className="text-ink-600 whitespace-pre-wrap"><strong>Raison hors programme :</strong> {v.motif_hors_programme_commentaire}</p>}
+        {v.activites_menees && <p className="text-ink-600 whitespace-pre-wrap"><strong>Activités menées :</strong> {v.activites_menees}</p>}
         {v.type_visite === 'MEDICAL' ? (
           <>
             {v.cachets_obtenus
@@ -461,7 +472,7 @@ export default function SuiviTerrain() {
                       <Card key={v.id}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-ink-800 truncate">{v.clients?.nom}</p>
+                            <p className="text-sm font-semibold text-ink-800 truncate">{v.clients?.nom ?? v.client_nom_libre ?? 'Client non renseigné'}</p>
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               {v.clients?.potentiel && <PotentielBadge potentiel={v.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
                               <span className="text-[11px] text-ink-400">{v.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
