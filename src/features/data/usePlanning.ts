@@ -26,7 +26,26 @@ export function usePlanning() {
     if (!session) return
     setLoading(true)
     const vmId = session.user.id
-    const semaineDebut = targetSemaineDebut()
+    const semaineActuelle = isoWeekMonday().format('YYYY-MM-DD')
+    let semaineDebut = targetSemaineDebut()
+
+    // Une prolongation accordée par l'administration doit primer sur l'ouverture
+    // automatique du planning de la semaine suivante.
+    const { data: programmeActuel, error: erreurProgrammeActuel } = await supabase
+      .from('programmes_hebdomadaires')
+      .select('delai_supplementaire_jusqu_a')
+      .eq('vm_id', vmId).eq('semaine_debut', semaineActuelle).maybeSingle()
+    if (erreurProgrammeActuel) {
+      setError(erreurProgrammeActuel.message)
+      setLoading(false)
+      return
+    }
+    if (
+      programmeActuel?.delai_supplementaire_jusqu_a &&
+      new Date(programmeActuel.delai_supplementaire_jusqu_a).getTime() > Date.now()
+    ) {
+      semaineDebut = semaineActuelle
+    }
 
     let { data: prog } = await supabase
       .from('programmes_hebdomadaires').select('*')
