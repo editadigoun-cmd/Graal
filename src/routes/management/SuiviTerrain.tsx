@@ -21,6 +21,13 @@ type Manquant = { programme_ligne_id: string; commentaire: string | null; motifs
 type ClotureRow = Database['public']['Tables']['clotures_journalieres']['Row']
 type GardeRow = Database['public']['Tables']['gardes']['Row']
 
+function afficherSpecialite(specialite: string): string {
+  return specialite
+    .replace(/[_-]+/g, ' ')
+    .toLocaleLowerCase('fr')
+    .replace(/(^|\s)\p{L}/gu, (lettre) => lettre.toLocaleUpperCase('fr'))
+}
+
 const STATUT_TONE: Record<string, 'success' | 'warning' | 'info' | 'neutral'> = {
   REALISEE: 'success',
   NON_FAITE: 'warning',
@@ -205,7 +212,7 @@ export default function SuiviTerrain() {
   }
 
   function DetailVisite({ v }: { v: Visite }) {
-    const produits = v.visite_produits.map((p) => p.produits?.nom).filter(Boolean)
+    const produits = v.visite_produits.map((p: { produits: { nom: string } | null }) => p.produits?.nom).filter(Boolean)
     return (
       <div className="mt-2 space-y-1.5 rounded-xl bg-ink-50 p-3 text-xs">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-ink-500">
