@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { IconChevronLeft, IconCheck, IconMapPin, IconClock, IconMinus, IconPlus, IconAlert } from '@/components/ui/icons'
+import { IconChevronLeft, IconCheck, IconMapPin, IconClock, IconAlert } from '@/components/ui/icons'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { supabase } from '@/lib/supabase'
@@ -17,16 +17,8 @@ type Ligne = Database['public']['Tables']['programme_lignes']['Row'] & {
 }
 type Produit = Database['public']['Tables']['produits']['Row']
 type Motif = Database['public']['Tables']['motifs_non_visite']['Row']
-type StockNiveau = Database['public']['Enums']['stock_niveau']
 type ClientRow = Database['public']['Tables']['clients']['Row']
 
-const PROMESSES_OPTIONS = ['Recommandation confirmée', 'Essai produit accepté', 'Commande envisagée', 'Aucune promesse cette fois']
-const STOCK_OPTIONS: { value: StockNiveau; label: string; color: string }[] = [
-  { value: 'RUPTURE', label: 'Rupture', color: 'bg-red-500' },
-  { value: 'FAIBLE', label: 'Faible', color: 'bg-flame-500' },
-  { value: 'CORRECT', label: 'Correct', color: 'bg-royal-500' },
-  { value: 'BON', label: 'Bon', color: 'bg-emerald-500' }
-]
 
 export default function VisiteDetail() {
   const { ligneId } = useParams()
@@ -272,12 +264,12 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
 }) {
   const { profile } = useAuth()
   const [produitsCatalogue, setProduitsCatalogue] = useState<Produit[]>([])
-  const [cachetProspect, setCachetProspect] = useState(false)
-  const [cachetCentre, setCachetCentre] = useState(false)
+  const [cachetsObtenus, setCachetsObtenus] = useState('')
   const [produits, setProduits] = useState<string[]>([])
-  const [promesse, setPromesse] = useState('')
-  const [promesseLibre, setPromesseLibre] = useState('')
-  const [prescriptions, setPrescriptions] = useState(0)
+  const [engagementsPrescription, setEngagementsPrescription] = useState('')
+  const [produitsHabituels, setProduitsHabituels] = useState('')
+  const [constatsPrescription, setConstatsPrescription] = useState('')
+  const [resumeVisite, setResumeVisite] = useState('')
 
   useEffect(() => {
     if (!profile?.equipe_id) return
@@ -289,11 +281,8 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
 
   const content = (
     <>
-      <FieldLabel>Cachets obtenus</FieldLabel>
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        <Checkbox label="Cachet prospect" checked={cachetProspect} onChange={setCachetProspect} />
-        <Checkbox label="Cachet centre" checked={cachetCentre} onChange={setCachetCentre} />
-      </div>
+      <FieldLabel>Cachets / documents obtenus (si applicable)</FieldLabel>
+      <textarea value={cachetsObtenus} onChange={(e) => setCachetsObtenus(e.target.value)} rows={2} placeholder="Décrire librement les cachets ou documents obtenus…" className={`${selectClass} mb-4`} />
 
       <FieldLabel>Produits présentés</FieldLabel>
       <div className="flex flex-wrap gap-2 mb-4">
@@ -305,19 +294,17 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
         ))}
       </div>
 
-      <FieldLabel>Promesses obtenues</FieldLabel>
-      <select value={promesse} onChange={(e) => setPromesse(e.target.value)} className={`${selectClass} mb-2`}>
-        <option value="">Sélectionner…</option>
-        {PROMESSES_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-      <input value={promesseLibre} onChange={(e) => setPromesseLibre(e.target.value)} placeholder="Précision libre (optionnel)" className={`${selectClass} mb-4`} />
+      <FieldLabel>Engagements de prescription obtenus</FieldLabel>
+      <textarea value={engagementsPrescription} onChange={(e) => setEngagementsPrescription(e.target.value)} rows={3} placeholder="Nommer les produits que le professionnel s'engage à prescrire et préciser les engagements…" className={`${selectClass} mb-4`} />
 
-      <FieldLabel>Prescriptions constatées</FieldLabel>
-      <div className="flex items-center gap-4 mb-2">
-        <button onClick={() => setPrescriptions((n) => Math.max(0, n - 1))} className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink-100 text-ink-600"><IconMinus className="h-4 w-4" /></button>
-        <span className="w-10 text-center text-xl font-bold font-display">{prescriptions}</span>
-        <button onClick={() => setPrescriptions((n) => n + 1)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-royal-50 text-royal-600"><IconPlus className="h-4 w-4" /></button>
-      </div>
+      <FieldLabel>Produits habituels de prescription</FieldLabel>
+      <textarea value={produitsHabituels} onChange={(e) => setProduitsHabituels(e.target.value)} rows={3} placeholder="Nom des produits habituellement prescrits, avec toute précision utile…" className={`${selectClass} mb-4`} />
+
+      <FieldLabel>Constats de prescription</FieldLabel>
+      <textarea value={constatsPrescription} onChange={(e) => setConstatsPrescription(e.target.value)} rows={4} placeholder="Nom du ou des produits constatés et commentaires associés…" className={`${selectClass} mb-4`} />
+
+      <FieldLabel>Résumé de la visite</FieldLabel>
+      <textarea value={resumeVisite} onChange={(e) => setResumeVisite(e.target.value)} rows={4} placeholder="Résumé libre de l'échange, besoins, objections et prochaines étapes…" className={selectClass} />
     </>
   )
 
@@ -326,9 +313,11 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
       {hideCard ? content : <Card>{content}</Card>}
       <Button fullWidth loading={saving} icon={<IconCheck className="h-4 w-4" />}
         onClick={() => onSubmit({
-          cachet_prospect: cachetProspect, cachet_centre: cachetCentre,
-          promesses_obtenues: promesse || null, promesses_libre: promesseLibre || null,
-          prescriptions_constatees: prescriptions
+          cachets_obtenus: cachetsObtenus.trim() || null,
+          engagements_prescription: engagementsPrescription.trim() || null,
+          produits_habituels_prescription: produitsHabituels.trim() || null,
+          constats_prescription: constatsPrescription.trim() || null,
+          resume_visite: resumeVisite.trim() || null,
         }, produits)}
       >
         Enregistrer et passer au suivant
@@ -342,28 +331,45 @@ export function PharmacieFields({ onSubmit, saving, hideCard }: {
   saving: boolean
   hideCard?: boolean
 }) {
-  const [stock, setStock] = useState<StockNiveau | ''>('')
+  const { profile } = useAuth()
+  const [produitsCatalogue, setProduitsCatalogue] = useState<Produit[]>([])
+  const [produits, setProduits] = useState<string[]>([])
+  const [stock, setStock] = useState('')
   const [commande, setCommande] = useState('')
   const [veille, setVeille] = useState('')
+  const [resumeVisite, setResumeVisite] = useState('')
+
+  useEffect(() => {
+    if (!profile?.equipe_id) return
+    supabase.from('produits').select('*').eq('actif', true).eq('equipe_id', profile.equipe_id).order('nom')
+      .then(({ data }) => setProduitsCatalogue(data ?? []))
+  }, [profile?.equipe_id])
+
+  const toggleProduit = (id: string) => setProduits((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
 
   const content = (
     <>
-      <FieldLabel>Stock disponible</FieldLabel>
-      <div className="grid grid-cols-4 gap-2 mb-4">
-        {STOCK_OPTIONS.map((o) => (
-          <button key={o.value} onClick={() => setStock(o.value)}
-            className={`flex flex-col items-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold transition ${stock === o.value ? 'bg-ink-800 text-white' : 'bg-ink-100 text-ink-500'}`}>
-            <span className={`h-2.5 w-2.5 rounded-full ${o.color}`} />
-            {o.label}
+      <FieldLabel>Produits présentés</FieldLabel>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {produitsCatalogue.map((p) => (
+          <button type="button" key={p.id} onClick={() => toggleProduit(p.id)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${produits.includes(p.id) ? 'bg-royal-600 text-white' : 'bg-ink-100 text-ink-500'}`}>
+            {p.nom}
           </button>
         ))}
       </div>
 
+      <FieldLabel>Stock observé</FieldLabel>
+      <textarea value={stock} onChange={(e) => setStock(e.target.value)} rows={2} placeholder="Décrire librement les stocks et les produits concernés…" className={`${selectClass} mb-4`} />
+
       <FieldLabel>Commande obtenue</FieldLabel>
-      <input value={commande} onChange={(e) => setCommande(e.target.value)} placeholder="Quantité / montant" className={`${selectClass} mb-4`} />
+      <textarea value={commande} onChange={(e) => setCommande(e.target.value)} rows={2} placeholder="Produits, quantités, montant et commentaires…" className={`${selectClass} mb-4`} />
 
       <FieldLabel>Veille concurrentielle</FieldLabel>
-      <textarea value={veille} onChange={(e) => setVeille(e.target.value)} rows={2} placeholder="Observations sur la concurrence…" className={selectClass} />
+      <textarea value={veille} onChange={(e) => setVeille(e.target.value)} rows={3} placeholder="Produits concurrents, prix, disponibilité et observations…" className={`${selectClass} mb-4`} />
+
+      <FieldLabel>Résumé de la visite</FieldLabel>
+      <textarea value={resumeVisite} onChange={(e) => setResumeVisite(e.target.value)} rows={4} placeholder="Résumé libre de l'échange et prochaines étapes…" className={selectClass} />
     </>
   )
 
@@ -371,7 +377,7 @@ export function PharmacieFields({ onSubmit, saving, hideCard }: {
     <div className="space-y-4">
       {hideCard ? content : <Card>{content}</Card>}
       <Button fullWidth loading={saving} icon={<IconCheck className="h-4 w-4" />}
-        onClick={() => onSubmit({ stock_disponible: stock || null, commande_obtenue: commande || null, veille_concurrentielle: veille || null }, [])}
+        onClick={() => onSubmit({ stock_disponible: null, stock_observe: stock.trim() || null, commande_obtenue: commande.trim() || null, veille_concurrentielle: veille.trim() || null, resume_visite: resumeVisite.trim() || null }, produits)}
       >
         Enregistrer et passer au suivant
       </Button>
