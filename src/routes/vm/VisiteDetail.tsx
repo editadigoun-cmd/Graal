@@ -224,23 +224,45 @@ function HorsProgrammeForm() {
       </div>
 
       <Card>
-        <FieldLabel>Client du portefeuille (facultatif si saisie manuelle)</FieldLabel>
-        <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={selectClass}>
+        <FieldLabel>Client du portefeuille</FieldLabel>
+        <select value={clientId === SAISIE_MANUELLE ? '' : clientId} onChange={(e) => setClientId(e.target.value)} className={selectClass}>
           <option value="">Sélectionner un client…</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-          <option value={SAISIE_MANUELLE}>Client absent du portefeuille — saisir manuellement</option>
         </select>
         {client && <div className="mt-2"><PotentielBadge potentiel={client.potentiel} compact /></div>}
-        {clientId === SAISIE_MANUELLE && (
-          <div className="mt-3 space-y-3 rounded-xl border border-ink-200 p-3">
-            <FieldLabel>{typeVisite === 'MEDICAL' ? 'Nom du médecin' : 'Nom de la pharmacie'}</FieldLabel>
-            <input value={nomLibre} onChange={(e) => setNomLibre(e.target.value)} className={selectClass} placeholder={typeVisite === 'MEDICAL' ? 'Nom et prénoms du médecin' : 'Nom de la pharmacie'} />
-            {typeVisite === 'MEDICAL' && <>
-              <FieldLabel>Spécialité du médecin</FieldLabel>
-              <input value={specialiteLibre} onChange={(e) => setSpecialiteLibre(e.target.value)} className={selectClass} placeholder="Saisir la spécialité" />
-            </>}
-            <FieldLabel>Centre / établissement</FieldLabel>
-            <input value={centreLibre} onChange={(e) => setCentreLibre(e.target.value)} className={selectClass} placeholder="Nom du centre ou de l'établissement" />
+
+        {clientId !== SAISIE_MANUELLE ? (
+          <button type="button" onClick={() => { setClientId(SAISIE_MANUELLE); setError(null) }}
+            className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl border border-dashed border-royal-300 bg-royal-50 px-3 py-2.5 text-left transition hover:border-royal-500 hover:bg-royal-100">
+            <span className="min-w-0">
+              <span className="block text-xs font-semibold text-royal-800">Client absent du portefeuille ?</span>
+              <span className="mt-0.5 block text-[11px] text-royal-700">Saisir ses informations manuellement</span>
+            </span>
+            <span aria-hidden="true" className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-white text-lg font-medium text-royal-700">+</span>
+          </button>
+        ) : (
+          <div className="mt-3 rounded-xl border border-royal-200 bg-royal-50 p-3">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold text-royal-800">Saisie manuelle du client</p>
+                <p className="mt-0.5 text-[11px] text-royal-700">Le client sera enregistré sans être ajouté au portefeuille.</p>
+              </div>
+              <button type="button" onClick={() => setClientId('')} className="flex-shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-royal-700 hover:bg-white">Annuler</button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <FieldLabel>{typeVisite === 'MEDICAL' ? 'Nom du médecin' : 'Nom de la pharmacie'}</FieldLabel>
+                <input value={nomLibre} onChange={(e) => setNomLibre(e.target.value)} className={selectClass} placeholder={typeVisite === 'MEDICAL' ? 'Nom et prénoms du médecin' : 'Nom de la pharmacie'} />
+              </div>
+              {typeVisite === 'MEDICAL' && <div>
+                <FieldLabel>Spécialité du médecin</FieldLabel>
+                <input value={specialiteLibre} onChange={(e) => setSpecialiteLibre(e.target.value)} className={selectClass} placeholder="Saisir la spécialité" />
+              </div>}
+              <div>
+                <FieldLabel>Centre / établissement</FieldLabel>
+                <input value={centreLibre} onChange={(e) => setCentreLibre(e.target.value)} className={selectClass} placeholder="Nom du centre ou de l'établissement" />
+              </div>
+            </div>
           </div>
         )}
 
