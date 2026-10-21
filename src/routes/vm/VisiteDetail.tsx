@@ -16,7 +16,6 @@ type Ligne = Database['public']['Tables']['programme_lignes']['Row'] & {
   clients: Database['public']['Tables']['clients']['Row'] | null
 }
 type Produit = Database['public']['Tables']['produits']['Row']
-type Motif = Database['public']['Tables']['motifs_non_visite']['Row']
 type ClientRow = Database['public']['Tables']['clients']['Row']
 
 
@@ -390,6 +389,7 @@ export function PharmacieFields({ onSubmit, saving, hideCard }: {
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [veille, setVeille] = useState('')
   const [resumeVisite, setResumeVisite] = useState('')
+  const [activitesMenees, setActivitesMenees] = useState('')
 
   useEffect(() => {
     if (!profile?.equipe_id) return
