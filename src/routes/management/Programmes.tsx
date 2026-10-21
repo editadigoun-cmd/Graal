@@ -247,7 +247,8 @@ export default function ManagementProgrammes() {
   if (loading) return <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-24" /></div>
 
   const soumis = programmes.filter((p) => p.statut === 'SOUMIS')
-  const autres = programmes.filter((p) => p.statut !== 'SOUMIS')
+  const enCours = programmes.filter((p) => p.statut === 'BROUILLON')
+  const autres = programmes.filter((p) => p.statut !== 'SOUMIS' && p.statut !== 'BROUILLON')
   const valides = programmes.filter((p) => p.statut === 'VALIDE' || p.statut === 'VERROUILLE').length
   const brouillonsEnRetard = brouillons.filter((b) => deadlinePassee(b.semaine_debut))
 
@@ -347,6 +348,30 @@ export default function ManagementProgrammes() {
                     ))}
                   </div>
                 )}
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <p className="text-sm font-bold text-ink-600 mb-3">Programmes en cours de programmation ({enCours.length})</p>
+        {enCours.length === 0 ? (
+          <Card className="text-sm text-ink-400 text-center py-5">Aucun programme en cours de programmation.</Card>
+        ) : (
+          <div className="grid lg:grid-cols-2 gap-3">
+            {enCours.map((p) => (
+              <Card key={p.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-ink-800 truncate">{p.profiles?.full_name}</p>
+                    <p className="text-xs text-ink-500">Semaine du {dayjs(p.semaine_debut).format('DD/MM/YYYY')}</p>
+                    <p className="mt-1 text-[11px] text-amber-700">Brouillon — le VM/PM peut encore programmer ses journées.</p>
+                  </div>
+                  <Button size="sm" variant="secondary" icon={<IconEye className="h-3.5 w-3.5" />} onClick={() => ouvrirDetail(p)}>
+                    Ouvrir
+                  </Button>
+                </div>
               </Card>
             ))}
           </div>
