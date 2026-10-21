@@ -241,9 +241,10 @@ export default function SuiviTerrain() {
           ) : (
             <>
               <div className="space-y-3">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                   <StatCard label="Prévues" value={total} tone="ink" icon={<IconClock className="h-4 w-4" />} />
                   <StatCard label="Réalisées" value={realisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
+                  <StatCard label="Non visitées" value={Math.max(0, total - realisees)} tone="flame" icon={<IconAlert className="h-4 w-4" />} />
                   <StatCard label="Non faites" value={nonFaites} tone="flame" icon={<IconAlert className="h-4 w-4" />} />
                   <StatCard label="Restantes" value={enAttente} tone="royal" icon={<IconClock className="h-4 w-4" />} />
                 </div>
