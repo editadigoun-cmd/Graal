@@ -9,7 +9,7 @@ import { useVisitesDuJour } from '@/features/data/useVisitesDuJour'
 import { useOfflineClotureSync } from '@/hooks/useOfflineClotureSync'
 import { savePendingCloture, getPendingCloture, type MotifLocal } from '@/lib/offlineCloture'
 import { supabase } from '@/lib/supabase'
-import { todayBenin } from '@/lib/time'
+import { todayBenin, isoWeekMonday } from '@/lib/time'
 import type { Database } from '@/types/database'
 
 type Motif = Database['public']['Tables']['motifs_non_visite']['Row']
@@ -23,10 +23,11 @@ export default function Cloture() {
   const [motifs, setMotifs] = useState<Motif[]>([])
   const [motifChoisi, setMotifChoisi] = useState<Record<string, string>>({})
   const [commentaires, setCommentaires] = useState<Record<string, string>>({})
+  const [reportSelection, setReportSelection] = useState<Record<string, string>>({})
   const [motifsLocaux, setMotifsLocaux] = useState<Record<string, MotifLocal>>({})
   const [saving, setSaving] = useState<string | null>(null)
-  const [photo, setPhoto] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [cloturing, setCloturing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -70,17 +71,34 @@ export default function Cloture() {
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
+    e.target.value = ''
     if (!f) return
-    setPhoto(f)
-    setPhotoPreview(URL.createObjectURL(f))
+    setPhotos((current) => [...current, f])
+    setPhotoPreviews((current) => [...current, URL.createObjectURL(f)])
   }
 
-  const restantesSansMotif = manquantes.filter((l) => !dejaMotivees.has(l.programme_ligne_id))
+  function retirerPhoto(index: number) {
+    setPhotos((current) => current.filter((_, i) => i !== index))
+    setPhotoPreviews((current) => {
+      const url = current[index]
+      if (url) URL.revokeObjectURL(url)
+      return current.filter((_, i) => i !== index)
+    })
+  }
+
+  const datesReportables = Array.from({ length: 5 }, (_, i) => isoWeekMonday().add(i, 'day'))
+    .filter((d) => d.isAfter(todayBenin(), 'day'))
+  const reportsSelectionnes = Object.entries(reportSelection).filter(([, date]) => !!date)
+  const restantesSansMotif = manquantes.filter((l) => {
+    const ligneEtendue = l as typeof l & { reportee?: boolean; date_report?: string | null }
+    const reportDuJour = datesReportables.length > 0 && ligneEtendue.reportee && ligneEtendue.date_report === todayBenin().format('YYYY-MM-DD')
+    return !reportSelection[l.programme_ligne_id] && (!dejaMotivees.has(l.programme_ligne_id) || reportDuJour)
+  })
 
   async function handleCloture() {
     if (!session) return
-    if (restantesSansMotif.length > 0) { setError('Un motif est requis pour chaque visite manquante.'); return }
-    if (!photo) { setError('La photo de la fiche papier est obligatoire.'); return }
+    if (restantesSansMotif.length > 0) { setError('Chaque visite manquante doit avoir un motif ou être reportée. Une visite déjà reportée mais non réalisée doit être reportée à nouveau.'); return }
+    if (photos.length === 0) { setError('Prends au moins une photo de la fiche papier avec la caméra.'); return }
     if (geo.status !== 'ok' || geo.latitude === null || geo.longitude === null) { setError('Position GPS requise pour clôturer.'); return }
     const latitude = geo.latitude
     const longitude = geo.longitude
@@ -91,28 +109,35 @@ export default function Cloture() {
 
     if (!navigator.onLine) {
       await savePendingCloture({
-        jour, photoBlob: photo, photoType: photo.type, latitude, longitude,
-        motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString()
+        jour, photoBlobs: photos, photoTypes: photos.map((p) => p.type), latitude, longitude,
+        motifsLocaux: Object.values(motifsLocaux), reports: reportsSelectionnes.map(([programme_ligne_id, jour_report]) => ({ programme_ligne_id, jour_report })), createdAt: new Date().toISOString()
       })
       setCloturing(false)
       setDoneOffline(true)
       return
     }
 
-    const path = `${session.user.id}/${jour}-${Date.now()}.jpg`
-    const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: photo.type })
-    if (uploadError) {
-      if (!navigator.onLine) {
-        await savePendingCloture({ jour, photoBlob: photo, photoType: photo.type, latitude, longitude, motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString() })
-        setCloturing(false)
-        setDoneOffline(true)
-        return
+    const paths: string[] = []
+    for (let i = 0; i < photos.length; i++) {
+      const photo = photos[i]
+      const extension = photo.type.includes('png') ? 'png' : photo.type.includes('webp') ? 'webp' : 'jpg'
+      const path = `${session.user.id}/${jour}-${Date.now()}-${i + 1}.${extension}`
+      const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: photo.type })
+      if (uploadError) {
+        if (!navigator.onLine) {
+          await savePendingCloture({ jour, photoBlobs: photos, photoTypes: photos.map((p) => p.type), latitude, longitude, motifsLocaux: Object.values(motifsLocaux), reports: reportsSelectionnes.map(([programme_ligne_id, jour_report]) => ({ programme_ligne_id, jour_report })), createdAt: new Date().toISOString() })
+          setCloturing(false)
+          setDoneOffline(true)
+          return
+        }
+        setError(uploadError.message); setCloturing(false); return
       }
-      setError(uploadError.message); setCloturing(false); return
+      paths.push(path)
     }
 
-    const { data, error: rpcError } = await supabase.rpc('cloturer_journee', {
-      p_photo_path: path, p_photo_latitude: latitude, p_photo_longitude: longitude
+    const { data, error: rpcError } = await (supabase as any).rpc('cloturer_journee_multi', {
+      p_photo_paths: paths, p_photo_latitude: latitude, p_photo_longitude: longitude,
+      p_reports: reportsSelectionnes.map(([programme_ligne_id, jour_report]) => ({ programme_ligne_id, jour_report }))
     })
 
     setCloturing(false)
@@ -182,7 +207,36 @@ export default function Cloture() {
                   <p className="text-sm font-semibold text-ink-800">{l.client_nom}</p>
                   {motive && <IconCheckCircle className="h-4 w-4 text-emerald-600" />}
                 </div>
-                {!motive && (
+                {datesReportables.length > 0 && (
+                  <div className="mb-3 rounded-xl border border-royal-100 bg-royal-50 p-3">
+                    <label className="mb-1 block text-xs font-semibold text-royal-800">Reporter cette visite vers un autre jour</label>
+                    <select
+                      value={reportSelection[l.programme_ligne_id!] ?? ''}
+                      onChange={(e) => {
+                        const target = e.target.value
+                        if (target) {
+                          const total = Object.values(reportSelection).filter(Boolean).length
+                          const sameDay = Object.entries(reportSelection).filter(([id, date]) => id !== l.programme_ligne_id && date === target).length
+                          if (!reportSelection[l.programme_ligne_id!] && total >= 5) { setError('Maximum 5 visites reportées dans la semaine.'); return }
+                          if (sameDay >= 2) { setError('Maximum 2 visites reportées vers le même jour.'); return }
+                        }
+                        setError(null)
+                        setReportSelection((s) => {
+                          const next = { ...s }
+                          if (target) next[l.programme_ligne_id!] = target
+                          else delete next[l.programme_ligne_id!]
+                          return next
+                        })
+                      }}
+                      className="w-full rounded-xl border border-royal-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">Ne pas reporter</option>
+                      {datesReportables.map((d) => <option key={d.format('YYYY-MM-DD')} value={d.format('YYYY-MM-DD')}>{d.format('dddd D MMMM')}</option>)}
+                    </select>
+                    {reportSelection[l.programme_ligne_id!] && <p className="mt-1 text-[11px] text-royal-700">Cette visite apparaîtra à part dans les visites du {reportSelection[l.programme_ligne_id!] ? datesReportables.find((d) => d.format('YYYY-MM-DD') === reportSelection[l.programme_ligne_id!])?.format('dddd D MMMM') : ''}. Aucun motif n'est nécessaire pour ce report.</p>}
+                  </div>
+                )}
+                {!motive && !reportSelection[l.programme_ligne_id!] && (
                   <>
                     <select
                       value={motifChoisi[l.programme_ligne_id!] ?? ''}
@@ -212,26 +266,34 @@ export default function Cloture() {
       )}
 
       <Card>
-        <p className="text-sm font-bold text-ink-800 mb-3">Photo de la fiche papier</p>
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
-        {photoPreview ? (
-          <div className="relative">
-            <img src={photoPreview} alt="Fiche papier" className="w-full rounded-2xl object-cover max-h-64" />
-            <button onClick={() => fileRef.current?.click()} className="absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold shadow">Reprendre</button>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="text-sm font-bold text-ink-800">Photos de la fiche papier</p>
+          <span className="text-xs text-ink-400">{photos.length} photo{photos.length > 1 ? 's' : ''}</span>
+        </div>
+        <input key={photos.length} ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onClick={(e) => { e.currentTarget.value = "" }} onChange={handlePhoto} />
+        {photoPreviews.length > 0 && (
+          <div className="mb-3 grid grid-cols-2 gap-3">
+            {photoPreviews.map((src, index) => (
+              <div key={src} className="relative">
+                <img src={src} alt={`Photo de clôture ${index + 1}`} className="h-36 w-full rounded-xl object-cover" />
+                <span className="absolute left-2 top-2 rounded-full bg-ink-800/75 px-2 py-1 text-[10px] text-white">{index + 1}</span>
+                <button type="button" onClick={() => retirerPhoto(index)} className="absolute right-2 top-2 rounded-full bg-white px-2 py-1 text-xs font-bold shadow" aria-label={`Supprimer la photo ${index + 1}`}>×</button>
+              </div>
+            ))}
           </div>
-        ) : (
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-10 text-royal-600"
-          >
-            <IconCamera className="h-8 w-8" />
-            <span className="text-sm font-semibold">Prendre en photo la fiche papier</span>
-            <span className="text-[11px] text-ink-400">Cadrez la fiche entière dans le viseur</span>
-          </button>
         )}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-6 text-royal-600"
+        >
+          <IconCamera className="h-7 w-7" />
+          <span className="text-sm font-semibold">{photos.length ? 'Prendre une autre photo' : 'Ouvrir la caméra et prendre une photo'}</span>
+          <span className="text-[11px] text-ink-400">La galerie n’est pas utilisée : chaque ajout ouvre la caméra</span>
+        </button>
       </Card>
 
-      <Button fullWidth loading={cloturing} onClick={handleCloture} disabled={restantesSansMotif.length > 0 || !photo}>
+      <Button fullWidth loading={cloturing} onClick={handleCloture} disabled={restantesSansMotif.length > 0 || photos.length === 0}>
         Valider la clôture
       </Button>
     </div>
