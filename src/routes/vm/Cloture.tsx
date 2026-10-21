@@ -90,9 +90,11 @@ export default function Cloture() {
     .filter((d) => d.isAfter(todayBenin(), 'day'))
   const reportsSelectionnes = Object.entries(reportSelection).filter(([, date]) => !!date)
   const restantesSansMotif = manquantes.filter((l) => {
+    const ligneId = l.programme_ligne_id
+    if (!ligneId) return true
     const ligneEtendue = l as typeof l & { reportee?: boolean; date_report?: string | null }
     const reportDuJour = datesReportables.length > 0 && ligneEtendue.reportee && ligneEtendue.date_report === todayBenin().format('YYYY-MM-DD')
-    return !reportSelection[l.programme_ligne_id] && (!dejaMotivees.has(l.programme_ligne_id) || reportDuJour)
+    return !reportSelection[ligneId] && (!dejaMotivees.has(ligneId) || reportDuJour)
   })
 
   async function handleCloture() {
