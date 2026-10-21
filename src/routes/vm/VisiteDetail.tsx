@@ -347,6 +347,9 @@ export function PharmacieFields({ onSubmit, saving, hideCard }: {
   const [produits, setProduits] = useState<string[]>([])
   const [stock, setStock] = useState('')
   const [commande, setCommande] = useState('')
+  const [commandePhoto, setCommandePhoto] = useState<File | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoError, setPhotoError] = useState<string | null>(null)
   const [veille, setVeille] = useState('')
   const [resumeVisite, setResumeVisite] = useState('')
 
@@ -357,6 +360,45 @@ export function PharmacieFields({ onSubmit, saving, hideCard }: {
   }, [profile?.equipe_id])
 
   const toggleProduit = (id: string) => setProduits((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
+
+  async function handleSubmit() {
+    setPhotoError(null)
+    const commandeSaisie = commande.trim()
+    if (commandeSaisie && !commandePhoto) {
+      setPhotoError('Ajoutez une photo de la commande pour justifier la commande déclarée.')
+      return
+    }
+
+    let commandePhotoPath: string | null = null
+    if (commandeSaisie && commandePhoto) {
+      if (!navigator.onLine) {
+        setPhotoError('Une connexion Internet est nécessaire pour envoyer la photo de commande.')
+        return
+      }
+      setUploadingPhoto(true)
+      const extension = commandePhoto.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+      const path = `${profile?.id ?? 'utilisateur'}/${crypto.randomUUID()}.${extension}`
+      const { error } = await supabase.storage.from('preuves-commandes').upload(path, commandePhoto, {
+        contentType: commandePhoto.type || 'image/jpeg',
+        upsert: false,
+      })
+      setUploadingPhoto(false)
+      if (error) {
+        setPhotoError(`Impossible d'envoyer la photo : ${error.message}`)
+        return
+      }
+      commandePhotoPath = path
+    }
+
+    onSubmit({
+      stock_disponible: null,
+      stock_observe: stock.trim() || null,
+      commande_obtenue: commandeSaisie || null,
+      commande_photo_path: commandePhotoPath,
+      veille_concurrentielle: veille.trim() || null,
+      resume_visite: resumeVisite.trim() || null,
+    }, produits)
+  }
 
   const content = (
     <>
@@ -374,7 +416,23 @@ export function PharmacieFields({ onSubmit, saving, hideCard }: {
       <textarea value={stock} onChange={(e) => setStock(e.target.value)} rows={2} placeholder="Décrire librement les stocks et les produits concernés…" className={`${selectClass} mb-4`} />
 
       <FieldLabel>Commande obtenue</FieldLabel>
-      <textarea value={commande} onChange={(e) => setCommande(e.target.value)} rows={2} placeholder="Produits, quantités, montant et commentaires…" className={`${selectClass} mb-4`} />
+      <textarea value={commande} onChange={(e) => setCommande(e.target.value)} rows={2} placeholder="Produits, quantités, montant et commentaires…" className={`${selectClass} mb-2`} />
+      <div className="mb-4 rounded-xl border border-ink-200 bg-ink-50 p-3">
+        <label className="block text-xs font-semibold text-ink-600 mb-2">
+          Photo justificative de la commande
+          {commande.trim() && <span className="text-red-600"> · obligatoire si une commande est déclarée</span>}
+        </label>
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={(e) => { setCommandePhoto(e.target.files?.[0] ?? null); setPhotoError(null) }}
+          className="block w-full text-xs text-ink-600 file:mr-3 file:rounded-lg file:border-0 file:bg-royal-600 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
+        />
+        {commandePhoto && <p className="mt-2 text-xs text-ink-600">Photo sélectionnée : {commandePhoto.name}</p>}
+        {photoError && <p role="alert" className="mt-2 text-xs font-medium text-red-600">{photoError}</p>}
+        <p className="mt-2 text-[11px] text-ink-400">Prenez ou choisissez une photo lisible du bon de commande ou du justificatif, sans données personnelles inutiles.</p>
+      </div>
 
       <FieldLabel>Veille concurrentielle</FieldLabel>
       <textarea value={veille} onChange={(e) => setVeille(e.target.value)} rows={3} placeholder="Produits concurrents, prix, disponibilité et observations…" className={`${selectClass} mb-4`} />
@@ -387,14 +445,15 @@ export function PharmacieFields({ onSubmit, saving, hideCard }: {
   return (
     <div className="space-y-4">
       {hideCard ? content : <Card>{content}</Card>}
-      <Button fullWidth loading={saving} icon={<IconCheck className="h-4 w-4" />}
-        onClick={() => onSubmit({ stock_disponible: null, stock_observe: stock.trim() || null, commande_obtenue: commande.trim() || null, veille_concurrentielle: veille.trim() || null, resume_visite: resumeVisite.trim() || null }, produits)}
+      <Button fullWidth loading={saving || uploadingPhoto} icon={<IconCheck className="h-4 w-4" />}
+        onClick={handleSubmit}
       >
-        Enregistrer et passer au suivant
+        {uploadingPhoto ? 'Envoi de la photo…' : 'Enregistrer et passer au suivant'}
       </Button>
     </div>
   )
 }
+
 
 export function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
