@@ -7,7 +7,7 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useVisitesDuJour } from '@/features/data/useVisitesDuJour'
 import { useOfflineClotureSync } from '@/hooks/useOfflineClotureSync'
-import { savePendingCloture, getPendingCloture, type MotifLocal } from '@/lib/offlineCloture'
+import { savePendingCloture, getPendingCloture, type MotifLocal, type ReportLocal } from '@/lib/offlineCloture'
 import { supabase } from '@/lib/supabase'
 import { todayBenin } from '@/lib/time'
 import type { Database } from '@/types/database'
@@ -24,6 +24,7 @@ export default function Cloture() {
   const [motifChoisi, setMotifChoisi] = useState<Record<string, string>>({})
   const [commentaires, setCommentaires] = useState<Record<string, string>>({})
   const [motifsLocaux, setMotifsLocaux] = useState<Record<string, MotifLocal>>({})
+  const [reports, setReports] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [photos, setPhotos] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
@@ -78,7 +79,14 @@ export default function Cloture() {
     setPhotoPreviews((current) => { if (current[index]) URL.revokeObjectURL(current[index]); return current.filter((_, i) => i !== index) })
   }
 
-  const restantesSansMotif = manquantes.filter((l) => !dejaMotivees.has(l.programme_ligne_id))
+  const restantesSansMotif = manquantes.filter((l) => !dejaMotivees.has(l.programme_ligne_id) && !reports[l.programme_ligne_id])
+  const jourCourant = todayBenin()
+  const lundi = jourCourant.subtract((jourCourant.day() + 6) % 7, 'day')
+  const joursReportPossibles = [0, 1, 2, 3, 4].map((offset) => lundi.add(offset, 'day'))
+    .filter((date) => date.isAfter(jourCourant, 'day'))
+  const reportsAEnvoyer: ReportLocal[] = Object.entries(reports)
+    .filter(([, jourReport]) => Boolean(jourReport))
+    .map(([programmeLigneId, jourReport]) => ({ programmeLigneId, jourReport }))
 
   async function handleCloture() {
     if (!session) return
@@ -93,7 +101,7 @@ export default function Cloture() {
     setError(null)
 
     if (!navigator.onLine) {
-      await savePendingCloture({ jour, photoBlobs: photos, photoTypes: photos.map((p) => p.type), latitude, longitude, motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString() })
+      await savePendingCloture({ jour, photoBlobs: photos, photoTypes: photos.map((p) => p.type), latitude, longitude, motifsLocaux: Object.values(motifsLocaux), reports: reportsAEnvoyer, createdAt: new Date().toISOString() })
       setCloturing(false)
       setDoneOffline(true)
       return
@@ -110,7 +118,7 @@ export default function Cloture() {
       }
       paths.push(path)
     }
-    const { data, error: rpcError } = await supabase.rpc('cloturer_journee_multi', { p_photo_paths: paths, p_photo_latitude: latitude, p_photo_longitude: longitude, p_reports: Object.values(motifsLocaux).map((m) => ({ programme_ligne_id: m.programmeLigneId, motif_id: m.motifId, commentaire: m.commentaire })) })
+    const { data, error: rpcError } = await supabase.rpc('cloturer_journee_multi', { p_photo_paths: paths, p_photo_latitude: latitude, p_photo_longitude: longitude, p_reports: reportsAEnvoyer.map((r) => ({ programme_ligne_id: r.programmeLigneId, jour_report: r.jourReport })) })
 
     setCloturing(false)
     if (rpcError) setError(rpcError.message)
@@ -179,7 +187,29 @@ export default function Cloture() {
                   <p className="text-sm font-semibold text-ink-800">{l.client_nom}</p>
                   {motive && <IconCheckCircle className="h-4 w-4 text-emerald-600" />}
                 </div>
-                {!motive && (
+                <label className="mb-2 block text-xs font-semibold text-ink-500">Que faire de cette visite ?</label>
+                <select
+                  value={reports[l.programme_ligne_id!] ?? ''}
+                  onChange={(e) => setReports((r) => {
+                    const next = { ...r }
+                    if (e.target.value) next[l.programme_ligne_id!] = e.target.value
+                    else delete next[l.programme_ligne_id!]
+                    return next
+                  })}
+                  className="mb-2 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Justifier comme visite non réalisée</option>
+                  {joursReportPossibles.map((date) => (
+                    <option key={date.format('YYYY-MM-DD')} value={date.format('YYYY-MM-DD')}>
+                      Reporter au {date.format('dddd D MMMM')}
+                    </option>
+                  ))}
+                </select>
+                {reports[l.programme_ligne_id!] ? (
+                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                    Cette visite sera ajoutée à part dans « Visites reportées » le {reports[l.programme_ligne_id!] && joursReportPossibles.find((d) => d.format('YYYY-MM-DD') === reports[l.programme_ligne_id!])?.format('dddd D MMMM')}.
+                  </p>
+                ) : !motive && (
                   <>
                     <select
                       value={motifChoisi[l.programme_ligne_id!] ?? ''}
