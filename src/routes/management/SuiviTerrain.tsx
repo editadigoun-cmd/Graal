@@ -55,7 +55,7 @@ export default function SuiviTerrain() {
   const [loading, setLoading] = useState(true)
   const [loadingJour, setLoadingJour] = useState(false)
   const [photoBusy, setPhotoBusy] = useState(false)
-  const [activeTab, setActiveTab] = useState<'semaine' | 'jour' | 'visites'>('semaine')
+  const [activeTab, setActiveTab] = useState<'semaine' | 'LUNDI' | 'MARDI' | 'MERCREDI' | 'JEUDI' | 'VENDREDI' | 'visites'>('semaine')
 
   const isAdmin = profile?.role === 'admin'
 
@@ -277,10 +277,14 @@ export default function SuiviTerrain() {
           <div className="flex gap-2 overflow-x-auto rounded-xl border border-ink-100 bg-white p-1.5">
             {([
               { id: 'semaine', label: 'Semaine' },
-              { id: 'jour', label: 'Journée' },
+              { id: 'LUNDI', label: 'Lundi', date: joursSemaine[0]?.date },
+              { id: 'MARDI', label: 'Mardi', date: joursSemaine[1]?.date },
+              { id: 'MERCREDI', label: 'Mercredi', date: joursSemaine[2]?.date },
+              { id: 'JEUDI', label: 'Jeudi', date: joursSemaine[3]?.date },
+              { id: 'VENDREDI', label: 'Vendredi', date: joursSemaine[4]?.date },
               { id: 'visites', label: 'Visites & trajet' },
             ] as const).map((tab) => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`min-w-0 flex-1 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${activeTab === tab.id ? 'bg-royal-600 text-white shadow-sm' : 'text-ink-500 hover:bg-ink-50'}`}>
+              <button key={tab.id} onClick={() => { setActiveTab(tab.id); if ('date' in tab && tab.date) setDate(tab.date) }} className={`shrink-0 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${activeTab === tab.id ? 'bg-royal-600 text-white shadow-sm' : 'text-ink-500 hover:bg-ink-50'}`}>
                 {tab.label}
               </button>
             ))}
@@ -322,36 +326,9 @@ export default function SuiviTerrain() {
                     </div>
                   )}
                 </Card>
-                <div>
-                  <p className="mb-2 text-sm font-bold text-ink-700">Récapitulatif de chaque journée</p>
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                    {joursSemaine.map((jour, index) => (
-                      <Card key={jour.date}>
-                        <div className="mb-3 flex items-center justify-between gap-2">
-                          <p className="text-sm font-bold text-ink-800">{['Lundi','Mardi','Mercredi','Jeudi','Vendredi'][index]} <span className="font-normal text-ink-400">{dayjs(jour.date).format('DD/MM')}</span></p>
-                          <Badge tone={jour.realisees === jour.total && jour.total > 0 ? 'success' : 'neutral'}>{jour.realisees}/{jour.total} visités</Badge>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                          <div className="rounded-lg bg-ink-50 p-2"><p className="text-[10px] text-ink-500">Programmés</p><p className="text-base font-bold">{jour.total}</p></div>
-                          <div className="rounded-lg bg-emerald-50 p-2"><p className="text-[10px] text-ink-500">Visités</p><p className="text-base font-bold">{jour.realisees}</p></div>
-                          <div className="rounded-lg bg-amber-50 p-2"><p className="text-[10px] text-ink-500">Non faites</p><p className="text-base font-bold">{jour.nonFaites}</p></div>
-                          <div className="rounded-lg bg-royal-50 p-2"><p className="text-[10px] text-ink-500">À visiter</p><p className="text-base font-bold">{jour.restantes}</p></div>
-                        </div>
-                        <p className="mb-1.5 text-xs font-bold text-ink-600">Potentiels</p>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {([{key:'GROS',label:'Gros',value:jour.gros},{key:'MOYEN',label:'Moyens',value:jour.moyen},{key:'FAIBLE',label:'Petits',value:jour.faible}] as const).map((item) => (
-                            <div key={item.key} className="rounded-lg border border-ink-100 p-2"><p className="text-[10px] text-ink-500">{item.label}</p><p className="text-sm font-bold">{item.value.total}</p><p className="text-[10px] text-ink-400">{item.value.realisees} visités</p></div>
-                          ))}
-                        </div>
-                        <p className="mt-3 mb-1.5 text-xs font-bold text-ink-600">Spécialités visitées</p>
-                        {jour.specialites.length === 0 ? <p className="text-xs text-ink-400">Aucune visite enregistrée.</p> : <div className="flex flex-wrap gap-1.5">{jour.specialites.map(([specialite, count]) => <span key={specialite} className="rounded-full bg-ink-50 px-2.5 py-1 text-[10px] text-ink-600">{specialite} : {count}</span>)}</div>}
-                      </Card>
-                    ))}
-                  </div>
-                </div>
               </div>
               )}
-              {activeTab === 'jour' && (
+              {activeTab !== 'semaine' && activeTab !== 'visites' && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                   <StatCard label="Prévues" value={total} tone="ink" icon={<IconClock className="h-4 w-4" />} />
