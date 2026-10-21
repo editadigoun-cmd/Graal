@@ -65,6 +65,7 @@ export default function ManagementProgrammes() {
 
   const [detail, setDetail] = useState<ProgrammeRow | null>(null)
   const [detailLignes, setDetailLignes] = useState<LigneRow[]>([])
+  const [detailJours, setDetailJours] = useState<Record<string, { statut: string; soumis_at?: string | null }>>({})
   const [detailLoading, setDetailLoading] = useState(false)
 
   const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
@@ -82,8 +83,8 @@ export default function ManagementProgrammes() {
       supabase
         .from('programmes_hebdomadaires')
         .select('*, profiles!programmes_hebdomadaires_vm_id_fkey(full_name), programme_conformite(cible, quota_attendu, quantite_programmee, statut)')
-        .in('statut', ['SOUMIS', 'VALIDE', 'VERROUILLE'])
-        .order('soumis_at', { ascending: false })
+        .in('statut', ['BROUILLON', 'SOUMIS', 'VALIDE', 'VERROUILLE'])
+        .order('semaine_debut', { ascending: false })
         .limit(30),
       supabase
         .from('programmes_hebdomadaires')
@@ -130,13 +131,31 @@ export default function ManagementProgrammes() {
     setDetail(p)
     setDetailLoading(true)
     setDetailLignes([])
-    const { data } = await supabase
-      .from('programme_lignes')
-      .select('id, jour, type_visite, clients(id, nom, potentiel, specialite, centre)')
-      .eq('programme_id', p.id)
-      .order('ordre')
+    const [{ data }, { data: validations }] = await Promise.all([
+      supabase.from('programme_lignes')
+        .select('id, jour, type_visite, clients(id, nom, potentiel, specialite, centre)')
+        .eq('programme_id', p.id).order('ordre'),
+      supabase.from('programme_jours_validation').select('jour, statut, soumis_at').eq('programme_id', p.id)
+    ])
     setDetailLignes((data as unknown as LigneRow[]) ?? [])
+    setDetailJours(Object.fromEntries((validations ?? []).map((v: any) => [v.jour, { statut: v.statut, soumis_at: v.soumis_at }])))
     setDetailLoading(false)
+  }
+
+  async function validerJour(programmeId: string, jour: string) {
+    setBusy(programmeId + ':' + jour)
+    setForceMsg(null)
+    const { error } = await supabase.rpc('valider_jour_programme', {
+      p_programme_id: programmeId, p_jour: jour, p_date_limite: null
+    })
+    setBusy(null)
+    if (error) {
+      setForceMsg({ type: 'error', text: error.message })
+      return
+    }
+    setDetailJours((current) => ({ ...current, [jour]: { ...current[jour], statut: 'VALIDE' } }))
+    setForceMsg({ type: 'success', text: jour + ' validé.' })
+    await load()
   }
 
   async function forcerSoumission(programmeId: string) {
@@ -526,13 +545,28 @@ export default function ManagementProgrammes() {
           ) : (
             JOURS.map((j) => {
               const lignesJour = detailLignes.filter((l) => l.jour === j)
-              if (lignesJour.length === 0) return null
+              const statutJour = detailJours[j]?.statut ?? 'EN_COURS'
               return (
-                <div key={j}>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">
-                    {JOUR_LABEL[j]} <span className="font-normal normal-case text-ink-300">({lignesJour.length})</span>
-                  </p>
-                  <div className="space-y-1.5">
+                <div key={j} className="rounded-xl border border-ink-100 p-3">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-ink-600">
+                      {JOUR_LABEL[j]} <span className="font-normal normal-case text-ink-400">({lignesJour.length} client{lignesJour.length !== 1 ? 's' : ''})</span>
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={statutJour === 'VALIDE' ? 'success' : statutJour === 'SOUMIS' ? 'info' : 'warning'}>
+                        {statutJour === 'VALIDE' ? 'Journée validée' : statutJour === 'SOUMIS' ? 'Soumise' : 'En cours / non soumise'}
+                      </Badge>
+                      {profile?.role === 'admin' && statutJour !== 'VALIDE' && lignesJour.length > 0 && (
+                        <Button size="sm" variant="secondary" loading={busy === detail.id + ':' + j} onClick={() => validerJour(detail.id, j)}>
+                          Valider cette journée
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  {lignesJour.length === 0 ? (
+                    <p className="text-xs text-ink-400">Aucun client programmé pour cette journée.</p>
+                  ) : (
+                    <div className="space-y-1.5">
                     {lignesJour.map((l) => (
                       <div key={l.id} className="flex items-center justify-between rounded-xl bg-ink-50 px-3.5 py-2.5">
                         <div className="min-w-0">
@@ -544,7 +578,8 @@ export default function ManagementProgrammes() {
                         {l.clients?.potentiel && <PotentielBadge potentiel={l.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
                       </div>
                     ))}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )
             })
