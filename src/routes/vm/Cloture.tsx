@@ -113,7 +113,7 @@ export default function Cloture() {
       const path = `${session.user.id}/${jour}-${Date.now()}-${index + 1}.${extension}`
       const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: photo.type })
       if (uploadError) {
-        if (!navigator.onLine) { await savePendingCloture({ jour, photoBlobs: photos, photoTypes: photos.map((p) => p.type), latitude, longitude, motifsLocaux: Object.values(motifsLocaux), createdAt: new Date().toISOString() }); setCloturing(false); setDoneOffline(true); return }
+        if (!navigator.onLine) { await savePendingCloture({ jour, photoBlobs: photos, photoTypes: photos.map((p) => p.type), latitude, longitude, motifsLocaux: Object.values(motifsLocaux), reports: reportsAEnvoyer, createdAt: new Date().toISOString() }); setCloturing(false); setDoneOffline(true); return }
         setError(`Photo ${index + 1} : ${uploadError.message}`); setCloturing(false); return
       }
       paths.push(path)
