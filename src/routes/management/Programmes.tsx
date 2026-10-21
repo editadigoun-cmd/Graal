@@ -557,7 +557,7 @@ export default function ManagementProgrammes() {
                         {statutJour === 'VALIDE' ? 'Journée validée' : statutJour === 'SOUMIS' ? 'Soumise' : 'En cours / non soumise'}
                       </Badge>
                       {profile?.role === 'admin' && statutJour !== 'VALIDE' && lignesJour.length > 0 && (
-                        <Button size="sm" variant="secondary" loading={busy === detail.id + ':' + j} onClick={() => validerJour(detail.id, j)}>
+                        <Button size="sm" variant="secondary" loading={busy === detail.id + ':' + j} onClick={() => { if (detail) void validerJour(detail.id, j) }}>
                           Valider cette journée
                         </Button>
                       )}
