@@ -131,6 +131,23 @@ export default function SuiviTerrain() {
   const total = lignes.length
   const realisees = lignes.filter((l) => l.statut_reel === 'REALISEE').length
   const nonFaites = lignes.filter((l) => l.statut_reel === 'NON_FAITE').length
+  const enAttente = lignes.filter((l) => !l.statut_reel || l.statut_reel === 'EN_ATTENTE').length
+  const potentiels = ['GROS', 'MOYEN', 'FAIBLE'] as const
+  const potentielRecap = potentiels.map((potentiel) => {
+    const groupe = lignes.filter((l) => l.potentiel === potentiel)
+    return {
+      potentiel,
+      total: groupe.length,
+      realisees: groupe.filter((l) => l.statut_reel === 'REALISEE').length,
+      nonFaites: groupe.filter((l) => l.statut_reel === 'NON_FAITE').length,
+      restantes: groupe.filter((l) => l.statut_reel !== 'REALISEE' && l.statut_reel !== 'NON_FAITE').length
+    }
+  })
+  const visitesParSpecialite = Object.entries(visites.reduce<Record<string, number>>((acc, visite) => {
+    const specialite = visite.clients?.specialite
+    if (specialite) acc[afficherSpecialite(specialite)] = (acc[afficherSpecialite(specialite)] ?? 0) + 1
+    return acc
+  }, {})).sort((a, b) => b[1] - a[1])
 
   const pointsTrajet: PointTrajet[] = [
     ...[...visites].sort((a, b) => a.horodatage.localeCompare(b.horodatage)).map((v) => ({
@@ -223,10 +240,40 @@ export default function SuiviTerrain() {
             <Skeleton className="h-64" />
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-3">
-                <StatCard label="Prévues" value={total} tone="ink" icon={<IconClock className="h-4 w-4" />} />
-                <StatCard label="Réalisées" value={realisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
-                <StatCard label="Non faites" value={nonFaites} tone="flame" icon={<IconAlert className="h-4 w-4" />} />
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <StatCard label="Prévues" value={total} tone="ink" icon={<IconClock className="h-4 w-4" />} />
+                  <StatCard label="Réalisées" value={realisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
+                  <StatCard label="Non faites" value={nonFaites} tone="flame" icon={<IconAlert className="h-4 w-4" />} />
+                  <StatCard label="Restantes" value={enAttente} tone="royal" icon={<IconClock className="h-4 w-4" />} />
+                </div>
+                <Card>
+                  <p className="text-sm font-bold text-ink-800 mb-3">Récapitulatif par potentiel</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {potentielRecap.map((item) => (
+                      <div key={item.potentiel} className="rounded-xl border border-ink-100 p-3">
+                        <p className="text-xs font-bold text-ink-700">{item.potentiel === 'GROS' ? 'Gros potentiel' : item.potentiel === 'MOYEN' ? 'Potentiel moyen' : 'Faible potentiel'}</p>
+                        <p className="mt-1 text-lg font-extrabold text-ink-800">{item.realisees} <span className="text-xs font-normal text-ink-400">/ {item.total} réalisés</span></p>
+                        <p className="text-xs text-ink-500">{item.restantes} restantes · {item.nonFaites} non faites</p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+                <Card>
+                  <p className="text-sm font-bold text-ink-800 mb-3">Visites par spécialité</p>
+                  {visitesParSpecialite.length === 0 ? (
+                    <p className="text-xs text-ink-400">Aucune visite réalisée enregistrée pour cette journée.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {visitesParSpecialite.map(([specialite, count]) => (
+                        <div key={specialite} className="flex items-center justify-between gap-2 rounded-lg bg-ink-50 px-3 py-2">
+                          <span className="text-xs text-ink-600">{specialite}</span>
+                          <span className="text-sm font-bold text-ink-800">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
               </div>
 
               {cloture && (
