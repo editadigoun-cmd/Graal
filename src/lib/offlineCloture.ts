@@ -13,6 +13,11 @@ export interface MotifLocal {
   commentaire: string | null
 }
 
+export interface ReportLocal {
+  programmeLigneId: string
+  jourReport: string
+}
+
 export interface PendingCloture {
   jour: string
   photoBlobs: Blob[]
@@ -20,6 +25,7 @@ export interface PendingCloture {
   latitude: number
   longitude: number
   motifsLocaux: MotifLocal[]
+  reports?: ReportLocal[]
   createdAt: string
 }
 
