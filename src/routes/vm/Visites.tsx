@@ -20,6 +20,8 @@ export default function Visites() {
   const [exportError, setExportError] = useState<string | null>(null)
   const [cloture, setCloture] = useState<{ statut: string; heure_cloture: string | null } | null | undefined>(undefined)
   const restantes = lignes.filter((l) => l.statut_reel === 'EN_ATTENTE')
+  const reportees = restantes.filter((l) => l.reportee)
+  const restantesNormales = restantes.filter((l) => !l.reportee)
   const faites = lignes.filter((l) => l.statut_reel !== 'EN_ATTENTE')
 
   useEffect(() => {
@@ -111,9 +113,22 @@ export default function Visites() {
         </Card>
       )}
 
-      <div className="space-y-2.5">
-        {restantes.map((l, i) => <VisiteCard key={l.programme_ligne_id} l={l} index={i} />)}
-      </div>
+      {reportees.length > 0 && (
+        <section className="space-y-2.5">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+            <p className="text-sm font-bold text-amber-900">Visites reportées</p>
+            <p className="mt-1 text-xs text-amber-800">Ces visites ont été déplacées depuis un autre jour. Elles restent à effectuer aujourd'hui.</p>
+          </div>
+          {reportees.map((l, i) => <VisiteCard key={l.programme_ligne_id} l={l} index={i} reported />)}
+        </section>
+      )}
+
+      {restantesNormales.length > 0 && (
+        <section className="space-y-2.5">
+          {reportees.length > 0 && <p className="pt-2 text-xs font-semibold uppercase tracking-wide text-ink-400">Visites prévues normalement</p>}
+          {restantesNormales.map((l, i) => <VisiteCard key={l.programme_ligne_id} l={l} index={i} />)}
+        </section>
+      )}
 
       {faites.length > 0 && (
         <>
@@ -138,7 +153,7 @@ export default function Visites() {
   )
 }
 
-function VisiteCard({ l, index, done }: { l: ReturnType<typeof useVisitesDuJour>['lignes'][number]; index: number; done?: boolean }) {
+function VisiteCard({ l, index, done, reported }: { l: ReturnType<typeof useVisitesDuJour>['lignes'][number]; index: number; done?: boolean; reported?: boolean }) {
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
       <Link to={done ? '#' : `/app/visites/${l.programme_ligne_id}`} className={done ? 'pointer-events-none' : ''}>
@@ -148,9 +163,10 @@ function VisiteCard({ l, index, done }: { l: ReturnType<typeof useVisitesDuJour>
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-ink-800 truncate">{l.client_nom}</p>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="mt-1 flex flex-wrap items-center gap-2">
               {l.potentiel && <PotentielBadge potentiel={l.potentiel} compact />}
               <span className="text-[11px] text-ink-400">{l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
+              {reported && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Reportée</span>}
             </div>
           </div>
           {!done && <IconChevronRight className="h-4 w-4 text-ink-300 flex-shrink-0" />}
