@@ -264,7 +264,8 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
 }) {
   const { profile } = useAuth()
   const [produitsCatalogue, setProduitsCatalogue] = useState<Produit[]>([])
-  const [cachetsObtenus, setCachetsObtenus] = useState('')
+  const [cachetProspect, setCachetProspect] = useState(false)
+  const [cachetCentre, setCachetCentre] = useState(false)
   const [produits, setProduits] = useState<string[]>([])
   const [engagementsPrescription, setEngagementsPrescription] = useState('')
   const [produitsHabituels, setProduitsHabituels] = useState('')
@@ -281,8 +282,17 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
 
   const content = (
     <>
-      <FieldLabel>Cachets / documents obtenus (si applicable)</FieldLabel>
-      <textarea value={cachetsObtenus} onChange={(e) => setCachetsObtenus(e.target.value)} rows={2} placeholder="Décrire librement les cachets ou documents obtenus…" className={`${selectClass} mb-4`} />
+      <FieldLabel>Cachets obtenus</FieldLabel>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <label className="flex items-center gap-2 rounded-xl border border-ink-200 p-3 text-sm text-ink-700">
+          <input type="checkbox" checked={cachetProspect} onChange={(e) => setCachetProspect(e.target.checked)} className="h-4 w-4 accent-royal-600" />
+          Cachet prospect
+        </label>
+        <label className="flex items-center gap-2 rounded-xl border border-ink-200 p-3 text-sm text-ink-700">
+          <input type="checkbox" checked={cachetCentre} onChange={(e) => setCachetCentre(e.target.checked)} className="h-4 w-4 accent-royal-600" />
+          Cachet centre
+        </label>
+      </div>
 
       <FieldLabel>Produits présentés</FieldLabel>
       <div className="flex flex-wrap gap-2 mb-4">
@@ -313,7 +323,8 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
       {hideCard ? content : <Card>{content}</Card>}
       <Button fullWidth loading={saving} icon={<IconCheck className="h-4 w-4" />}
         onClick={() => onSubmit({
-          cachets_obtenus: cachetsObtenus.trim() || null,
+          cachet_prospect: cachetProspect,
+          cachet_centre: cachetCentre,
           engagements_prescription: engagementsPrescription.trim() || null,
           produits_habituels_prescription: produitsHabituels.trim() || null,
           constats_prescription: constatsPrescription.trim() || null,
