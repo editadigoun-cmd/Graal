@@ -44,7 +44,7 @@ export function useOfflineClotureSync() {
         if (uploadError) return
         paths.push(path)
       }
-      const { error: rpcError } = await supabase.rpc('cloturer_journee_multi', { p_photo_paths: paths, p_photo_latitude: pending.latitude, p_photo_longitude: pending.longitude, p_reports: pending.motifsLocaux.map((m) => ({ programme_ligne_id: m.programmeLigneId, motif_id: m.motifId, commentaire: m.commentaire })) })
+      const { error: rpcError } = await supabase.rpc('cloturer_journee_multi', { p_photo_paths: paths, p_photo_latitude: pending.latitude, p_photo_longitude: pending.longitude, p_reports: (pending.reports ?? []).map((r) => ({ programme_ligne_id: r.programmeLigneId, jour_report: r.jourReport })) })
       if (rpcError) return
 
       await clearPendingCloture()
