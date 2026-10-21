@@ -212,6 +212,11 @@ export default function SuiviTerrain() {
     if (!error && data) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
+  async function voirPreuveCommande(path: string) {
+    const { data, error } = await supabase.storage.from('preuves-commandes').createSignedUrl(path, 3600)
+    if (!error && data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  }
+
   function DetailVisite({ v }: { v: Visite }) {
     const produits = v.visite_produits.map((p: { produits: { nom: string } | null }) => p.produits?.nom).filter(Boolean)
     return (
@@ -243,6 +248,11 @@ export default function SuiviTerrain() {
               ? <p className="text-ink-600 whitespace-pre-wrap"><strong>Stock observé :</strong> {v.stock_observe}</p>
               : v.stock_disponible && <p className="text-ink-600">Ancien relevé de stock : <strong>{v.stock_disponible}</strong></p>}
             {v.commande_obtenue && <p className="text-ink-600 whitespace-pre-wrap"><strong>Commande obtenue :</strong> {v.commande_obtenue}</p>}
+            {(v as Visite & { commande_photo_path?: string | null }).commande_photo_path && (
+              <button type="button" onClick={() => voirPreuveCommande((v as Visite & { commande_photo_path?: string | null }).commande_photo_path!)} className="inline-flex items-center gap-1.5 rounded-lg bg-royal-50 px-3 py-2 text-xs font-semibold text-royal-700 hover:bg-royal-100">
+                <IconCamera className="h-3.5 w-3.5" /> Voir la photo justificative
+              </button>
+            )}
             {v.veille_concurrentielle && <p className="text-ink-600 whitespace-pre-wrap"><strong>Veille concurrentielle :</strong> {v.veille_concurrentielle}</p>}
             {v.resume_visite && <p className="text-ink-600 whitespace-pre-wrap"><strong>Résumé de la visite :</strong> {v.resume_visite}</p>}
             {produits.length > 0 && <p className="text-ink-600"><strong>Produits présentés :</strong> {produits.join(', ')}</p>}
