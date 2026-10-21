@@ -6,7 +6,7 @@ alter table public.programme_jours_validation
   drop constraint if exists programme_jours_validation_statut_check;
 alter table public.programme_jours_validation
   add constraint programme_jours_validation_statut_check
-  check (statut in ('EN_COURS','SOUMIS','VALIDE'));
+  check ((statut in ('EN_COURS','SOUMIS') and valide_at is null and valide_par is null) or (statut='VALIDE' and valide_at is not null and valide_par is not null));
 
 create or replace function public.soumettre_jour_programme(p_programme_id uuid, p_jour public.jour_semaine)
 returns jsonb
