@@ -1995,6 +1995,8 @@ export type Database = {
           potentiel: Database["public"]["Enums"]["potentiel_client"] | null
           programme_id: string | null
           programme_ligne_id: string | null
+          reportee: boolean | null
+          date_report: string | null
           programme_statut:
             | Database["public"]["Enums"]["statut_programme"]
             | null
