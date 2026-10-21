@@ -55,6 +55,7 @@ export default function SuiviTerrain() {
   const [loading, setLoading] = useState(true)
   const [loadingJour, setLoadingJour] = useState(false)
   const [photoBusy, setPhotoBusy] = useState(false)
+  const [activeTab, setActiveTab] = useState<'semaine' | 'jour' | 'visites'>('semaine')
 
   const isAdmin = profile?.role === 'admin'
 
@@ -273,10 +274,22 @@ export default function SuiviTerrain() {
             </div>
           </Card>
 
+          <div className="flex gap-2 overflow-x-auto rounded-xl border border-ink-100 bg-white p-1.5">
+            {([
+              { id: 'semaine', label: 'Semaine' },
+              { id: 'jour', label: 'Journée' },
+              { id: 'visites', label: 'Visites & trajet' },
+            ] as const).map((tab) => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`min-w-0 flex-1 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${activeTab === tab.id ? 'bg-royal-600 text-white shadow-sm' : 'text-ink-500 hover:bg-ink-50'}`}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
           {loadingJour ? (
             <Skeleton className="h-64" />
           ) : (
             <>
+              {activeTab === 'semaine' && (
               <div className="space-y-3">
                 <Card>
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -336,6 +349,10 @@ export default function SuiviTerrain() {
                     ))}
                   </div>
                 </div>
+              </div>
+              )}
+              {activeTab === 'jour' && (
+              <div className="space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                   <StatCard label="Prévues" value={total} tone="ink" icon={<IconClock className="h-4 w-4" />} />
                   <StatCard label="Réalisées" value={realisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
@@ -371,7 +388,10 @@ export default function SuiviTerrain() {
                   )}
                 </Card>
               </div>
+              )}
 
+              {activeTab === 'visites' && (
+              <div className="space-y-3">
               {cloture && (
                 <Card className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -490,6 +510,8 @@ export default function SuiviTerrain() {
                     ))}
                   </div>
                 </div>
+              )}
+              </div>
               )}
             </>
           )}
