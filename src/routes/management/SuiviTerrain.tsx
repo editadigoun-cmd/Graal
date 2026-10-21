@@ -224,18 +224,28 @@ export default function SuiviTerrain() {
         </div>
         {v.type_visite === 'MEDICAL' ? (
           <>
-            <p className="text-ink-600">
-              Cachet prospect : <strong>{v.cachet_prospect ? 'Oui' : 'Non'}</strong> · Cachet centre : <strong>{v.cachet_centre ? 'Oui' : 'Non'}</strong> · Prescriptions constatées : <strong>{v.prescriptions_constatees}</strong>
-            </p>
-            {v.promesses_obtenues && <p className="text-ink-600">Promesses : {v.promesses_obtenues}{v.promesses_libre ? ` — ${v.promesses_libre}` : ''}</p>}
-            {produits.length > 0 && <p className="text-ink-600">Produits présentés : {produits.join(', ')}</p>}
+            {v.cachets_obtenus
+              ? <p className="text-ink-600">Cachets / documents obtenus : {v.cachets_obtenus}</p>
+              : (v.cachet_prospect || v.cachet_centre) && <p className="text-ink-600">Ancien compte rendu — cachet prospect : {v.cachet_prospect ? 'Oui' : 'Non'} · cachet centre : {v.cachet_centre ? 'Oui' : 'Non'}</p>}
+            {v.engagements_prescription
+              ? <p className="text-ink-600 whitespace-pre-wrap"><strong>Engagements de prescription :</strong> {v.engagements_prescription}</p>
+              : v.promesses_obtenues && <p className="text-ink-600">Anciennes promesses : {v.promesses_obtenues}{v.promesses_libre ? ` — ${v.promesses_libre}` : ''}</p>}
+            {v.produits_habituels_prescription && <p className="text-ink-600 whitespace-pre-wrap"><strong>Produits habituels de prescription :</strong> {v.produits_habituels_prescription}</p>}
+            {v.constats_prescription
+              ? <p className="text-ink-600 whitespace-pre-wrap"><strong>Constats de prescription :</strong> {v.constats_prescription}</p>
+              : v.prescriptions_constatees > 0 && <p className="text-ink-600">Ancien compte rendu : {v.prescriptions_constatees} prescription(s) indiquée(s), sans détail produit.</p>}
+            {v.resume_visite && <p className="text-ink-600 whitespace-pre-wrap"><strong>Résumé de la visite :</strong> {v.resume_visite}</p>}
+            {produits.length > 0 && <p className="text-ink-600"><strong>Produits présentés :</strong> {produits.join(', ')}</p>}
           </>
         ) : (
           <>
-            {v.stock_disponible && <p className="text-ink-600">Stock disponible : <strong>{v.stock_disponible}</strong></p>}
-            {v.commande_obtenue && <p className="text-ink-600">Commande obtenue : {v.commande_obtenue}</p>}
-            {v.veille_concurrentielle && <p className="text-ink-600">Veille concurrentielle : {v.veille_concurrentielle}</p>}
-            {produits.length > 0 && <p className="text-ink-600">Produits présentés : {produits.join(', ')}</p>}
+            {v.stock_observe
+              ? <p className="text-ink-600 whitespace-pre-wrap"><strong>Stock observé :</strong> {v.stock_observe}</p>
+              : v.stock_disponible && <p className="text-ink-600">Ancien relevé de stock : <strong>{v.stock_disponible}</strong></p>}
+            {v.commande_obtenue && <p className="text-ink-600 whitespace-pre-wrap"><strong>Commande obtenue :</strong> {v.commande_obtenue}</p>}
+            {v.veille_concurrentielle && <p className="text-ink-600 whitespace-pre-wrap"><strong>Veille concurrentielle :</strong> {v.veille_concurrentielle}</p>}
+            {v.resume_visite && <p className="text-ink-600 whitespace-pre-wrap"><strong>Résumé de la visite :</strong> {v.resume_visite}</p>}
+            {produits.length > 0 && <p className="text-ink-600"><strong>Produits présentés :</strong> {produits.join(', ')}</p>}
           </>
         )}
       </div>
