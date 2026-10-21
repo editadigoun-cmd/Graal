@@ -113,19 +113,22 @@ function HorsProgrammeForm() {
   const { session } = useAuth()
   const geo = useGeolocation()
   const [clients, setClients] = useState<ClientRow[]>([])
-  const [motifs, setMotifs] = useState<Motif[]>([])
   const [occasionnelsJour, setOccasionnelsJour] = useState(0)
   const [occasionnelsSemaine, setOccasionnelsSemaine] = useState(0)
   const [clientId, setClientId] = useState('')
+  const [nomLibre, setNomLibre] = useState('')
+  const [specialiteLibre, setSpecialiteLibre] = useState('')
+  const [centreLibre, setCentreLibre] = useState('')
   const [typeVisite, setTypeVisite] = useState<'MEDICAL' | 'PHARMACIE'>('MEDICAL')
-  const [motifId, setMotifId] = useState('')
-  const [commentaire, setCommentaire] = useState('')
+  const [raison, setRaison] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const SAISIE_MANUELLE = '__hors_portefeuille__'
+
   useEffect(() => {
     supabase.from('clients').select('*').order('nom').then(({ data }) => setClients(data ?? []))
-    supabase.from('motifs_non_visite').select('*').eq('actif', true).order('ordre').then(({ data }) => setMotifs(data ?? []))
+
     if (!session) return
     const today = todayBenin().format('YYYY-MM-DD')
     const weekStart = isoWeekMonday().format('YYYY-MM-DD')
@@ -134,16 +137,25 @@ function HorsProgrammeForm() {
       .eq('vm_id', session.user.id).eq('hors_programme', true).is('garde_id', null)
       .gte('jour', weekStart).lte('jour', weekEnd)
       .then(({ data }) => {
-        const visitesOccasionnelles = data ?? []
-        setOccasionnelsJour(visitesOccasionnelles.filter((v) => v.jour === today).length)
-        setOccasionnelsSemaine(visitesOccasionnelles.length)
+        const list = data ?? []
+        setOccasionnelsJour(list.filter((v) => v.jour === today).length)
+        setOccasionnelsSemaine(list.length)
       })
   }, [session])
 
   const client = clients.find((c) => c.id === clientId)
 
   async function handleSave(fields: Record<string, unknown>, produitsIds: string[]) {
-    if (!session || !clientId || !motifId) { setError('Client et motif sont obligatoires.'); return }
+    const manuel = clientId === SAISIE_MANUELLE
+    if (!session || (!clientId) || (!manuel && !client)) {
+      setError('Sélectionnez un client du portefeuille ou choisissez la saisie manuelle.')
+      return
+    }
+    if (manuel && (!nomLibre.trim() || !centreLibre.trim() || (typeVisite === 'MEDICAL' && !specialiteLibre.trim()))) {
+      setError(typeVisite === 'MEDICAL' ? 'Renseignez le nom du médecin, sa spécialité et son centre.' : 'Renseignez le nom de la pharmacie et son centre.')
+      return
+    }
+    if (!raison.trim()) { setError('La raison de la visite hors programme est obligatoire.'); return }
     if (occasionnelsJour >= 2) { setError('Quota atteint : maximum 2 clients occasionnels par jour.'); return }
     if (occasionnelsSemaine >= 7) { setError('Quota atteint : maximum 7 clients occasionnels par semaine.'); return }
     if (geo.status !== 'ok' || geo.latitude === null || geo.longitude === null) { setError('Position GPS requise pour enregistrer la visite.'); return }
@@ -151,11 +163,20 @@ function HorsProgrammeForm() {
     setError(null)
 
     const payload = {
-      client_id: clientId, vm_id: session.user.id, jour: todayBenin().format('YYYY-MM-DD'),
-      type_visite: typeVisite, hors_programme: true, motif_hors_programme_id: motifId,
-      motif_hors_programme_commentaire: commentaire || null,
-      latitude: geo.latitude, longitude: geo.longitude,
-      ...fields
+      programme_ligne_id: null,
+      client_id: manuel ? null : clientId,
+      client_nom_libre: manuel ? nomLibre.trim() : null,
+      client_specialite_libre: manuel && typeVisite === 'MEDICAL' ? specialiteLibre.trim() : null,
+      client_centre_libre: manuel ? centreLibre.trim() : null,
+      vm_id: session.user.id,
+      jour: todayBenin().format('YYYY-MM-DD'),
+      type_visite: typeVisite,
+      hors_programme: true,
+      motif_hors_programme_id: null,
+      motif_hors_programme_commentaire: raison.trim(),
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+      ...fields,
     }
 
     if (!navigator.onLine) {
@@ -165,10 +186,15 @@ function HorsProgrammeForm() {
       return
     }
 
-    const { data: visite, error: insertError } = await supabase.from('visites').insert(payload).select('id').single()
+    const { data: visite, error: insertError } = await supabase.from('visites').insert(payload as any).select('id').single()
 
     if (insertError) {
-      if (!navigator.onLine) { enqueueVisite(payload, produitsIds); setSaving(false); navigate('/app/visites', { replace: true }); return }
+      if (!navigator.onLine) {
+        enqueueVisite(payload, produitsIds)
+        setSaving(false)
+        navigate('/app/visites', { replace: true })
+        return
+      }
       setError(insertError.message)
       setSaving(false)
       return
@@ -199,31 +225,38 @@ function HorsProgrammeForm() {
       </div>
 
       <Card>
-        <FieldLabel>Client</FieldLabel>
+        <FieldLabel>Client du portefeuille (facultatif si saisie manuelle)</FieldLabel>
         <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={selectClass}>
           <option value="">Sélectionner un client…</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+          <option value={SAISIE_MANUELLE}>Client absent du portefeuille — saisir manuellement</option>
         </select>
         {client && <div className="mt-2"><PotentielBadge potentiel={client.potentiel} compact /></div>}
+        {clientId === SAISIE_MANUELLE && (
+          <div className="mt-3 space-y-3 rounded-xl border border-ink-200 p-3">
+            <FieldLabel>{typeVisite === 'MEDICAL' ? 'Nom du médecin' : 'Nom de la pharmacie'}</FieldLabel>
+            <input value={nomLibre} onChange={(e) => setNomLibre(e.target.value)} className={selectClass} placeholder={typeVisite === 'MEDICAL' ? 'Nom et prénoms du médecin' : 'Nom de la pharmacie'} />
+            {typeVisite === 'MEDICAL' && <>
+              <FieldLabel>Spécialité du médecin</FieldLabel>
+              <input value={specialiteLibre} onChange={(e) => setSpecialiteLibre(e.target.value)} className={selectClass} placeholder="Saisir la spécialité" />
+            </>}
+            <FieldLabel>Centre / établissement</FieldLabel>
+            <input value={centreLibre} onChange={(e) => setCentreLibre(e.target.value)} className={selectClass} placeholder="Nom du centre ou de l'établissement" />
+          </div>
+        )}
 
         <FieldLabel className="mt-4">Type de visite</FieldLabel>
         <div className="grid grid-cols-2 gap-2">
           {(['MEDICAL', 'PHARMACIE'] as const).map((t) => (
-            <button key={t} onClick={() => setTypeVisite(t)}
+            <button type="button" key={t} onClick={() => setTypeVisite(t)}
               className={`rounded-xl py-2.5 text-sm font-semibold ${typeVisite === t ? 'bg-royal-600 text-white' : 'bg-ink-100 text-ink-500'}`}>
               {t === 'MEDICAL' ? 'Médical' : 'Pharmacie'}
             </button>
           ))}
         </div>
 
-        <FieldLabel className="mt-4">Motif (obligatoire)</FieldLabel>
-        <select value={motifId} onChange={(e) => setMotifId(e.target.value)} className={selectClass}>
-          <option value="">Sélectionner un motif…</option>
-          {motifs.filter((m) => !m.libelle.includes('clôture forcée')).map((m) => <option key={m.id} value={m.id}>{m.libelle}</option>)}
-        </select>
-
-        <FieldLabel className="mt-4">Précision (optionnel)</FieldLabel>
-        <textarea value={commentaire} onChange={(e) => setCommentaire(e.target.value)} rows={2} className={selectClass} placeholder="Détails complémentaires…" />
+        <FieldLabel className="mt-4">Raison de la visite hors programme</FieldLabel>
+        <textarea value={raison} onChange={(e) => setRaison(e.target.value)} rows={3} className={selectClass} placeholder="Saisir la raison de cette visite…" />
       </Card>
 
       {typeVisite === 'MEDICAL'
@@ -271,6 +304,7 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
   const [produitsHabituels, setProduitsHabituels] = useState('')
   const [constatsPrescription, setConstatsPrescription] = useState('')
   const [resumeVisite, setResumeVisite] = useState('')
+  const [activitesMenees, setActivitesMenees] = useState('')
 
   useEffect(() => {
     if (!profile?.equipe_id) return
@@ -313,6 +347,9 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
       <FieldLabel>Constats de prescription</FieldLabel>
       <textarea value={constatsPrescription} onChange={(e) => setConstatsPrescription(e.target.value)} rows={4} placeholder="Nom du ou des produits constatés et commentaires associés…" className={`${selectClass} mb-4`} />
 
+      <FieldLabel>Activités menées</FieldLabel>
+      <textarea value={activitesMenees} onChange={(e) => setActivitesMenees(e.target.value)} rows={3} placeholder="Décrire les activités réalisées pendant la visite…" className={`${selectClass} mb-4`} />
+
       <FieldLabel>Résumé de la visite</FieldLabel>
       <textarea value={resumeVisite} onChange={(e) => setResumeVisite(e.target.value)} rows={4} placeholder="Résumé libre de l'échange, besoins, objections et prochaines étapes…" className={selectClass} />
     </>
@@ -329,6 +366,7 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
           produits_habituels_prescription: produitsHabituels.trim() || null,
           constats_prescription: constatsPrescription.trim() || null,
           resume_visite: resumeVisite.trim() || null,
+          activites_menees: activitesMenees.trim() || null,
         }, produits)}
       >
         Enregistrer et passer au suivant
@@ -397,6 +435,7 @@ export function PharmacieFields({ onSubmit, saving, hideCard }: {
       commande_photo_path: commandePhotoPath,
       veille_concurrentielle: veille.trim() || null,
       resume_visite: resumeVisite.trim() || null,
+      activites_menees: activitesMenees.trim() || null,
     }, produits)
   }
 
@@ -436,6 +475,9 @@ export function PharmacieFields({ onSubmit, saving, hideCard }: {
 
       <FieldLabel>Veille concurrentielle</FieldLabel>
       <textarea value={veille} onChange={(e) => setVeille(e.target.value)} rows={3} placeholder="Produits concurrents, prix, disponibilité et observations…" className={`${selectClass} mb-4`} />
+
+      <FieldLabel>Activités menées</FieldLabel>
+      <textarea value={activitesMenees} onChange={(e) => setActivitesMenees(e.target.value)} rows={3} placeholder="Décrire les activités réalisées pendant la visite…" className={`${selectClass} mb-4`} />
 
       <FieldLabel>Résumé de la visite</FieldLabel>
       <textarea value={resumeVisite} onChange={(e) => setResumeVisite(e.target.value)} rows={4} placeholder="Résumé libre de l'échange et prochaines étapes…" className={selectClass} />
