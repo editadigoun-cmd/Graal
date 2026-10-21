@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/Button'
 import { Badge, PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { Modal } from '@/components/ui/Modal'
 import { IconCheckCircle, IconX, IconClock, IconCalendar, IconPill, IconUsers, IconAlert, IconSend, IconEye } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -67,6 +66,7 @@ export default function ManagementProgrammes() {
   const [detailLignes, setDetailLignes] = useState<LigneRow[]>([])
   const [detailJours, setDetailJours] = useState<Record<string, { statut: string; soumis_at?: string | null }>>({})
   const [detailLoading, setDetailLoading] = useState(false)
+  const [detailJourActif, setDetailJourActif] = useState<string>(JOURS[0])
 
   const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
 
@@ -129,6 +129,7 @@ export default function ManagementProgrammes() {
 
   async function ouvrirDetail(p: ProgrammeRow) {
     setDetail(p)
+    setDetailJourActif(JOURS[0])
     setDetailLoading(true)
     setDetailLignes([])
     const [{ data }, { data: validations }] = await Promise.all([
@@ -251,6 +252,91 @@ export default function ManagementProgrammes() {
   const autres = programmes.filter((p) => p.statut !== 'SOUMIS' && p.statut !== 'BROUILLON')
   const valides = programmes.filter((p) => p.statut === 'VALIDE' || p.statut === 'VERROUILLE').length
   const brouillonsEnRetard = brouillons.filter((b) => deadlinePassee(b.semaine_debut))
+
+  const detailPotentiels = POTENTIELS.map((potentiel) => ({
+    potentiel,
+    total: detailLignes.filter((l) => l.clients?.potentiel === potentiel).length,
+  }))
+  const detailSpecialites = Object.entries(detailLignes.reduce<Record<string, number>>((acc, ligne) => {
+    const specialite = ligne.clients?.specialite
+    if (specialite) acc[specialite.replace(/[_-]+/g, ' ')] = (acc[specialite.replace(/[_-]+/g, ' ')] ?? 0) + 1
+    return acc
+  }, {})).sort((a, b) => b[1] - a[1])
+  const lignesJourActif = detailLignes.filter((l) => l.jour === detailJourActif)
+  const potentielsJourActif = POTENTIELS.map((potentiel) => ({
+    potentiel,
+    total: lignesJourActif.filter((l) => l.clients?.potentiel === potentiel).length,
+  }))
+  const specialitesJourActif = Object.entries(lignesJourActif.reduce<Record<string, number>>((acc, ligne) => {
+    const specialite = ligne.clients?.specialite
+    if (specialite) acc[specialite.replace(/[_-]+/g, ' ')] = (acc[specialite.replace(/[_-]+/g, ' ')] ?? 0) + 1
+    return acc
+  }, {})).sort((a, b) => b[1] - a[1])
+
+  if (detail) return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="secondary" onClick={() => setDetail(null)}>← Retour aux programmes</Button>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-bold text-ink-800 font-display">Programme hebdomadaire</h1>
+          <p className="text-sm text-ink-500">{detail.profiles?.full_name ?? 'VM/PM'} · Semaine du {dayjs(detail.semaine_debut).format('DD/MM/YYYY')}</p>
+        </div>
+        <Badge tone={detail.statut === 'VALIDE' || detail.statut === 'VERROUILLE' ? 'success' : detail.statut === 'SOUMIS' ? 'info' : 'warning'}>{detail.statut}</Badge>
+      </div>
+
+      {forceMsg && <p className={`rounded-xl px-3.5 py-2.5 text-xs ${forceMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{forceMsg.text}</p>}
+
+      <Card>
+        <div className="mb-4">
+          <h2 className="text-base font-bold text-ink-800">Récapitulatif hebdomadaire</h2>
+          <p className="text-xs text-ink-400">{detailLignes.length} client(s) programmé(s) sur la semaine</p>
+        </div>
+        {detail.programme_conformite?.length > 0 && <div className="mb-4 flex flex-wrap gap-1.5">{detail.programme_conformite.map((x) => <Badge key={x.cible} tone={x.statut === 'CONFORME' ? 'success' : x.statut === 'SOUS_COUVERT' ? 'warning' : 'info'}>{x.cible.replace(/_/g, ' ')} : {x.quantite_programmee}/{x.quota_attendu}</Badge>)}</div>}
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">Répartition par potentiel</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {detailPotentiels.map((x) => <div key={x.potentiel} className="rounded-xl border border-ink-100 p-3"><p className="text-xs text-ink-500">{x.potentiel === 'GROS' ? 'Gros potentiel' : x.potentiel === 'MOYEN' ? 'Potentiel moyen' : 'Faible potentiel'}</p><p className="mt-1 text-xl font-extrabold text-ink-800">{x.total}</p><p className="text-[11px] text-ink-400">clients programmés</p></div>)}
+        </div>
+        <p className="mt-4 mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">Répartition par spécialité</p>
+        {detailSpecialites.length === 0 ? <p className="text-xs text-ink-400">Aucune spécialité renseignée.</p> : <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{detailSpecialites.map(([nom, n]) => <div key={nom} className="flex items-center justify-between gap-2 rounded-lg bg-ink-50 px-3 py-2"><span className="text-xs text-ink-600">{nom}</span><span className="text-sm font-bold text-ink-800">{n}</span></div>)}</div>}
+      </Card>
+
+      <div>
+        <p className="mb-2 text-sm font-bold text-ink-700">Détail par journée</p>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {JOURS.map((j) => {
+            const count = detailLignes.filter((l) => l.jour === j).length
+            const statut = detailJours[j]?.statut ?? 'EN_COURS'
+            return <button key={j} onClick={() => setDetailJourActif(j)} className={`min-w-[108px] shrink-0 rounded-xl border px-3 py-2.5 text-left transition ${detailJourActif === j ? 'border-royal-500 bg-royal-50 text-royal-700 ring-2 ring-royal-100' : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'}`}>
+              <span className="block text-xs font-bold">{JOUR_LABEL[j]}</span><span className="mt-1 block text-[11px]">{count} client(s)</span><span className="mt-1 block text-[10px]">{statut === 'VALIDE' ? '✓ Validée' : statut === 'SOUMIS' ? 'Soumise' : 'En cours'}</span>
+            </button>
+          })}
+        </div>
+      </div>
+
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><h2 className="text-base font-bold text-ink-800">{JOUR_LABEL[detailJourActif]}</h2><p className="text-xs text-ink-400">{lignesJourActif.length} client(s) programmé(s)</p></div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={detailJours[detailJourActif]?.statut === 'VALIDE' ? 'success' : detailJours[detailJourActif]?.statut === 'SOUMIS' ? 'info' : 'warning'}>{detailJours[detailJourActif]?.statut === 'VALIDE' ? 'Journée validée' : detailJours[detailJourActif]?.statut === 'SOUMIS' ? 'Soumise' : 'En cours / non soumise'}</Badge>
+            {profile?.role === 'admin' && detailJours[detailJourActif]?.statut !== 'VALIDE' && lignesJourActif.length > 0 && <Button size="sm" variant="secondary" loading={busy === detail.id + ':' + detailJourActif} onClick={() => void validerJour(detail.id, detailJourActif)}>Valider cette journée</Button>}
+          </div>
+        </div>
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">Récapitulatif par potentiel</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {potentielsJourActif.map((x) => <div key={x.potentiel} className="rounded-xl border border-ink-100 p-3"><p className="text-xs text-ink-500">{x.potentiel === 'GROS' ? 'Gros potentiel' : x.potentiel === 'MOYEN' ? 'Potentiel moyen' : 'Faible potentiel'}</p><p className="mt-1 text-xl font-extrabold text-ink-800">{x.total}</p><p className="text-[11px] text-ink-400">clients programmés</p></div>)}
+          </div>
+          <p className="mt-4 mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">Récapitulatif par spécialité</p>
+          {specialitesJourActif.length === 0 ? <p className="text-xs text-ink-400">Aucune spécialité renseignée pour cette journée.</p> : <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{specialitesJourActif.map(([nom, n]) => <div key={nom} className="flex items-center justify-between gap-2 rounded-lg bg-ink-50 px-3 py-2"><span className="text-xs text-ink-600">{nom}</span><span className="text-sm font-bold text-ink-800">{n}</span></div>)}</div>}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-base font-bold text-ink-800">Liste des clients — {JOUR_LABEL[detailJourActif]}</h2><Badge tone="neutral">{lignesJourActif.length}</Badge></div>
+        {detailLoading ? <div className="space-y-2"><Skeleton className="h-14" /><Skeleton className="h-14" /></div> : lignesJourActif.length === 0 ? <p className="py-6 text-center text-sm text-ink-400">Aucun client programmé pour cette journée.</p> : <div className="space-y-2">{lignesJourActif.map((l) => <div key={l.id} className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 px-3.5 py-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-ink-800">{l.clients?.nom ?? 'Client'}</p><p className="truncate text-[11px] text-ink-500">{l.clients?.centre || l.clients?.specialite || 'Spécialité non renseignée'} · {l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</p></div>{l.clients?.potentiel && <PotentielBadge potentiel={l.clients.potentiel as Potentiel} compact />}</div>)}</div>}
+      </Card>
+    </div>
+  )
 
   return (
     <div className="space-y-6">
@@ -546,71 +632,6 @@ export default function ManagementProgrammes() {
         </Card>
       )}
 
-      <Modal
-        open={detail !== null}
-        onClose={() => setDetail(null)}
-        title={detail?.profiles?.full_name ?? 'Détail du programme'}
-        description={detail ? `Semaine du ${dayjs(detail.semaine_debut).format('DD/MM/YYYY')}` : undefined}
-        maxWidth="max-w-2xl"
-      >
-        {detail && detail.programme_conformite?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 border-b border-ink-100 pb-4 mb-4">
-            {detail.programme_conformite.map((c) => (
-              <Badge key={c.cible} tone={c.statut === 'CONFORME' ? 'success' : c.statut === 'SOUS_COUVERT' ? 'warning' : 'info'}>
-                {c.cible.replace(/_/g, ' ')}: {c.quantite_programmee}/{c.quota_attendu}
-              </Badge>
-            ))}
-          </div>
-        )}
-        <div className="space-y-4">
-          {detailLoading ? (
-            <div className="space-y-2"><Skeleton className="h-14" /><Skeleton className="h-14" /></div>
-          ) : detailLignes.length === 0 ? (
-            <p className="text-sm text-ink-400 text-center py-6">Aucun client programmé.</p>
-          ) : (
-            JOURS.map((j) => {
-              const lignesJour = detailLignes.filter((l) => l.jour === j)
-              const statutJour = detailJours[j]?.statut ?? 'EN_COURS'
-              return (
-                <div key={j} className="rounded-xl border border-ink-100 p-3">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-bold uppercase tracking-wide text-ink-600">
-                      {JOUR_LABEL[j]} <span className="font-normal normal-case text-ink-400">({lignesJour.length} client{lignesJour.length !== 1 ? 's' : ''})</span>
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone={statutJour === 'VALIDE' ? 'success' : statutJour === 'SOUMIS' ? 'info' : 'warning'}>
-                        {statutJour === 'VALIDE' ? 'Journée validée' : statutJour === 'SOUMIS' ? 'Soumise' : 'En cours / non soumise'}
-                      </Badge>
-                      {profile?.role === 'admin' && statutJour !== 'VALIDE' && lignesJour.length > 0 && (
-                        <Button size="sm" variant="secondary" loading={busy === (detail?.id ?? '') + ':' + j} onClick={() => { if (detail) void validerJour(detail.id, j) }}>
-                          Valider cette journée
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  {lignesJour.length === 0 ? (
-                    <p className="text-xs text-ink-400">Aucun client programmé pour cette journée.</p>
-                  ) : (
-                    <div className="space-y-1.5">
-                    {lignesJour.map((l) => (
-                      <div key={l.id} className="flex items-center justify-between rounded-xl bg-ink-50 px-3.5 py-2.5">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-ink-800 truncate">{l.clients?.nom}</p>
-                          <p className="text-[11px] text-ink-400 truncate">
-                            {l.clients?.centre || l.clients?.specialite} · {l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}
-                          </p>
-                        </div>
-                        {l.clients?.potentiel && <PotentielBadge potentiel={l.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
-                      </div>
-                    ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })
-          )}
-        </div>
-      </Modal>
     </div>
   )
 }
