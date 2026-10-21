@@ -81,8 +81,8 @@ Deno.serve(async (req) => {
     const pdf = await PDFDocument.create()
     const font = await pdf.embedFont(StandardFonts.Helvetica)
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-    const page = pdf.addPage([595.28, 841.89]) // A4
-    let y = 800
+    const page = pdf.addPage([841.89, 595.28]) // A4 paysage
+    let y = 550
 
     page.drawText('GRAAL MEDICAL SOLUTIONS', { x: 40, y, size: 16, font: bold, color: ROYAL })
     y -= 20
@@ -93,13 +93,13 @@ Deno.serve(async (req) => {
 
     y = drawTable(page, font, bold, y, 'VOLET MÉDICAL', [
       'Client programmé', 'Centre', 'Catégorie', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions'
-    ], [90, 70, 45, 55, 50, 90, 65, 50], medical, Math.min(medical.length + 2, 11))
+    ], [120, 85, 60, 70, 70, 115, 85, 70], medical, Math.min(medical.length + 2, 11))
 
     y -= 20
 
     drawTable(page, font, bold, y, 'VOLET PHARMACIE', [
       'Pharmacie programmée', 'Centre', 'Catégorie', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle'
-    ], [110, 70, 50, 90, 90, 105], pharmacie, Math.min(pharmacie.length + 2, 6))
+    ], [125, 85, 65, 115, 115, 130], pharmacie, Math.min(pharmacie.length + 2, 6))
 
     const bytes = await pdf.save()
     return new Response(bytes, {
@@ -120,7 +120,7 @@ function drawTable(page: any, font: any, bold: any, startY: number, title: strin
   page.drawText(title, { x: x0, y, size: 11, font: bold, color: ROYAL })
   y -= 16
   // Lignes volontairement hautes : le VM y appose le cachet du client lors de la visite.
-  const rowHeight = 34
+  const rowHeight = 26
   let x = x0
   headers.forEach((h, i) => {
     page.drawRectangle({ x, y: y - 16, width: widths[i], height: 16, color: ROYAL })
@@ -139,7 +139,7 @@ function drawTable(page: any, font: any, bold: any, startY: number, title: strin
     const nbExtra = headers.length - 3
     const cells = [nom, centre, categorie, ...Array(nbExtra).fill('')]
     cells.forEach((c, i) => {
-      page.drawRectangle({ x, y: y - rowHeight, width: widths[i], height: rowHeight, borderColor: rgb(0.85, 0.87, 0.9), borderWidth: 0.5 })
+      page.drawRectangle({ x, y: y - rowHeight, width: widths[i], height: rowHeight, borderColor: rgb(0.32, 0.36, 0.43), borderWidth: 1 })
       if (c) page.drawText(String(c), { x: x + 3, y: y - rowHeight + rowHeight - 12, size: 7.5, font })
       x += widths[i]
     })
