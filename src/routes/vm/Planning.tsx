@@ -57,7 +57,7 @@ export default function Planning() {
   const [submitting, setSubmitting] = useState(false)
   const [resultat, setResultat] = useState<{ statut: string; message?: string; conformite?: unknown[] } | null>(null)
   const [seuils, setSeuils] = useState<Seuils>(SEUILS_DEFAUT)
-  const [jourStatuts, setJourStatuts] = useState<Record<string, { statut: string; date_limite: string | null }>>({})
+  const [jourStatuts, setJourStatuts] = useState<Record<string, { statut: string; date_limite: string | null; soumis_at?: string | null }>>({})
   const [, forceTick] = useState(0)
 
   const semaineDebut = programme?.semaine_debut ?? targetSemaineDebut()
@@ -118,11 +118,11 @@ export default function Planning() {
 
   useEffect(() => {
     if (!programme?.id) { setJourStatuts({}); return }
-    supabase.from('programme_jours_validation').select('jour, statut, date_limite').eq('programme_id', programme.id)
+    supabase.from('programme_jours_validation').select('jour, statut, date_limite, soumis_at').eq('programme_id', programme.id)
       .then(({ data, error }) => {
         if (error) { setError(error.message); return }
-        const next: Record<string, { statut: string; date_limite: string | null }> = {}
-        for (const item of data ?? []) next[item.jour] = { statut: item.statut, date_limite: item.date_limite }
+        const next: Record<string, { statut: string; date_limite: string | null; soumis_at?: string | null }> = {}
+        for (const item of data ?? []) next[item.jour] = { statut: item.statut, date_limite: item.date_limite, soumis_at: item.soumis_at }
         setJourStatuts(next)
       })
   }, [programme?.id])
@@ -278,6 +278,18 @@ export default function Planning() {
 
   async function retirerLigne(id: string) {
     await supabase.from('programme_lignes').delete().eq('id', id)
+    reload()
+  }
+
+  async function soumettreJourActif() {
+    if (!programme) return
+    setSubmitting(true)
+    setResultat(null)
+    const { data, error } = await supabase.rpc('soumettre_jour_programme', { p_programme_id: programme.id, p_jour: jourActif })
+    setSubmitting(false)
+    if (error) { setError(error.message); return }
+    setResultat({ statut: 'SOUMIS', message: `${JOUR_LABEL[jourActif]} soumis avec succès.` })
+    setJourStatuts((current) => ({ ...current, [jourActif]: { ...current[jourActif], statut: 'SOUMIS', soumis_at: new Date().toISOString() } }))
     reload()
   }
 
@@ -531,8 +543,12 @@ export default function Planning() {
               </ul>
             </Card>
           )}
-          <Button fullWidth loading={submitting} onClick={soumettre} disabled={!countdown || !prêtPourSoumission}>
-            Soumettre le programme
+          <Button fullWidth loading={submitting} onClick={soumettreJourActif}
+            disabled={!countdown || !programme || jourVerrouille || (jourStatuts[jourActif]?.statut === 'SOUMIS') || !(pharmacieUniquement ? lignesJour.length > 0 : jourOk(jourActif))}>
+            {jourStatuts[jourActif]?.statut === 'SOUMIS' ? `${JOUR_LABEL[jourActif]} déjà soumis` : `Soumettre ${JOUR_LABEL[jourActif]}`}
+          </Button>
+          <Button fullWidth variant="secondary" loading={submitting} onClick={soumettre} disabled={!countdown || !prêtPourSoumission}>
+            Soumettre toute la semaine
           </Button>
         </>
       )}
