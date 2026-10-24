@@ -61,23 +61,10 @@ export default function Planning() {
   const [, forceTick] = useState(0)
 
   const semaineDebut = programme?.semaine_debut ?? targetSemaineDebut()
-  const echeancesJoursOuverts = Object.values(jourStatuts)
-    .filter((jour) => jour.statut !== 'VALIDE' && jour.date_limite)
-    .map((jour) => new Date(jour.date_limite as string).getTime())
-    .filter((date) => Number.isFinite(date))
-  const derniereEcheanceJour = echeancesJoursOuverts.length
-    ? Math.max(...echeancesJoursOuverts)
-    : null
-  const echeanceSupplementaire = programme?.delai_supplementaire_jusqu_a
-    ? new Date(programme.delai_supplementaire_jusqu_a).getTime()
-    : null
-  const echeancesPossibles = [
-    derniereEcheanceJour,
-    echeanceSupplementaire !== null && Number.isFinite(echeanceSupplementaire) ? echeanceSupplementaire : null
-  ].filter((date): date is number => date !== null)
-  const deadline = echeancesPossibles.length
-    ? dayjs(Math.max(...echeancesPossibles))
-    : deadlineSoumission(semaineDebut, programme?.delai_supplementaire_jusqu_a)
+  // L'échéance de soumission hebdomadaire est indépendante des échéances de clôture
+  // des journées : chaque VM doit pouvoir soumettre jusqu'au samedi à 14 h (Bénin).
+  // Seul un délai supplémentaire explicitement accordé par l'administration peut la prolonger.
+  const deadline = deadlineSoumission(semaineDebut, programme?.delai_supplementaire_jusqu_a)
   const countdown = formatCountdown(deadline)
 
   useEffect(() => {
