@@ -93,15 +93,11 @@ export default function Planning() {
 
   const lignesJour = lignes.filter((l) => l.jour === jourActif)
   const etatJourActif = jourStatuts[jourActif]
-  const limiteJour = etatJourActif?.date_limite ? new Date(etatJourActif.date_limite).getTime() : null
-  const limiteSupplementaire = programme?.delai_supplementaire_jusqu_a
-    ? new Date(programme.delai_supplementaire_jusqu_a).getTime()
-    : null
-  const limiteEffectiveJour = Math.max(
-    limiteJour !== null && Number.isFinite(limiteJour) ? limiteJour : 0,
-    limiteSupplementaire !== null && Number.isFinite(limiteSupplementaire) ? limiteSupplementaire : 0
-  )
-  const jourVerrouille = etatJourActif?.statut === 'VALIDE' || (limiteEffectiveJour > 0 && Date.now() > limiteEffectiveJour)
+  // La date_limite de programme_jours_validation concerne la validation/clôture
+  // de la journée, pas la fenêtre de construction du programme hebdomadaire.
+  // Ne pas bloquer le choix des clients avec cette échéance : la limite de
+  // soumission du programme est gérée séparément par deadlineSoumission ci-dessus.
+  const jourVerrouille = etatJourActif?.statut === 'VALIDE'
 
   useEffect(() => {
     if (!programme?.id) { setJourStatuts({}); return }
