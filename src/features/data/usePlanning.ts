@@ -102,9 +102,13 @@ export function usePlanning() {
       return
     }
 
-    // Tous les clients actifs du portefeuille du VM sont proposés, tous secteurs confondus.
+    // Ne proposer que les clients actifs du portefeuille appartenant au secteur
+    // du programme de la semaine. Le filtrage est fait dès le chargement des données,
+    // pas seulement dans le composant d'affichage, pour éviter tout mélange A/B.
     const idsPortefeuille = new Set((portefeuilleData ?? []).map((item) => item.client_id))
-    setPortefeuille((clientsData ?? []).filter((client) => idsPortefeuille.has(client.id)))
+    setPortefeuille((clientsData ?? []).filter((client) =>
+      idsPortefeuille.has(client.id) && (!prog!.secteur || client.secteur === prog!.secteur)
+    ))
     setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
   }, [session, profile?.secteur])
