@@ -43,6 +43,7 @@ export default function ManagementClients() {
   const [search, setSearch] = useState('')
   const [secteurFilter, setSecteurFilter] = useState('')
   const [potentielFilter, setPotentielFilter] = useState('')
+  const [vmFilter, setVmFilter] = useState('')
 
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [bulkVmId, setBulkVmId] = useState('')
@@ -76,10 +77,12 @@ export default function ManagementClients() {
     return clients.filter((c) => {
       if (secteurFilter && c.secteur !== secteurFilter) return false
       if (potentielFilter && c.potentiel !== potentielFilter) return false
+      if (vmFilter === '__sans_vm__' && portefeuille.some((p) => p.client_id === c.id)) return false
+      if (vmFilter && vmFilter !== '__sans_vm__' && !portefeuille.some((p) => p.client_id === c.id && p.vm_id === vmFilter)) return false
       if (q && !c.nom.toLowerCase().includes(q) && !(c.centre ?? '').toLowerCase().includes(q)) return false
       return true
     })
-  }, [clients, search, secteurFilter, potentielFilter])
+  }, [clients, search, secteurFilter, potentielFilter, vmFilter, portefeuille])
 
   const selectedClients = clients.filter((c) => selection.has(c.id))
   const secteursSelection = new Set(selectedClients.map((c) => c.secteur))
@@ -247,6 +250,12 @@ export default function ManagementClients() {
           <option value="GROS">Gros</option>
           <option value="MOYEN">Moyen</option>
           <option value="FAIBLE">Faible</option>
+        </select>
+        <select value={vmFilter} onChange={(e) => setVmFilter(e.target.value)}
+          className="rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
+          <option value="">Tous les VM</option>
+          <option value="__sans_vm__">Clients sans VM</option>
+          {vms.map((v) => <option key={v.id} value={v.id}>{v.full_name}</option>)}
         </select>
       </Card>
 
