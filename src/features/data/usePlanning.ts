@@ -16,6 +16,7 @@ export function targetSemaineDebut() {
 
 export function usePlanning() {
   const { session, profile } = useAuth()
+  const estFawaz = profile?.id === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30'
   const [programme, setProgramme] = useState<Programme | null>(null)
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [portefeuille, setPortefeuille] = useState<ClientRow[]>([])
@@ -27,7 +28,6 @@ export function usePlanning() {
     setLoading(true)
     setError(null)
     const vmId = session.user.id
-    const estFawaz = profile?.id === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30'
     const semaineActuelle = isoWeekMonday().format('YYYY-MM-DD')
     const semaineSuivante = targetSemaineDebut()
 
@@ -112,7 +112,7 @@ export function usePlanning() {
     ))
     setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
-  }, [session, profile?.secteur])
+  }, [session, profile?.secteur, profile?.id])
 
   useEffect(() => { load() }, [load])
 
