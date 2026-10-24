@@ -48,7 +48,7 @@ function selectionGrosCountSafe(selection: Set<string>, portefeuille: Database['
 }
 
 export default function Planning() {
-  const { programme, lignes, portefeuille, loading, error, setError, reload } = usePlanning()
+  const { programme, lignes, portefeuille, loading, error, setError, reload, estFawaz } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
   const [picking, setPicking] = useState<TypeVisite | null>(null)
   const [recherche, setRecherche] = useState('')
@@ -121,7 +121,7 @@ export default function Planning() {
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
     // Le programme fixe le secteur autorisé pour cette semaine : secteur courant cette semaine,
     // secteur opposé pour la semaine suivante. Le serveur applique la même règle.
-    if (programme?.secteur && c.secteur !== programme.secteur) return false
+    if (!estFawaz && programme?.secteur && c.secteur !== programme.secteur) return false
     // Afficher les clients du secteur autorisé même si leur potentiel ne permet pas de les
     // programmer le jour sélectionné ; les règles de potentiel restent appliquées plus bas.
     if (clientIdsUtilises.has(c.id)) return false
@@ -570,11 +570,11 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
-                  const potentielIndisponible = !potentielAutorise(jourActif, c.potentiel, picking!)
-                  const bloqueFaibleJeudi = faibleJeudiBloque(c.id, c.potentiel)
-                  const bloqueMoyen = moyenDerogationBloque(c.id, c.potentiel)
-                  const bloquePharmacieMoyenne = pharmacieMoyenneBloquee(c.id, c.potentiel)
-                  const bloqueGros = grosJourBloque(c.id, c.potentiel)
+                  const potentielIndisponible = !estFawaz && !potentielAutorise(jourActif, c.potentiel, picking!)
+                  const bloqueFaibleJeudi = !estFawaz && faibleJeudiBloque(c.id, c.potentiel)
+                  const bloqueMoyen = !estFawaz && moyenDerogationBloque(c.id, c.potentiel)
+                  const bloquePharmacieMoyenne = !estFawaz && pharmacieMoyenneBloquee(c.id, c.potentiel)
+                  const bloqueGros = !estFawaz && grosJourBloque(c.id, c.potentiel)
                   const bloque = potentielIndisponible || bloqueFaibleJeudi || bloqueMoyen || bloquePharmacieMoyenne || bloqueGros
                   return (
                     <button

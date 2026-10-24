@@ -27,6 +27,7 @@ export function usePlanning() {
     setLoading(true)
     setError(null)
     const vmId = session.user.id
+    const estFawaz = profile?.id === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30'
     const semaineActuelle = isoWeekMonday().format('YYYY-MM-DD')
     const semaineSuivante = targetSemaineDebut()
 
@@ -107,7 +108,7 @@ export function usePlanning() {
     // pas seulement dans le composant d'affichage, pour éviter tout mélange A/B.
     const idsPortefeuille = new Set((portefeuilleData ?? []).map((item) => item.client_id))
     setPortefeuille((clientsData ?? []).filter((client) =>
-      idsPortefeuille.has(client.id) && (!prog!.secteur || client.secteur === prog!.secteur)
+      idsPortefeuille.has(client.id) && (estFawaz || !prog!.secteur || client.secteur === prog!.secteur)
     ))
     setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
@@ -115,5 +116,5 @@ export function usePlanning() {
 
   useEffect(() => { load() }, [load])
 
-  return { programme, lignes, portefeuille, loading, error, setError, reload: load }
+  return { programme, lignes, portefeuille, loading, error, setError, reload: load, estFawaz }
 }
