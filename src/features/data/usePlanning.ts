@@ -84,7 +84,7 @@ export function usePlanning() {
     }
 
     const { data: profile, error: profileError } = await supabase
-      .from('profiles').select('secteur').eq('id', vmId).maybeSingle()
+      .from('profiles').select('secteur, equipe_id').eq('id', vmId).maybeSingle()
     if (profileError || !profile) {
       setError(profileError?.message ?? 'Profil utilisateur introuvable. Contacte un administrateur ; aucun programme n’a été supprimé.')
       setLoading(false)
@@ -181,7 +181,21 @@ export function usePlanning() {
       return
     }
 
-    const clientIds = [...new Set((portefeuilleData ?? []).map((item) => item.client_id))]
+    const isProphadis = profile.equipe_id === 'f2e94e91-40ee-4be5-b72b-0cee7cc1fd9c'
+    let clientIds = [...new Set((portefeuilleData ?? []).map((item) => item.client_id))]
+
+    // Exception de programmation Prophadis : les VM peuvent choisir des pharmacies
+    // des deux zones, sans élargir leur portefeuille pour les autres spécialités.
+    if (isProphadis) {
+      const { data: pharmacies, error: pharmaciesError } = await supabase
+        .from('clients').select('id').eq('specialite', 'PHARMACIE').eq('actif', true)
+      if (pharmaciesError) {
+        setError(pharmaciesError.message)
+        setLoading(false)
+        return
+      }
+      clientIds = [...new Set([...clientIds, ...(pharmacies ?? []).map((c) => c.id)])]
+    }
 
     // Règle générale : un client effectivement visité la semaine précédente
     // n'est pas reprogrammable cette semaine. Une visite NON_FAITE ne bloque pas.
