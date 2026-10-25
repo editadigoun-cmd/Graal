@@ -62,7 +62,7 @@ export default function Planning() {
   const estFawaz = programme?.vm_id === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30'
   const autoriseSoumissionPartielle = ['e86efe52-ed01-4d04-8eec-e539fd1e4b30', 'bb2519e6-04d8-4740-b878-a0b999ad7606'].includes(programme?.vm_id ?? '')
   // Fawaz n'a aucune pharmacie : ne jamais afficher de lignes ni de libellés de ce type.
-  const lignes = estFawaz ? lignesBrutes.filter((l) => l.type_visite !== 'PHARMACIE') : lignesBrutes
+  const lignes = estFawaz && !programme?.mode_pharmacie_uniquement ? lignesBrutes.filter((l) => l.type_visite !== 'PHARMACIE') : lignesBrutes
   const estSemaineActuelle = semaineDebut === isoWeekMonday().format('YYYY-MM-DD')
   const delaiMardi = ['45a172c9-8e94-402b-90e5-a39f59bd584b', 'fd879be3-1200-48be-a1ff-77d15bd4dc06', '4519e59c-ae91-44d7-98a8-b906662a7f2d'].includes(programme?.vm_id ?? '')
   const deadline = isProphadis
@@ -361,7 +361,7 @@ export default function Planning() {
             <p className="text-sm font-extrabold text-royal-600">{lignes.length} visites</p>
           </div>
           <div className="space-y-1.5">
-            {RECAP_SPECIALITES.filter(({ cles }) => !estFawaz || !cles.includes('PHARMACIE')).map(({ cles, label }) => {
+            {RECAP_SPECIALITES.filter(({ cles }) => !estFawaz || pharmacieUniquement || !cles.includes('PHARMACIE')).map(({ cles, label }) => {
               const count = cles.reduce((s, c) => s + (specialiteCounts[c] ?? 0), 0)
               if (count === 0) return null
               return (
@@ -408,7 +408,7 @@ export default function Planning() {
                 )}
               </div>
             )}
-            {!estFawaz && <div>
+            {(!estFawaz || pharmacieUniquement) && <div>
               <div className="flex items-center justify-between text-[11px] mb-1">
                 <span className="text-ink-500">Pharmacie</span>
                 <span className={parJour[jourActif].pharmacie >= seuils.minPharmacie ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
@@ -467,7 +467,7 @@ export default function Planning() {
             {!pharmacieUniquement && <button onClick={() => ouvrirPicker('MEDICAL')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-royal-200 py-3 text-sm font-semibold text-royal-600">
               <IconPlus className="h-4 w-4" /> Client médical
             </button>}
-            {!estFawaz && <button onClick={() => ouvrirPicker('PHARMACIE')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-emerald-200 py-3 text-sm font-semibold text-emerald-600">
+            {(!estFawaz || pharmacieUniquement) && <button onClick={() => ouvrirPicker('PHARMACIE')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-emerald-200 py-3 text-sm font-semibold text-emerald-600">
               <IconPlus className="h-4 w-4" /> Pharmacie
             </button>}
           </div>
