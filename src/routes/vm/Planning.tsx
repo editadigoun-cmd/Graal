@@ -535,7 +535,7 @@ export default function Planning() {
             >
               <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink-200" />
               <p className="text-sm font-bold text-ink-800 mb-1">Ajouter des clients — {JOUR_LABEL[jourActif]}</p>
-              <p className="text-xs text-ink-400 mb-3">Les clients compatibles avec le type de visite sont affichés. Pour Prophadis, les pharmacies des zones A et B sont disponibles ensemble. Le jour habituel ne bloque pas la programmation.</p>
+              <p className="text-xs text-ink-400 mb-3">Les clients compatibles avec le type de visite sont affichés. Pour Prophadis et ODYPHARM, les pharmacies des zones A et B sont disponibles ensemble. ODYPHARM peut aussi programmer les pharmacies MOYENNES ; le serveur applique les limites prévues. Le jour habituel ne bloque pas la programmation.</p>
               <div className="relative mb-3">
                 <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
                 <input
@@ -551,7 +551,8 @@ export default function Planning() {
                   // Une pharmacie FAIBLE reste programmable indépendamment des quotas
                   // et du nombre de visites médicales FAIBLES déjà prévues.
                   const pharmacieFaibleLibre = picking === 'PHARMACIE' && c.potentiel === 'FAIBLE'
-                  const bloquePotentiel = !pharmacieFaibleLibre && !estFawaz && (!c.potentiel || !potentielAutorise(jourActif, c.potentiel, picking!))
+                  const pharmacieMoyenneOdypharm = isOdypharm && !estFawaz && picking === 'PHARMACIE' && c.potentiel === 'MOYEN'
+                  const bloquePotentiel = !pharmacieFaibleLibre && !pharmacieMoyenneOdypharm && !estFawaz && (!c.potentiel || !potentielAutorise(jourActif, c.potentiel, picking!))
                   const bloqueMoyen = !pharmacieFaibleLibre && moyenDerogationBloque(c.id, c.potentiel ?? '')
                   const bloquePlafond = !pharmacieFaibleLibre && plafondPotentielBloque(c.id, c.potentiel ?? '')
                   const bloqueEquilibreVendredi = !pharmacieFaibleLibre && faibleVendrediBloque(c.id, c.potentiel ?? '')
