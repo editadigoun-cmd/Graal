@@ -424,7 +424,7 @@ export default function Planning() {
               </div>
             </div>}
           </div>
-          {!estFawaz && (jourActif === 'JEUDI' || jourActif === 'VENDREDI') && (
+          {!pharmacieUniquement && !estFawaz && (jourActif === 'JEUDI' || jourActif === 'VENDREDI') && (
             <div className="mt-3 pt-3 border-t border-ink-100">
               <div className="flex items-center justify-between text-[11px] mb-1">
                 <span className="text-ink-500">Standards de composition</span>
