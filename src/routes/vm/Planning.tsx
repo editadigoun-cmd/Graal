@@ -267,7 +267,7 @@ export default function Planning() {
 
   if (loading) return <div className="space-y-3 mt-2"><Skeleton className="h-24" /><Skeleton className="h-64" /></div>
 
-  const verrouille = programme && programme.statut !== 'BROUILLON'
+  const verrouille = !!programme && (programme.statut !== 'BROUILLON' || (isProphadis && !countdown))
   const estValide = programme?.statut === 'VALIDE' || programme?.statut === 'VERROUILLE'
 
   if (estValide) {
@@ -294,6 +294,13 @@ export default function Planning() {
         <h1 className="text-lg font-bold text-ink-800 font-display">Planning de la semaine</h1>
         <p className="text-xs text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
       </div>
+
+      {isProphadis && !countdown && programme?.statut === 'BROUILLON' && (
+        <Card className="border border-amber-200 bg-amber-50">
+          <p className="text-sm font-bold text-amber-800">Délai de programmation dépassé</p>
+          <p className="mt-1 text-xs text-amber-700">La programmation des pharmacies Prophadis devait être terminée dimanche à 11 h. Contactez votre superviseur si une correction est nécessaire.</p>
+        </Card>
+      )}
 
       {pharmacieUniquement && (
         <Card className="border border-emerald-200 bg-emerald-50">
