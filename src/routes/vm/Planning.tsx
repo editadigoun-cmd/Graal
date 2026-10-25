@@ -497,7 +497,7 @@ export default function Planning() {
         </AnimatePresence>
 
         {!verrouille && !jourVerrouille && (
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className={`grid ${pharmacieUniquement ? 'grid-cols-1' : 'grid-cols-2'} gap-2.5`}>
             {!pharmacieUniquement && <button onClick={() => ouvrirPicker('MEDICAL')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-royal-200 py-3 text-sm font-semibold text-royal-600">
               <IconPlus className="h-4 w-4" /> Client médical
             </button>}
