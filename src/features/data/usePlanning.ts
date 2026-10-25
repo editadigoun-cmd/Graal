@@ -110,7 +110,7 @@ export function usePlanning() {
     // pas seulement dans le composant d'affichage, pour éviter tout mélange A/B.
     const idsPortefeuille = new Set((portefeuilleData ?? []).map((item) => item.client_id))
     setPortefeuille((clientsData ?? []).filter((client) =>
-      (idsPortefeuille.has(client.id) || (estFagbede && client.specialite === 'PHARMACIE')) && (estFawaz || estFagbede || !prog!.secteur || client.secteur === prog!.secteur)
+      idsPortefeuille.has(client.id) && (estFawaz || estFagbede || !prog!.secteur || client.secteur === prog!.secteur)
     ))
     setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
