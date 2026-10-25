@@ -35,7 +35,6 @@ import ManagementAnimationEquipe from '@/routes/management/AnimationEquipe'
 import ManagementIndicateursAnimation from '@/routes/management/IndicateursAnimation'
 import ManagementPilotageVentes from '@/routes/management/PilotageVentes'
 import ManagementAnalyseVentes from '@/routes/management/AnalyseVentes'
-import ManagementFacturation from '@/routes/management/Facturation'
 import ManagementTerrainHub from '@/routes/management/TerrainHub'
 import ManagementVadPlan from '@/routes/management/VadPlan'
 import ManagementRapportActiviteHebdomadaire from '@/routes/management/RapportActiviteHebdomadaire'
@@ -144,7 +143,6 @@ export default function App() {
             <Route path="indicateurs-animation" element={<RequireAdmin><ManagementIndicateursAnimation /></RequireAdmin>} />
             <Route path="pilotage-ventes" element={<ManagementPilotageVentes />} />
             <Route path="analyse-ventes" element={<ManagementAnalyseVentes />} />
-            <Route path="facturation" element={<ManagementFacturation />} />
             <Route path="terrain" element={<ManagementTerrainHub />} />
             <Route path="vad-plan" element={<ManagementVadPlan />} />
             <Route path="rapport-activite-hebdo" element={<ManagementRapportActiviteHebdomadaire />} />
