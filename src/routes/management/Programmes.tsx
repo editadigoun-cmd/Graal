@@ -140,7 +140,7 @@ export default function ManagementProgrammes() {
       supabase.from('programme_lignes')
         .select('id, jour, type_visite, clients(id, nom, potentiel, specialite, centre)')
         .eq('programme_id', p.id).order('ordre'),
-      supabase.from('programme_jours_validation')
+      (supabase as any).from('programme_jours_validation')
         .select('jour, statut, valide_at, date_limite').eq('programme_id', p.id)
     ])
     setDetailLignes((data as unknown as LigneRow[]) ?? [])
@@ -152,7 +152,7 @@ export default function ManagementProgrammes() {
     if (!detail || validationJourBusy) return
     setValidationJourBusy(jour)
     setForceMsg(null)
-    const { data, error } = await supabase.rpc('valider_jour_programme', {
+    const { data, error } = await (supabase as any).rpc('valider_jour_programme', {
       p_programme_id: detail.id, p_jour: jour, p_date_limite: null
     })
     setValidationJourBusy(null)
