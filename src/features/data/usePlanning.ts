@@ -94,15 +94,31 @@ export function usePlanning() {
     }
     setProgramme(prog)
 
-    const [{ data: lignesData, error: lignesError }, { data: clientsData, error: clientsError }, { data: portefeuilleData, error: portefeuilleError }] = await Promise.all([
+    const [{ data: lignesData, error: lignesError }, { data: portefeuilleData, error: portefeuilleError }] = await Promise.all([
       supabase.from('programme_lignes').select('*, clients(id, nom, potentiel, specialite, centre)').eq('programme_id', prog!.id).order('ordre'),
-      supabase.from('clients').select('*').eq('actif', true).order('nom'),
       supabase.from('portefeuille').select('client_id').eq('vm_id', vmId)
     ])
-    if (lignesError || clientsError || portefeuilleError) {
-      setError(lignesError?.message ?? clientsError?.message ?? portefeuilleError?.message ?? 'Impossible de charger les clients.')
+    if (lignesError || portefeuilleError) {
+      setError(lignesError?.message ?? portefeuilleError?.message ?? 'Impossible de charger les clients.')
       setLoading(false)
       return
+    }
+
+    // Supabase limite chaque réponse à 1 000 lignes par défaut. La table clients
+    // contient plus de 2 000 fiches : charger toutes les pages évite de masquer
+    // des pharmacies situées après la première tranche alphabétique.
+    const clientsData: ClientRow[] = []
+    const pageSize = 1000
+    for (let from = 0; ; from += pageSize) {
+      const { data: page, error: clientsError } = await supabase
+        .from('clients').select('*').eq('actif', true).order('nom').range(from, from + pageSize - 1)
+      if (clientsError) {
+        setError(clientsError.message)
+        setLoading(false)
+        return
+      }
+      clientsData.push(...(page ?? []))
+      if (!page || page.length < pageSize) break
     }
 
     // Ne proposer que les clients actifs du portefeuille appartenant au secteur
