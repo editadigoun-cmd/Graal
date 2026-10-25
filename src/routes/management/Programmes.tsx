@@ -39,6 +39,8 @@ interface FusionRow {
   actif: boolean
 }
 
+interface JourValidationRow { jour: string; statut: string; valide_at: string | null; date_limite: string | null }
+
 interface LigneRow {
   id: string
   jour: string
@@ -66,6 +68,8 @@ export default function ManagementProgrammes() {
   const [detailLignes, setDetailLignes] = useState<LigneRow[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
   const [jourDetail, setJourDetail] = useState<string>('LUNDI')
+  const [validationsJour, setValidationsJour] = useState<JourValidationRow[]>([])
+  const [validationJourBusy, setValidationJourBusy] = useState<string | null>(null)
 
   const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
 
@@ -132,13 +136,33 @@ export default function ManagementProgrammes() {
     setJourDetail('LUNDI')
     setDetailLoading(true)
     setDetailLignes([])
-    const { data } = await supabase
-      .from('programme_lignes')
-      .select('id, jour, type_visite, clients(id, nom, potentiel, specialite, centre)')
-      .eq('programme_id', p.id)
-      .order('ordre')
+    const [{ data }, { data: validations }] = await Promise.all([
+      supabase.from('programme_lignes')
+        .select('id, jour, type_visite, clients(id, nom, potentiel, specialite, centre)')
+        .eq('programme_id', p.id).order('ordre'),
+      supabase.from('programme_jours_validation')
+        .select('jour, statut, valide_at, date_limite').eq('programme_id', p.id)
+    ])
     setDetailLignes((data as unknown as LigneRow[]) ?? [])
+    setValidationsJour((validations as JourValidationRow[]) ?? [])
     setDetailLoading(false)
+  }
+
+  async function validerJour(jour: string) {
+    if (!detail || validationJourBusy) return
+    setValidationJourBusy(jour)
+    setForceMsg(null)
+    const { data, error } = await supabase.rpc('valider_jour_programme', {
+      p_programme_id: detail.id, p_jour: jour, p_date_limite: null
+    })
+    setValidationJourBusy(null)
+    if (error) { setForceMsg({ type: 'error', text: error.message }); return }
+    const { data: validations } = await supabase.from('programme_jours_validation')
+      .select('jour, statut, valide_at, date_limite').eq('programme_id', detail.id)
+    setValidationsJour((validations as JourValidationRow[]) ?? [])
+    const result = data as { programme_valide?: boolean }
+    setForceMsg({ type: 'success', text: result.programme_valide ? 'Les cinq journées sont validées : programme validé.' : 'Journée validée.' })
+    await load()
   }
 
   async function forcerSoumission(programmeId: string) {
@@ -272,18 +296,25 @@ export default function ManagementProgrammes() {
         <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
           {JOURS.map((j) => {
             const count = detailLignes.filter((l) => l.jour === j).length
+            const dayValidation = validationsJour.find((v) => v.jour === j && v.statut === 'VALIDE')
             return <button key={j} onClick={() => setJourDetail(j)} className={`rounded-xl border px-1 py-3 text-center transition ${jourDetail === j ? 'border-royal-600 bg-royal-600 text-white shadow-sm' : 'border-ink-100 bg-white text-ink-600 hover:border-royal-300'}`}>
               <span className="block text-[11px] sm:text-xs font-semibold">{JOUR_LABEL[j].slice(0, 3)}</span>
               <span className="mt-1 block text-lg font-bold">{count}</span>
-              <span className="block text-[10px] opacity-75">visites</span>
+              <span className="block text-[10px] opacity-75">{dayValidation ? '✓ Validée' : 'À valider'}</span>
             </button>
           })}
         </div>
         <Card>
           <div className="mb-4 flex items-center justify-between gap-3">
             <div><h3 className="font-bold text-ink-800">{JOUR_LABEL[jourDetail]}</h3><p className="text-xs text-ink-400">{lignesJour.length} visite(s) programmée(s)</p></div>
-            <Badge tone="info">{jourDetail}</Badge>
+            <Badge tone={validationsJour.some((v) => v.jour === jourDetail && v.statut === 'VALIDE') ? 'success' : 'info'}>{validationsJour.some((v) => v.jour === jourDetail && v.statut === 'VALIDE') ? 'Validée' : 'En attente'}</Badge>
           </div>
+          {lignesJour.length > 0 && <div className="mb-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="rounded-xl bg-ink-50 p-3"><p className="text-lg font-bold">{lignesJour.length}</p><p className="text-[11px] text-ink-500">Visites prévues</p></div>
+            <div className="rounded-xl bg-ink-50 p-3"><p className="text-lg font-bold">{lignesJour.filter((l) => l.type_visite === 'MEDICAL').length}</p><p className="text-[11px] text-ink-500">Médicales</p></div>
+            <div className="rounded-xl bg-ink-50 p-3"><p className="text-lg font-bold">{lignesJour.filter((l) => l.type_visite !== 'MEDICAL').length}</p><p className="text-[11px] text-ink-500">Pharmacies</p></div>
+            <div className="rounded-xl bg-ink-50 p-3"><p className="text-lg font-bold">{lignesJour.filter((l) => l.clients?.potentiel === 'GROS').length}/{lignesJour.filter((l) => l.clients?.potentiel === 'MOYEN').length}/{lignesJour.filter((l) => l.clients?.potentiel === 'FAIBLE').length}</p><p className="text-[11px] text-ink-500">Gros / Moyen / Faible</p></div>
+          </div>}
           {detailLoading ? <div className="space-y-2"><Skeleton className="h-14" /><Skeleton className="h-14" /></div> :
             lignesJour.length === 0 ? <p className="py-8 text-center text-sm text-ink-400">Aucun client programmé pour ce jour.</p> :
             <div className="space-y-2">{lignesJour.map((l, index) => <div key={l.id} className="flex items-center gap-3 rounded-xl border border-ink-100 p-3">
@@ -292,6 +323,14 @@ export default function ManagementProgrammes() {
               {l.clients?.potentiel && <PotentielBadge potentiel={l.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
             </div>)}</div>
           }
+          {profile?.role === 'admin' && lignesJour.length > 0 && !validationsJour.some((v) => v.jour === jourDetail && v.statut === 'VALIDE') && (
+            <div className="mt-5 border-t border-ink-100 pt-4">
+              <Button loading={validationJourBusy === jourDetail} disabled={validationJourBusy !== null || detailLoading} onClick={() => validerJour(jourDetail)} fullWidth>
+                Valider la journée du {JOUR_LABEL[jourDetail]}
+              </Button>
+              <p className="mt-2 text-center text-[11px] text-ink-400">La validation vérifie aussi les quotas de potentiel du jour.</p>
+            </div>
+          )}
         </Card>
       </div>
     )
