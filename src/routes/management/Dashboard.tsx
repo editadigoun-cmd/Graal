@@ -55,6 +55,7 @@ export default function ManagementDashboard() {
   const { profile } = useAuth()
   const [loading, setLoading] = useState(true)
   const [progress, setProgress] = useState<VmProgress[]>([])
+  const [realisationSemaine, setRealisationSemaine] = useState({ prevues: 0, realisees: 0 })
   const [alertes, setAlertes] = useState<{ id: string; titre: string; corps: string | null; created_at: string }[]>([])
   const [moisExport, setMoisExport] = useState(nowBenin().format('YYYY-MM-01'))
   const [exporting, setExporting] = useState(false)
@@ -82,13 +83,14 @@ export default function ManagementDashboard() {
         : { data: [] as { equipe_id: string }[] }
       const supervisedIds = new Set((supervisorLinks ?? []).map((x) => x.equipe_id))
 
-      const [{ data: taux }, { data: allProfiles }, { data: notifs }, { data: clo }, { data: allEquipes }, { data: progSemaine }] = await Promise.all([
+      const [{ data: taux }, { data: allProfiles }, { data: notifs }, { data: clo }, { data: allEquipes }, { data: progSemaine }, { data: tauxHebdo }] = await Promise.all([
         supabase.from('v_taux_realisation_journalier').select('*').eq('jour', today),
         supabase.from('profiles').select('id, full_name, equipe_id').eq('role', 'vm'),
         supabase.from('notifications').select('id, titre, corps, created_at').order('created_at', { ascending: false }).limit(8),
         supabase.from('clotures_journalieres').select('id, vm_id, statut, heure_cloture, photo_path, en_retard, profiles(full_name)').eq('jour', today),
         supabase.from('equipes').select('id, nom').order('nom'),
-        supabase.from('programmes_hebdomadaires').select('vm_id').eq('semaine_debut', semaineProchaine)
+        supabase.from('programmes_hebdomadaires').select('vm_id').eq('semaine_debut', semaineProchaine),
+        supabase.from('v_taux_realisation_hebdomadaire').select('vm_id, prevues, realisees').eq('semaine_debut', isoWeekMonday(nowBenin()).format('YYYY-MM-DD'))
       ])
       const profiles = profile?.role === 'superviseur'
         ? (allProfiles ?? []).filter((p) => p.equipe_id && supervisedIds.has(p.equipe_id))
@@ -103,6 +105,9 @@ export default function ManagementDashboard() {
         return { vm_id: p.id, full_name: p.full_name, equipe: p.equipe_id ? equipeNomById[p.equipe_id] ?? null : null, equipe_id: p.equipe_id ?? null, prevues: t?.visites_prevues ?? 0, realisees: t?.visites_realisees ?? 0, conforme: t?.conforme ?? null }
       })
       setProgress(merged)
+      const vmIdsVisibles = new Set((profiles ?? []).map((p) => p.id))
+      const lignesHebdo = (tauxHebdo ?? []).filter((r) => r.vm_id && vmIdsVisibles.has(r.vm_id))
+      setRealisationSemaine({ prevues: lignesHebdo.reduce((sum, r) => sum + (r.prevues ?? 0), 0), realisees: lignesHebdo.reduce((sum, r) => sum + (r.realisees ?? 0), 0) })
       setAlertes(notifs ?? [])
       setClotures((clo as unknown as ClotureRow[]) ?? [])
       setEquipes(eq ?? [])
@@ -222,6 +227,19 @@ export default function ManagementDashboard() {
       </div>
 
       {profile?.role === 'superviseur' && <ManagementRealisationProduits />}
+
+      <Card className="mb-4 border border-royal-100 bg-gradient-to-r from-royal-50/80 to-white">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-ink-800">Réalisation globale de l’équipe — semaine en cours</p>
+            <p className="mt-1 text-xs text-ink-500">Actualisée avec les visites enregistrées · ventes à réactualiser en fin de semaine</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-royal-700">{realisationSemaine.prevues ? Math.round(realisationSemaine.realisees / realisationSemaine.prevues * 100) : 0}%</p>
+            <p className="text-xs text-ink-500">{realisationSemaine.realisees} / {realisationSemaine.prevues} visites</p>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="VM actifs" value={progressFiltre.length} tone="royal" icon={<IconUsers className="h-4 w-4" />} />
