@@ -567,7 +567,7 @@ export default function Planning() {
             >
               <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink-200" />
               <p className="text-sm font-bold text-ink-800 mb-1">Ajouter des clients — {JOUR_LABEL[jourActif]}</p>
-              <p className="text-xs text-ink-400 mb-3">Seuls les clients autorisés ce jour selon leur potentiel sont affichés. Sélectionnez-en un ou plusieurs.</p>
+              <p className="text-xs text-ink-400 mb-3">Sélectionnez librement les clients à programmer pour ce jour.</p>
               <div className="relative mb-3">
                 <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
                 <input
@@ -580,11 +580,11 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
-                  const potentielIndisponible = !estFawaz && !potentielAutorise(jourActif, c.potentiel, picking!)
-                  const bloqueFaibleJeudi = !estFawaz && faibleJeudiBloque(c.id, c.potentiel)
-                  const bloqueMoyen = !estFawaz && moyenDerogationBloque(c.id, c.potentiel)
-                  const bloquePharmacieMoyenne = !estFawaz && pharmacieMoyenneBloquee(c.id, c.potentiel)
-                  const bloqueGros = !estFawaz && grosJourBloque(c.id, c.potentiel)
+                  const potentielIndisponible = !estFawaz && !estFagbede && !potentielAutorise(jourActif, c.potentiel, picking!)
+                  const bloqueFaibleJeudi = !estFawaz && !estFagbede && faibleJeudiBloque(c.id, c.potentiel)
+                  const bloqueMoyen = !estFawaz && !estFagbede && moyenDerogationBloque(c.id, c.potentiel)
+                  const bloquePharmacieMoyenne = !estFawaz && !estFagbede && pharmacieMoyenneBloquee(c.id, c.potentiel)
+                  const bloqueGros = !estFawaz && !estFagbede && grosJourBloque(c.id, c.potentiel)
                   const bloque = potentielIndisponible || bloqueFaibleJeudi || bloqueMoyen || bloquePharmacieMoyenne || bloqueGros
                   return (
                     <button
