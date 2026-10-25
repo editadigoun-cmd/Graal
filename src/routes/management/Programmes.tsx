@@ -307,16 +307,7 @@ export default function ManagementProgrammes() {
         ) : (
           <div className="grid lg:grid-cols-2 gap-3">
             {brouillons.map((b) => (
-              <Card key={b.id} className="transition hover:border-royal-300 hover:bg-royal-50/30">\n                {/* Brouillon consultable sans modifier son statut. */}\n                {/* Détail ouvert par le bouton dédié. */}\n                {false && <span onClick={() => ouvrirDetail({
-                id: b.id,
-                semaine_debut: b.semaine_debut,
-                statut: 'BROUILLON',
-                soumis_at: null,
-                vm_id: b.vm_id,
-                mode_pharmacie_uniquement: b.mode_pharmacie_uniquement,
-                profiles: b.profiles,
-                programme_conformite: [],
-              })}>
+              <Card key={b.id} className="transition hover:border-royal-300 hover:bg-royal-50/30">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-ink-800 truncate">{b.profiles?.full_name ?? 'Visiteur médical'}</p>
@@ -327,19 +318,16 @@ export default function ManagementProgrammes() {
                       {b.delai_supplementaire_jusqu_a && <Badge tone={dayjs(b.delai_supplementaire_jusqu_a).isAfter(nowBenin()) ? 'success' : 'warning'}>Délai {dayjs(b.delai_supplementaire_jusqu_a).format('DD/MM HH:mm')}</Badge>}
                     </div>
                   </div>
-                  <Button size="sm" variant="secondary" icon={<IconEye className="h-3.5 w-3.5" />} onClick={(e) => {
-                    e.stopPropagation()
-                    ouvrirDetail({
-                      id: b.id,
-                      semaine_debut: b.semaine_debut,
-                      statut: 'BROUILLON',
-                      soumis_at: null,
-                      vm_id: b.vm_id,
-                      mode_pharmacie_uniquement: b.mode_pharmacie_uniquement,
-                      profiles: b.profiles,
-                      programme_conformite: [],
-                    })
-                  }}>Ouvrir</Button>
+                  <Button size="sm" variant="secondary" icon={<IconEye className="h-3.5 w-3.5" />} onClick={() => ouvrirDetail({
+                    id: b.id,
+                    semaine_debut: b.semaine_debut,
+                    statut: 'BROUILLON',
+                    soumis_at: null,
+                    vm_id: b.vm_id,
+                    mode_pharmacie_uniquement: b.mode_pharmacie_uniquement,
+                    profiles: b.profiles,
+                    programme_conformite: [],
+                  })}>Ouvrir</Button>
                 </div>
               </Card>
             ))}
