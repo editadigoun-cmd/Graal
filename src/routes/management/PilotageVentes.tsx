@@ -110,6 +110,14 @@ export default function PilotageVentes() {
     const produitIds = (catalogue ?? []).map((c) => c.produit_id)
     if (produitIds.length === 0) { setLignes([]); setLoading(false); return }
 
+    // Recharger les noms via la table produits directement : selon la relation
+    // PostgREST disponible dans l'environnement, le JOIN imbriqué peut revenir null,
+    // ce qui affichait un simple tiret à la place du nom du produit.
+    const { data: produitsDirects, error: errProduits } = await supabase
+      .from('produits').select('id, nom, actif').in('id', produitIds)
+    if (errProduits) { setErreur(errProduits.message); setLoading(false); return }
+    const produitParId = new Map((produitsDirects ?? []).map((p) => [p.id, p]))
+
     const [{ data: objectifs }, { data: ventesMois }, { data: stocks }] = await Promise.all([
       supabase.from('objectifs_mensuels_produits').select('produit_id, objectif_quantite').eq('mois', mois).in('produit_id', produitIds),
       supabase.from('ventes_hebdomadaires').select('produit_id, grossiste_id, semaine_debut, quantite').in('produit_id', produitIds).in('semaine_debut', semaines),
@@ -137,8 +145,8 @@ export default function PilotageVentes() {
     const result: LigneProduit[] = (catalogue ?? [])
       .map((c) => ({
         produitId: c.produit_id,
-        nom: c.produits?.nom ?? '—',
-        actif: c.produits?.actif ?? true,
+        nom: produitParId.get(c.produit_id)?.nom ?? c.produits?.nom ?? `Produit ${c.produit_id.slice(0, 8)}`,
+        actif: produitParId.get(c.produit_id)?.actif ?? c.produits?.actif ?? true,
         pght: Number(c.pght),
         objectifMensuel: objectifParProduit.get(c.produit_id) ?? null,
         ventesSemaine: ventesSemaineParProduit.get(c.produit_id) ?? {},
