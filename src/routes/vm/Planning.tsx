@@ -97,8 +97,8 @@ export default function Planning() {
   }, [])
 
   const lignesJour = lignes.filter((l) => l.jour === jourActif)
-  const clientIdsUtilises = new Set(lignes.map((l) => l.client_id))
   const pharmacieUniquement = !!programme?.mode_pharmacie_uniquement
+  const clientIdsUtilises = new Set(lignes.map((l) => l.client_id))
 
   const candidats = portefeuille.filter((c) => {
     if (!picking) return false
@@ -106,7 +106,9 @@ export default function Planning() {
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
     if (picking === 'PHARMACIE' && c.specialite !== 'PHARMACIE') return false
     // Afficher aussi les clients dont le potentiel n'est pas autorisé ce jour, mais les désactiver dans la liste avec une explication.
-    if (clientIdsUtilises.has(c.id)) return false
+    // En mode pharmacie uniquement, ne pas bloquer une pharmacie déjà programmée cette semaine :
+    // la même pharmacie peut être ajoutée sur un autre jour si nécessaire.
+    if (!pharmacieUniquement && clientIdsUtilises.has(c.id)) return false
     if (recherche && !normalizeText(c.nom).includes(normalizeText(recherche))) return false
     return true
   }).sort((a, b) =>
@@ -132,7 +134,7 @@ export default function Planning() {
   const vendrediStandardsOk = estFawaz || (vendrediGros <= 3 && vendrediFaible <= 5 && vendrediFaible <= vendrediMoyen)
 
   function plafondPotentielBloque(candidatId: string, potentiel: string) {
-    if (estFawaz || selection.has(candidatId) || !['JEUDI', 'VENDREDI'].includes(jourActif)) return false
+    if (pharmacieUniquement || estFawaz || selection.has(candidatId) || !['JEUDI', 'VENDREDI'].includes(jourActif)) return false
     const p = potentiel as Potentiel
     if (p === 'MOYEN' || (estFawaz && p === 'FAIBLE')) return false
     const actuel = comptePotentiel(jourActif, p)
@@ -148,7 +150,7 @@ export default function Planning() {
   }
 
   function faibleVendrediBloque(candidatId: string, potentiel: string) {
-    if (estFawaz || jourActif !== 'VENDREDI' || selection.has(candidatId) || !['FAIBLE', 'MOYEN'].includes(potentiel)) return false
+    if (pharmacieUniquement || estFawaz || jourActif !== 'VENDREDI' || selection.has(candidatId) || !['FAIBLE', 'MOYEN'].includes(potentiel)) return false
     const faibles = vendrediFaible + compteSelectionPotentiel('FAIBLE') + (potentiel === 'FAIBLE' ? 1 : 0)
     const moyens = vendrediMoyen + compteSelectionPotentiel('MOYEN') + (potentiel === 'MOYEN' ? 1 : 0)
     return faibles > moyens
@@ -163,7 +165,7 @@ export default function Planning() {
   const moyenLunMarMerProjete = lignesJourActifMoyenMedical + selectionMoyenCount
 
   function moyenDerogationBloque(candidatId: string, potentiel: string) {
-    if (estFawaz || picking !== 'MEDICAL' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
+    if (pharmacieUniquement || estFawaz || picking !== 'MEDICAL' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
     return moyenLunMarMerProjete + 1 > seuils.maxMoyenLunMarMer
   }
 
@@ -548,9 +550,9 @@ export default function Planning() {
                   // Une pharmacie FAIBLE reste programmable indépendamment des quotas
                   // et du nombre de visites médicales FAIBLES déjà prévues.
                   const pharmacieFaibleLibre = picking === 'PHARMACIE' && c.potentiel === 'FAIBLE'
-                  const bloquePotentiel = !pharmacieFaibleLibre && !estFawaz && (!c.potentiel || !potentielAutorise(jourActif, c.potentiel, picking!))
-                  const bloqueMoyen = !pharmacieFaibleLibre && moyenDerogationBloque(c.id, c.potentiel ?? '')
-                  const bloquePlafond = !pharmacieFaibleLibre && plafondPotentielBloque(c.id, c.potentiel ?? '')
+                  const bloquePotentiel = !pharmacieUniquement && !pharmacieFaibleLibre && !estFawaz && (!c.potentiel || !potentielAutorise(jourActif, c.potentiel, picking!))
+                  const bloqueMoyen = !pharmacieUniquement && !pharmacieFaibleLibre && moyenDerogationBloque(c.id, c.potentiel ?? '')
+                  const bloquePlafond = !pharmacieUniquement && !pharmacieFaibleLibre && plafondPotentielBloque(c.id, c.potentiel ?? '')
                   const bloqueEquilibreVendredi = !pharmacieFaibleLibre && faibleVendrediBloque(c.id, c.potentiel ?? '')
                   const bloque = bloquePotentiel || bloqueMoyen || bloquePlafond || bloqueEquilibreVendredi
                   return (
