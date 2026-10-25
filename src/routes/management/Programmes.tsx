@@ -69,6 +69,7 @@ export default function ManagementProgrammes() {
   const [detailJourActif, setDetailJourActif] = useState<string>(JOURS[0])
 
   const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
+  const semaineProchaine = isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD')
 
   const [derogProgrammeId, setDerogProgrammeId] = useState('')
   const [derogClients, setDerogClients] = useState<{ id: string; nom: string }[]>([])
@@ -77,7 +78,6 @@ export default function ManagementProgrammes() {
   const [derogBusy, setDerogBusy] = useState(false)
 
   async function load() {
-    const semaineProchaine = isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD')
     const [{ data }, { data: br }, { data: fu }] = await Promise.all([
       supabase
         .from('programmes_hebdomadaires')
@@ -247,7 +247,7 @@ export default function ManagementProgrammes() {
   if (loading) return <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-24" /></div>
 
   const soumis = programmes.filter((p) => p.statut === 'SOUMIS')
-  const enCours = programmes.filter((p) => p.statut === 'BROUILLON')
+  const enCours = programmes.filter((p) => p.statut === 'BROUILLON' && p.semaine_debut === semaineProchaine)
   const autres = programmes.filter((p) => p.statut !== 'SOUMIS' && p.statut !== 'BROUILLON')
   const valides = programmes.filter((p) => p.statut === 'VALIDE' || p.statut === 'VERROUILLE').length
   const brouillonsEnRetard = brouillons.filter((b) => deadlinePassee(b.semaine_debut))
