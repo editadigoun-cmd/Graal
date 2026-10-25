@@ -301,6 +301,53 @@ export default function ManagementProgrammes() {
       </div>
 
       <div>
+        <p className="text-sm font-bold text-ink-600 mb-3">Programmes en cours — brouillons ({brouillons.length})</p>
+        {brouillons.length === 0 ? (
+          <Card className="text-sm text-ink-400 text-center py-5">Aucun programme en cours pour la semaine actuelle ou la semaine prochaine.</Card>
+        ) : (
+          <div className="grid lg:grid-cols-2 gap-3">
+            {brouillons.map((b) => (
+              <Card key={b.id} className="cursor-pointer transition hover:border-royal-300 hover:bg-royal-50/30" onClick={() => ouvrirDetail({
+                id: b.id,
+                semaine_debut: b.semaine_debut,
+                statut: 'BROUILLON',
+                soumis_at: null,
+                vm_id: b.vm_id,
+                mode_pharmacie_uniquement: b.mode_pharmacie_uniquement,
+                profiles: b.profiles,
+                programme_conformite: [],
+              })}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-ink-800 truncate">{b.profiles?.full_name ?? 'Visiteur médical'}</p>
+                    <p className="text-xs text-ink-500">Semaine du {dayjs(b.semaine_debut).format('DD/MM/YYYY')} · Programme en cours</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <Badge tone="warning">Brouillon</Badge>
+                      {b.mode_pharmacie_uniquement && <Badge tone="success">Pharmacie uniquement</Badge>}
+                      {b.delai_supplementaire_jusqu_a && <Badge tone={dayjs(b.delai_supplementaire_jusqu_a).isAfter(nowBenin()) ? 'success' : 'warning'}>Délai {dayjs(b.delai_supplementaire_jusqu_a).format('DD/MM HH:mm')}</Badge>}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="secondary" icon={<IconEye className="h-3.5 w-3.5" />} onClick={(e) => {
+                    e.stopPropagation()
+                    ouvrirDetail({
+                      id: b.id,
+                      semaine_debut: b.semaine_debut,
+                      statut: 'BROUILLON',
+                      soumis_at: null,
+                      vm_id: b.vm_id,
+                      mode_pharmacie_uniquement: b.mode_pharmacie_uniquement,
+                      profiles: b.profiles,
+                      programme_conformite: [],
+                    })
+                  }}>Ouvrir</Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
         <p className="text-sm font-bold text-ink-600 mb-3">En attente de validation ({soumis.length})</p>
         {soumis.length === 0 ? (
           <Card className="text-sm text-ink-400 text-center py-6">Rien à valider pour le moment.</Card>
