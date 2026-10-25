@@ -125,7 +125,17 @@ export default function Planning() {
     // Afficher les clients du secteur autorisé même si leur potentiel ne permet pas de les
     // programmer le jour sélectionné ; les règles de potentiel restent appliquées plus bas.
     if (clientIdsUtilises.has(c.id)) return false
-    if (recherche && !normalizeText([c.nom, c.centre, c.specialite].filter(Boolean).join(' ')).includes(normalizeText(recherche))) return false
+    if (recherche) {
+      // Accepter les mots dans n'importe quel ordre : « Pharmacie Togoudo »
+      // doit retrouver une fiche enregistrée sous « TOGOUDO » / spécialité « PHARMACIE ».
+      const texteRecherche = normalizeText(
+        [c.nom, c.centre, c.specialite, c.secteur ? `zone ${c.secteur}` : '']
+          .filter(Boolean)
+          .join(' ')
+      )
+      const termesRecherche = normalizeText(recherche).split(/\s+/).filter(Boolean)
+      if (!termesRecherche.every((terme) => texteRecherche.includes(terme))) return false
+    }
     return true
   })
 
