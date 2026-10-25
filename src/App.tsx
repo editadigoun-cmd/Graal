@@ -79,6 +79,13 @@ function RoleRedirect() {
   return <Navigate to="/admin" replace />
 }
 
+function RequireVm({ children }: { children: React.ReactNode }) {
+  const { profile } = useAuth()
+  if (!profile) return <Splash />
+  if (profile.role !== 'vm') return <Navigate to="/admin" replace />
+  return <>{children}</>
+}
+
 function RequireManagement({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth()
   if (!profile) return <Splash />
@@ -107,7 +114,7 @@ export default function App() {
           <Route path="/premiere-connexion" element={<FirstConnection />} />
           <Route path="/" element={<RoleRedirect />} />
 
-          <Route path="/app" element={<RequireAuth><VmShell /></RequireAuth>}>
+          <Route path="/app" element={<RequireAuth><RequireVm><VmShell /></RequireVm></RequireAuth>}>
             <Route index element={<VmDashboard />} />
             <Route path="planning" element={<Planning />} />
             <Route path="visites" element={<Visites />} />
