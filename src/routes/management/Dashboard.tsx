@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { IconStethoscope, IconCheckCircle, IconAlert, IconUsers, IconDownload, IconCamera } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
+import ManagementRealisationProduits from '@/routes/management/RealisationProduits'
 import { todayBenin, nowBenin, isoWeekMonday } from '@/lib/time'
 import dayjs from 'dayjs'
 
@@ -219,6 +220,8 @@ export default function ManagementDashboard() {
           </select>
         )}
       </div>
+
+      {(profile?.role === 'superviseur' || profile?.role === 'admin') && <ManagementRealisationProduits />}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="VM actifs" value={progressFiltre.length} tone="royal" icon={<IconUsers className="h-4 w-4" />} />
