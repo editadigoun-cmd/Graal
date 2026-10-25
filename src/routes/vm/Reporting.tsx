@@ -13,6 +13,7 @@ import dayjs from 'dayjs'
 type Reporting = Database['public']['Tables']['reporting_hebdomadaire']['Row']
 type TauxHebdo = Database['public']['Views']['v_taux_realisation_hebdomadaire']['Row']
 type ScorePondere = Database['public']['Views']['v_score_hebdomadaire_pondere']['Row']
+type CouvertureSpecialite = { specialite: string; couverts: number; total: number; taux: number }
 
 const CHAMPS: { key: keyof Reporting; label: string; placeholder: string }[] = [
   { key: 'analyse_generale', label: 'Analyse générale des visites / marketing', placeholder: 'Tendances observées, contexte du secteur…' },
@@ -28,6 +29,8 @@ export default function Reporting() {
   const [reporting, setReporting] = useState<Partial<Reporting>>({})
   const [taux, setTaux] = useState<TauxHebdo[]>([])
   const [scorePondere, setScorePondere] = useState<ScorePondere | null>(null)
+  const [couvertureMois, setCouvertureMois] = useState<CouvertureSpecialite[]>([])
+  const [couvertureGlobaleMois, setCouvertureGlobaleMois] = useState({ couverts: 0, total: 0 })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
