@@ -81,8 +81,10 @@ export default function SuiviTerrain() {
     async function loadJour() {
       setLoadingJour(true)
       const semaineDebut = dayjs(date).isoWeekday(1).format('YYYY-MM-DD')
-      const [{ data: lignesData }, { data: visitesData }, { data: clotureData }, { data: gardeData }, { data: scoreJourData }, { data: scoreSemaineData }] = await Promise.all([
+      const semaineFin = dayjs(date).isoWeekday(1).add(7, 'day').format('YYYY-MM-DD')
+      const [{ data: lignesData }, { data: semaineData }, { data: visitesData }, { data: clotureData }, { data: gardeData }, { data: scoreJourData }, { data: scoreSemaineData }] = await Promise.all([
         supabase.from('v_lignes_avec_statut').select('*').eq('vm_id', vmId).eq('date_visite', date).order('type_visite'),
+        supabase.from('v_lignes_avec_statut').select('*').eq('vm_id', vmId).gte('date_visite', semaineDebut).lt('date_visite', semaineFin),
         supabase.from('visites').select('*, clients(nom, potentiel, specialite, centre, secteur), visite_produits(produits(nom))')
           .eq('vm_id', vmId).eq('jour', date),
         supabase.from('clotures_journalieres').select('*').eq('vm_id', vmId).eq('jour', date).maybeSingle(),
@@ -92,7 +94,8 @@ export default function SuiviTerrain() {
       ])
       setScoreJour(scoreJourData?.taux_realisation == null ? null : Math.round(Number(scoreJourData.taux_realisation) * 100))
       setScoreSemaine(scoreSemaineData?.score_pondere_pourcentage == null ? null : Number(scoreSemaineData.score_pondere_pourcentage))
-      setLignes(lignesData ?? [])\n      setLignesSemaine(semaineData ?? [])
+      setLignes(lignesData ?? [])
+      setLignesSemaine(semaineData ?? [])
       setVisites((visitesData as unknown as Visite[]) ?? [])
       setCloture(clotureData ?? null)
       setGarde(gardeData ?? null)
@@ -128,7 +131,12 @@ export default function SuiviTerrain() {
 
   const total = lignes.length
   const realisees = lignes.filter((l) => l.statut_reel === 'REALISEE').length
-  const nonFaites = lignes.filter((l) => l.statut_reel === 'NON_FAITE').length\n  const recapPotentiel = ['GROS', 'MOYEN', 'FAIBLE'].map((potentiel) => {\n    const group = lignesSemaine.filter((l) => l.potentiel === potentiel)\n    const specialites = [...new Set(group.map((l) => l.specialite || (l.type_visite === 'PHARMACIE' ? 'Pharmacie' : 'Autre spécialité')))]\n    return { potentiel, total: group.length, realisees: group.filter((l) => l.statut_reel === 'REALISEE').length, specialites: specialites.map((specialite) => { const rows = group.filter((l) => (l.specialite || (l.type_visite === 'PHARMACIE' ? 'Pharmacie' : 'Autre spécialité')) === specialite); return { specialite, total: rows.length, realisees: rows.filter((l) => l.statut_reel === 'REALISEE').length } }) }\n  })
+  const nonFaites = lignes.filter((l) => l.statut_reel === 'NON_FAITE').length
+  const recapPotentiel = ['GROS', 'MOYEN', 'FAIBLE'].map((potentiel) => {
+    const group = lignesSemaine.filter((l) => l.potentiel === potentiel)
+    const specialites = [...new Set(group.map((l) => l.specialite || (l.type_visite === 'PHARMACIE' ? 'Pharmacie' : 'Autre spécialité')))]
+    return { potentiel, total: group.length, realisees: group.filter((l) => l.statut_reel === 'REALISEE').length, specialites: specialites.map((specialite) => { const rows = group.filter((l) => (l.specialite || (l.type_visite === 'PHARMACIE' ? 'Pharmacie' : 'Autre spécialité')) === specialite); return { specialite, total: rows.length, realisees: rows.filter((l) => l.statut_reel === 'REALISEE').length } }) }
+  })
 
   const pointsTrajet: PointTrajet[] = [
     ...[...visites].sort((a, b) => a.horodatage.localeCompare(b.horodatage)).map((v) => ({
