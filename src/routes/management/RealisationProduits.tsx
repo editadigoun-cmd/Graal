@@ -28,8 +28,8 @@ export default function ManagementRealisationProduits() {
   const [ventes, setVentes] = useState<LigneRealisation[]>([])
   const [objectifs, setObjectifs] = useState<Objectif[]>([])
   const [erreur, setErreur] = useState<string | null>(null)
-  const semaine = isoWeekMonday().format('YYYY-MM-DD')
-  const mois = nowBenin().startOf('month').format('YYYY-MM-DD')
+  const semaine = isoWeekMonday(nowBenin().add(1, 'day')).format('YYYY-MM-DD')
+  const mois = dayjs(semaine).startOf('month').format('YYYY-MM-DD')
   const nbSemaines = useMemo(() => semainesDuMois(mois), [mois])
 
   useEffect(() => {
