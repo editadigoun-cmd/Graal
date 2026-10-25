@@ -307,7 +307,7 @@ export default function ManagementProgrammes() {
         ) : (
           <div className="grid lg:grid-cols-2 gap-3">
             {brouillons.map((b) => (
-              <Card key={b.id} className="cursor-pointer transition hover:border-royal-300 hover:bg-royal-50/30" onClick={() => ouvrirDetail({
+              <Card key={b.id} className="transition hover:border-royal-300 hover:bg-royal-50/30">\n                {/* Brouillon consultable sans modifier son statut. */}\n                {/* Détail ouvert par le bouton dédié. */}\n                {false && <span onClick={() => ouvrirDetail({
                 id: b.id,
                 semaine_debut: b.semaine_debut,
                 statut: 'BROUILLON',
