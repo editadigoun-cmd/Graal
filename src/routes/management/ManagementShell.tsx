@@ -9,8 +9,8 @@ import {
   IconUser, IconClipboard, IconMapPin, IconPill, IconTrendingUp, IconBarChart,
   IconMenu, IconX, IconChevronRight
 } from '@/components/ui/icons'
-import logoFull from '@/assets/logo-full.png'
-import logoMark from '@/assets/logo-mark.png'
+import logoFull from '@/assets/provisit-full.svg'
+import logoMark from '@/assets/provisit-mark.svg'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 
 type NavItem = {
@@ -214,7 +214,7 @@ export function ManagementShell() {
         <div className="flex items-center gap-2.5 px-1 mb-8">
           <img src={logoMark} alt="" className="h-8 w-8" />
           <div>
-            <p className="text-sm font-extrabold text-ink-800 font-display leading-none">GRAAL</p>
+            <p className="text-sm font-extrabold text-ink-800 font-display leading-none">PROVISIT</p>
             <p className="text-[10px] font-semibold text-ink-400 tracking-wide">MEDICAL SOLUTIONS</p>
           </div>
         </div>
@@ -244,9 +244,9 @@ export function ManagementShell() {
             >
               <IconMenu className="h-5 w-5" />
             </button>
-            <img src={logoFull} alt="GRAAL" className="h-8 w-auto" />
+            <img src={logoFull} alt="PROVISIT" className="h-8 w-auto" />
           </div>
-          <p className="hidden md:block text-sm font-bold text-ink-700">{currentPage?.label ?? 'GRAAL'}</p>
+          <p className="hidden md:block text-sm font-bold text-ink-700">{currentPage?.label ?? 'PROVISIT'}</p>
           <div className="flex items-center gap-3">
             {profile?.role === 'admin' && (
               <Link to="/admin/parametres" className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink-400 shadow-softer hover:text-royal-600 transition">
