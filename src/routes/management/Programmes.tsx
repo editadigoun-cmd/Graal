@@ -144,7 +144,7 @@ export default function ManagementProgrammes() {
         .select('jour, statut, valide_at, date_limite').eq('programme_id', p.id)
     ])
     setDetailLignes((data as unknown as LigneRow[]) ?? [])
-    setValidationsJour((validations as JourValidationRow[]) ?? [])
+    setValidationsJour((validations as unknown as JourValidationRow[]) ?? [])
     setDetailLoading(false)
   }
 
@@ -157,10 +157,10 @@ export default function ManagementProgrammes() {
     })
     setValidationJourBusy(null)
     if (error) { setForceMsg({ type: 'error', text: error.message }); return }
-    const { data: validations } = await supabase.from('programme_jours_validation')
+    const { data: validations } = await (supabase as any).from('programme_jours_validation')
       .select('jour, statut, valide_at, date_limite').eq('programme_id', detail.id)
     setValidationsJour((validations as JourValidationRow[]) ?? [])
-    const result = data as { programme_valide?: boolean }
+    const result = data as unknown as { programme_valide?: boolean }
     setForceMsg({ type: 'success', text: result.programme_valide ? 'Les cinq journées sont validées : programme validé.' : 'Journée validée.' })
     await load()
   }
