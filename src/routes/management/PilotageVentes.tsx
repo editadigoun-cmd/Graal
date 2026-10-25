@@ -306,108 +306,116 @@ export default function PilotageVentes() {
 
       {erreur && <p className="text-xs font-semibold text-red-500">{erreur}</p>}
 
-      <Card className="overflow-x-auto">
-        {loading ? (
-          <div className="p-5 space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+      <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 bg-[#24483d] px-4 py-3 text-white">
+          <div>
+            <p className="text-sm font-extrabold tracking-wide">RAPPORT HEBDOMADAIRE DES VENTES</p>
+            <p className="mt-1 text-[11px] text-white/75">{laboratoires.find((l) => l.id === labActif)?.nom ?? 'Laboratoire'} · Tous les grossistes</p>
           </div>
+          <div className="text-right">
+            <p className="text-sm font-bold">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
+            <p className="text-[11px] text-white/75">{dayjs(mois).format('MMMM YYYY')} · Cumul mensuel</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 border-b border-ink-100 bg-ink-50 px-4 py-3 text-[11px] text-ink-500">
+          <span className="rounded-full border border-ink-200 bg-white px-3 py-1"><b>GROSSISTES</b> {grossistes.map((g) => g.nom).join(', ') || 'Aucun grossiste'}</span>
+          <span className="rounded-full border border-ink-200 bg-white px-3 py-1"><b>PRODUITS</b> Catalogue {laboratoires.find((l) => l.id === labActif)?.nom ?? ''}</span>
+          <span className="rounded-full border border-ink-200 bg-white px-3 py-1"><b>DEVISE</b> EUR / PGHT</span>
+        </div>
+        {loading ? (
+          <div className="p-5 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
         ) : lignes.length === 0 ? (
           <p className="p-8 text-center text-sm text-ink-400">Aucun produit pour ce laboratoire. Ajoutez-en un pour commencer.</p>
         ) : (
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-ink-100 text-left font-semibold text-ink-400 uppercase tracking-wide">
-                <th rowSpan={2} className="sticky left-0 z-10 bg-white px-4 py-2 align-bottom">Produit</th>
-                <th rowSpan={2} className="px-2 py-2 align-bottom">PGHT</th>
-                <th rowSpan={2} className="px-2 py-2 align-bottom">Obj. mensuel</th>
-                <th colSpan={grossistes.length} className="px-2 py-1.5 text-center border-l border-ink-100">Ventes — semaine</th>
-                <th rowSpan={2} className="px-2 py-2 align-bottom">Total sem.</th>
-                <th rowSpan={2} className="px-2 py-2 align-bottom">Réal. sem. / mois</th>
-                <th colSpan={grossistes.length} className="px-2 py-1.5 text-center border-l border-ink-100">Stock disponible</th>
-                <th rowSpan={2} className="px-2 py-2 align-bottom">Stock total</th>
-                <th rowSpan={2} className="px-2 py-2 align-bottom">Valeur stock</th>
-              </tr>
-              <tr className="border-b border-ink-100 text-left font-semibold text-ink-400">
-                {grossistes.map((g) => (
-                  <th key={`v-${g.id}`} className="px-1.5 py-1.5 font-medium border-l border-ink-50 first:border-l-ink-100">
-                    <div className="flex items-center gap-1">
-                      {g.nom}
-                      {isAdmin && FORMAT_PAR_GROSSISTE[g.nom] && (
-                        <button onClick={() => ouvrirImport(g)} title={`Importer un relevé ${g.nom}`} className="text-ink-300 hover:text-royal-600">
-                          <IconDownload className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                  </th>
-                ))}
-                {grossistes.map((g) => <th key={`s-${g.id}`} className="px-1.5 py-1.5 font-medium border-l border-ink-50 first:border-l-ink-100">{g.nom}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {lignes.map((l) => {
-                const totalSemaine = Object.values(l.ventesSemaine).reduce((s, v) => s + v, 0)
-                const stockTotal = Object.values(l.stockSemaine).reduce((s, v) => s + v, 0)
-                const objectifHebdo = l.objectifMensuel !== null ? l.objectifMensuel / objectifHebdoDiviseur : null
-                const tauxSemaine = objectifHebdo && objectifHebdo > 0 ? (totalSemaine / objectifHebdo) * 100 : null
-                const tauxMois = l.objectifMensuel && l.objectifMensuel > 0 ? (l.cumulMensuel / l.objectifMensuel) * 100 : null
-                return (
-                  <tr key={l.produitId} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/40">
-                    <td className="sticky left-0 z-10 bg-white px-4 py-2 font-semibold text-ink-700 whitespace-nowrap">
-                      {l.nom}{!l.actif && <span className="ml-1.5 text-ink-300 font-normal">(inactif)</span>}
-                    </td>
-                    <td className="px-2 py-2">
-                      {isAdmin ? (
-                        <input
-                          key={`pght-${l.produitId}`} type="number" step="any" defaultValue={l.pght}
-                          onBlur={(e) => { const v = Number(e.target.value); if (!isNaN(v) && v !== l.pght) savePght(l.produitId, v) }}
-                          className="w-16 rounded-lg border border-ink-100 px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-royal-300"
-                        />
-                      ) : (
-                        <span className="text-ink-500">{l.pght}</span>
-                      )}
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
-                        key={`obj-${l.produitId}-${mois}`} type="number" step="any" defaultValue={l.objectifMensuel ?? ''} placeholder="—"
-                        onBlur={(e) => { const v = Number(e.target.value); if (!isNaN(v) && v >= 0 && v !== l.objectifMensuel) saveObjectif(l.produitId, v) }}
-                        className="w-16 rounded-lg border border-ink-100 px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-royal-300"
-                      />
-                    </td>
-                    {grossistes.map((g) => (
-                      <td key={`v-${g.id}`} className="px-1.5 py-2 border-l border-ink-50">
-                        <input
-                          key={`vv-${l.produitId}-${g.id}-${semaineDebut}`} type="number" step="any"
-                          defaultValue={l.ventesSemaine[g.id] ?? ''} placeholder="0"
-                          onBlur={(e) => { const v = Number(e.target.value || 0); if (!isNaN(v) && v !== (l.ventesSemaine[g.id] ?? 0)) saveVente(l.produitId, g.id, v) }}
-                          className="w-14 rounded-lg border border-ink-100 px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-royal-300"
-                        />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1050px] border-collapse text-xs tabular-nums">
+              <thead>
+                <tr className="bg-[#24483d] text-left font-bold uppercase tracking-wide text-white">
+                  <th rowSpan={2} className="sticky left-0 z-20 min-w-[220px] border-r border-white/20 bg-[#24483d] px-3 py-3">Produit</th>
+                  <th colSpan={3} className="border-r border-white/20 px-2 py-2 text-center">Contexte</th>
+                  <th colSpan={4} className="border-r border-white/20 bg-[#bda83d] px-2 py-2 text-center text-ink-800">Cumul du mois</th>
+                  <th colSpan={3} className="bg-[#344c68] px-2 py-2 text-center">Semaine sélectionnée</th>
+                </tr>
+                <tr className="border-b border-ink-200 bg-ink-100 text-left font-semibold text-ink-600">
+                  <th className="px-2 py-2 text-right">Stock total</th>
+                  <th className="px-2 py-2 text-right">PGHT (€)</th>
+                  <th className="border-r border-ink-200 px-2 py-2 text-right">Valeur stock</th>
+                  <th className="bg-[#f5edbd] px-2 py-2 text-right">Qtés</th>
+                  <th className="bg-[#f5edbd] px-2 py-2 text-right">CA (€)</th>
+                  <th className="bg-[#f5edbd] px-2 py-2 text-right">Obj. mensuel</th>
+                  <th className="border-r border-ink-200 bg-[#f5edbd] px-2 py-2 text-right">% réalisé</th>
+                  <th className="px-2 py-2 text-right">Qté</th>
+                  <th className="px-2 py-2 text-right">CA (€)</th>
+                  <th className="px-2 py-2 text-right">Évol. vs mois</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lignes.map((l, index) => {
+                  const totalSemaine = Object.values(l.ventesSemaine).reduce((s, v) => s + v, 0)
+                  const stockTotal = Object.values(l.stockSemaine).reduce((s, v) => s + v, 0)
+                  const caMois = l.cumulMensuel * l.pght
+                  const caSemaine = totalSemaine * l.pght
+                  const tauxMois = l.objectifMensuel && l.objectifMensuel > 0 ? (l.cumulMensuel / l.objectifMensuel) * 100 : null
+                  const evol = caMois > 0 ? ((caSemaine - caMois) / caMois) * 100 : null
+                  const fmt = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 1 })
+                  return (
+                    <tr key={l.produitId} className={`border-b border-ink-100 ${index % 2 === 0 ? 'bg-white' : 'bg-[#f5f7f6]'} hover:bg-emerald-50/60`}>
+                      <td className={`sticky left-0 z-10 border-r border-ink-100 px-3 py-2.5 font-bold text-ink-800 whitespace-nowrap ${index % 2 === 0 ? 'bg-white' : 'bg-[#f5f7f6]'}`}>
+                        {l.nom}{!l.actif && <span className="ml-1.5 font-normal text-ink-400">(inactif)</span>}
                       </td>
-                    ))}
-                    <td className="px-2 py-2 font-semibold text-ink-700">{totalSemaine}</td>
-                    <td className="px-2 py-2">
-                      <div className="flex flex-col gap-1">
-                        <Badge tone={tauxTone(tauxSemaine)} className="w-fit">{tauxSemaine !== null ? `S: ${Math.round(tauxSemaine)}%` : 'S: —'}</Badge>
-                        <Badge tone={tauxTone(tauxMois)} className="w-fit">{tauxMois !== null ? `M: ${Math.round(tauxMois)}%` : 'M: —'}</Badge>
-                      </div>
-                    </td>
-                    {grossistes.map((g) => (
-                      <td key={`s-${g.id}`} className="px-1.5 py-2 border-l border-ink-50">
-                        <input
-                          key={`sv-${l.produitId}-${g.id}-${semaineDebut}`} type="number" step="any"
-                          defaultValue={l.stockSemaine[g.id] ?? ''} placeholder="0"
-                          onBlur={(e) => { const v = Number(e.target.value || 0); if (!isNaN(v) && v !== (l.stockSemaine[g.id] ?? 0)) saveStock(l.produitId, g.id, v) }}
-                          className="w-14 rounded-lg border border-ink-100 px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-royal-300"
-                        />
+                      <td className="px-2 py-2.5 text-right text-ink-600">{fmt(stockTotal)}</td>
+                      <td className="px-2 py-2.5 text-right">
+                        {isAdmin ? <input key={`pght-${l.produitId}`} type="number" step="any" defaultValue={l.pght} onBlur={(e) => { const v = Number(e.target.value); if (!isNaN(v) && v !== l.pght) savePght(l.produitId, v) }} className="w-20 rounded border border-ink-200 bg-white px-1.5 py-1 text-right focus:outline-none focus:ring-2 focus:ring-royal-300" /> : fmt(l.pght)}
                       </td>
-                    ))}
-                    <td className="px-2 py-2 font-semibold text-ink-700">{stockTotal}</td>
-                    <td className="px-2 py-2 text-ink-500">{Math.round(stockTotal * l.pght).toLocaleString('fr-FR')} €</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                      <td className="border-r border-ink-100 px-2 py-2.5 text-right text-ink-600">{fmt(stockTotal * l.pght)}</td>
+                      <td className="bg-[#fffdf0] px-2 py-2.5 text-right font-semibold text-ink-700">{fmt(l.cumulMensuel)}</td>
+                      <td className="bg-[#fffdf0] px-2 py-2.5 text-right font-semibold text-ink-700">{fmt(caMois)}</td>
+                      <td className="bg-[#fffdf0] px-2 py-2.5 text-right">
+                        <input key={`obj-${l.produitId}-${mois}`} type="number" step="any" defaultValue={l.objectifMensuel ?? ''} placeholder="Définir" onBlur={(e) => { const v = Number(e.target.value); if (!isNaN(v) && v >= 0 && v !== l.objectifMensuel) saveObjectif(l.produitId, v) }} className="w-20 rounded border border-ink-200 bg-white px-1.5 py-1 text-right focus:outline-none focus:ring-2 focus:ring-royal-300" />
+                      </td>
+                      <td className="border-r border-ink-100 bg-[#fffdf0] px-2 py-2.5 text-right">
+                        <span className={`inline-block rounded px-2 py-1 font-bold ${tauxMois === null ? 'bg-ink-100 text-ink-500' : tauxMois >= 100 ? 'bg-emerald-100 text-emerald-800' : tauxMois >= 70 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-700'}`}>{tauxMois !== null ? `${Math.round(tauxMois)} %` : '—'}</span>
+                      </td>
+                      <td className="px-2 py-2.5 text-right font-semibold text-ink-700">{fmt(totalSemaine)}</td>
+                      <td className="px-2 py-2.5 text-right font-semibold text-ink-700">{fmt(caSemaine)}</td>
+                      <td className="px-2 py-2.5 text-right"><span className={evol !== null && evol < 0 ? 'font-semibold text-rose-700' : 'font-semibold text-emerald-700'}>{evol !== null ? `${evol > 0 ? '+' : ''}${Math.round(evol)} %` : '—'}</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="bg-[#bda83d] font-extrabold text-ink-900">
+                  <td className="sticky left-0 z-10 border-r border-white/40 bg-[#bda83d] px-3 py-3">TOTAL GÉNÉRAL</td>
+                  <td className="px-2 py-3 text-right">{Object.values(lignes.reduce((acc, l) => ({...acc, ...l.stockSemaine}), {} as Record<string, number>)).reduce((s, v) => s + v, 0).toLocaleString('fr-FR')}</td>
+                  <td className="px-2 py-3 text-right">—</td>
+                  <td className="border-r border-white/40 px-2 py-3 text-right">{Math.round(totaux.valeurStock).toLocaleString('fr-FR')}</td>
+                  <td className="px-2 py-3 text-right">{lignes.reduce((s, l) => s + l.cumulMensuel, 0).toLocaleString('fr-FR')}</td>
+                  <td className="px-2 py-3 text-right">{Math.round(totaux.caRealise).toLocaleString('fr-FR')}</td>
+                  <td className="px-2 py-3 text-right">{Math.round(lignes.reduce((s, l) => s + (l.objectifMensuel ?? 0) * l.pght, 0)).toLocaleString('fr-FR')}</td>
+                  <td className="border-r border-white/40 px-2 py-3 text-right">{totaux.tauxMoyen !== null ? `${Math.round(totaux.tauxMoyen)} %` : '—'}</td>
+                  <td className="px-2 py-3 text-right">{lignes.reduce((s, l) => s + Object.values(l.ventesSemaine).reduce((a, v) => a + v, 0), 0).toLocaleString('fr-FR')}</td>
+                  <td className="px-2 py-3 text-right">{Math.round(lignes.reduce((s, l) => s + Object.values(l.ventesSemaine).reduce((a, v) => a + v, 0) * l.pght, 0)).toLocaleString('fr-FR')}</td>
+                  <td className="px-2 py-3 text-right">—</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         )}
+        <details className="border-t border-ink-100">
+          <summary className="cursor-pointer bg-ink-50 px-4 py-3 text-xs font-bold text-ink-600 hover:bg-ink-100">Saisie détaillée par grossiste (ventes et stocks)</summary>
+          <div className="overflow-x-auto p-3">
+            <table className="w-full min-w-[800px] text-xs">
+              <thead><tr className="bg-ink-100 text-left text-ink-500"><th className="px-3 py-2">Produit</th><th className="px-2 py-2">PGHT</th><th className="px-2 py-2">Objectif mensuel</th>{grossistes.map((g) => <th key={`vhead-${g.id}`} className="px-2 py-2">Ventes · {g.nom}</th>)}{grossistes.map((g) => <th key={`shead-${g.id}`} className="px-2 py-2">Stock · {g.nom}</th>)}</tr></thead>
+              <tbody>{lignes.map((l, index) => <tr key={l.produitId} className={index % 2 ? 'bg-ink-50' : 'bg-white'}>
+                <td className="whitespace-nowrap px-3 py-2 font-semibold">{l.nom}</td>
+                <td className="px-2 py-2 text-right">{l.pght}</td>
+                <td className="px-2 py-2 text-right">{l.objectifMensuel ?? '—'}</td>
+                {grossistes.map((g) => <td key={`v-${l.produitId}-${g.id}`} className="px-2 py-2"><input key={`vv-${l.produitId}-${g.id}-${semaineDebut}`} type="number" step="any" defaultValue={l.ventesSemaine[g.id] ?? ''} placeholder="0" onBlur={(e) => { const v = Number(e.target.value || 0); if (!isNaN(v) && v !== (l.ventesSemaine[g.id] ?? 0)) saveVente(l.produitId, g.id, v) }} className="w-20 rounded border border-ink-200 px-1.5 py-1 text-right" /></td>)}
+                {grossistes.map((g) => <td key={`s-${l.produitId}-${g.id}`} className="px-2 py-2"><input key={`sv-${l.produitId}-${g.id}-${semaineDebut}`} type="number" step="any" defaultValue={l.stockSemaine[g.id] ?? ''} placeholder="0" onBlur={(e) => { const v = Number(e.target.value || 0); if (!isNaN(v) && v !== (l.stockSemaine[g.id] ?? 0)) saveStock(l.produitId, g.id, v) }} className="w-20 rounded border border-ink-200 px-1.5 py-1 text-right" /></td>)}
+              </tr>)}</tbody>
+            </table>
+          </div>
+        </details>
       </Card>
 
       <Modal open={ajoutOpen} onClose={() => setAjoutOpen(false)} title="Ajouter un produit au laboratoire">
