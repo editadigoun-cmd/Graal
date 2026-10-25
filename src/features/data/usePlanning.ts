@@ -17,6 +17,8 @@ export function targetSemaineDebut() {
 export function usePlanning() {
   const { session, profile } = useAuth()
   const estFawaz = profile?.id === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30'
+  // Fagbede est autorisé à programmer des clients de tous les secteurs.
+  const estFagbede = profile?.id === '96388406-e88e-4146-a372-1df07481c8e4'
   const [programme, setProgramme] = useState<Programme | null>(null)
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [portefeuille, setPortefeuille] = useState<ClientRow[]>([])
@@ -108,7 +110,7 @@ export function usePlanning() {
     // pas seulement dans le composant d'affichage, pour éviter tout mélange A/B.
     const idsPortefeuille = new Set((portefeuilleData ?? []).map((item) => item.client_id))
     setPortefeuille((clientsData ?? []).filter((client) =>
-      idsPortefeuille.has(client.id) && (estFawaz || !prog!.secteur || client.secteur === prog!.secteur)
+      idsPortefeuille.has(client.id) && (estFawaz || estFagbede || !prog!.secteur || client.secteur === prog!.secteur)
     ))
     setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
@@ -116,5 +118,5 @@ export function usePlanning() {
 
   useEffect(() => { load() }, [load])
 
-  return { programme, lignes, portefeuille, loading, error, setError, reload: load, estFawaz }
+  return { programme, lignes, portefeuille, loading, error, setError, reload: load, estFawaz, estFagbede }
 }
