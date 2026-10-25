@@ -280,7 +280,7 @@ export function ManagementShell() {
                   <div className="flex items-center gap-2.5">
                     <img src={logoMark} alt="" className="h-8 w-8" />
                     <div>
-                      <p className="text-sm font-extrabold text-ink-800 font-display leading-none">GRAAL</p>
+                      <p className="text-sm font-extrabold text-ink-800 font-display leading-none">PROVISIT</p>
                       <p className="text-[10px] font-semibold text-ink-400 tracking-wide">MEDICAL SOLUTIONS</p>
                     </div>
                   </div>
