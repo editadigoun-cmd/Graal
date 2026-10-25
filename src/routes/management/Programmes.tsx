@@ -66,6 +66,7 @@ export default function ManagementProgrammes() {
   const [detail, setDetail] = useState<ProgrammeRow | null>(null)
   const [detailLignes, setDetailLignes] = useState<LigneRow[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
+  const [detailJourActif, setDetailJourActif] = useState('LUNDI')
 
   const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
 
@@ -127,6 +128,7 @@ export default function ManagementProgrammes() {
   }
 
   async function ouvrirDetail(p: ProgrammeRow) {
+    setDetailJourActif('LUNDI')
     setDetail(p)
     setDetailLoading(true)
     setDetailLignes([])
@@ -543,8 +545,8 @@ export default function ManagementProgrammes() {
         open={detail !== null}
         onClose={() => setDetail(null)}
         title={detail?.profiles?.full_name ?? 'Détail du programme'}
-        description={detail ? `Semaine du ${dayjs(detail.semaine_debut).format('DD/MM/YYYY')}` : undefined}
-        maxWidth="max-w-2xl"
+        description={detail ? `Programme hebdomadaire · Semaine du ${dayjs(detail.semaine_debut).format('DD/MM/YYYY')}` : undefined}
+        maxWidth="max-w-6xl"
       >
         {detail && detail.programme_conformite?.length > 0 && (
           <div className="flex flex-wrap gap-1.5 border-b border-ink-100 pb-4 mb-4">
@@ -555,38 +557,86 @@ export default function ManagementProgrammes() {
             ))}
           </div>
         )}
-        <div className="space-y-4">
-          {detailLoading ? (
-            <div className="space-y-2"><Skeleton className="h-14" /><Skeleton className="h-14" /></div>
-          ) : detailLignes.length === 0 ? (
-            <p className="text-sm text-ink-400 text-center py-6">Aucun client programmé.</p>
-          ) : (
-            JOURS.map((j) => {
-              const lignesJour = detailLignes.filter((l) => l.jour === j)
-              if (lignesJour.length === 0) return null
-              return (
-                <div key={j}>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">
-                    {JOUR_LABEL[j]} <span className="font-normal normal-case text-ink-300">({lignesJour.length})</span>
-                  </p>
-                  <div className="space-y-1.5">
-                    {lignesJour.map((l) => (
-                      <div key={l.id} className="flex items-center justify-between rounded-xl bg-ink-50 px-3.5 py-2.5">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-ink-800 truncate">{l.clients?.nom}</p>
-                          <p className="text-[11px] text-ink-400 truncate">
-                            {l.clients?.centre || l.clients?.specialite} · {l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}
-                          </p>
-                        </div>
-                        {l.clients?.potentiel && <PotentielBadge potentiel={l.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
+        {detailLoading ? (
+          <div className="space-y-2"><Skeleton className="h-14" /><Skeleton className="h-14" /><Skeleton className="h-40" /></div>
+        ) : (
+          <div className="space-y-5">
+            <section>
+              <h3 className="mb-3 text-sm font-bold text-ink-700">Détail par journée</h3>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {JOURS.map((j) => {
+                  const rows = detailLignes.filter((l) => l.jour === j)
+                  const active = detailJourActif === j
+                  return (
+                    <button key={j} type="button" onClick={() => setDetailJourActif(j)}
+                      className={`rounded-xl border p-3 text-left transition ${active ? 'border-royal-400 bg-royal-50 ring-1 ring-royal-200' : 'border-ink-100 bg-white hover:border-royal-200'}`}>
+                      <p className="text-sm font-bold text-ink-800">{JOUR_LABEL[j]}</p>
+                      <p className="mt-1 text-xs text-ink-500">{rows.length} client{rows.length > 1 ? 's' : ''}</p>
+                      <p className="mt-1 text-[11px] text-ink-400">Programmé{rows.length > 1 ? 's' : ''}</p>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+            <section className="rounded-2xl border border-ink-100 bg-white p-4">
+              {(() => {
+                const lignesJour = detailLignes.filter((l) => l.jour === detailJourActif)
+                const potentiels = ['GROS', 'MOYEN', 'FAIBLE'].map((potentiel) => ({
+                  potentiel,
+                  count: lignesJour.filter((l) => l.clients?.potentiel === potentiel).length,
+                }))
+                const specialites = Object.entries(lignesJour.reduce<Record<string, number>>((acc, l) => {
+                  const specialite = l.clients?.specialite || (l.type_visite === 'PHARMACIE' ? 'PHARMACIE' : 'AUTRE SPÉCIALITÉ')
+                  acc[specialite] = (acc[specialite] || 0) + 1
+                  return acc
+                }, {}))
+                return (
+                  <>
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-bold text-ink-800">{JOUR_LABEL[detailJourActif as keyof typeof JOUR_LABEL]}</h3>
+                        <p className="text-sm text-ink-500">{lignesJour.length} client{lignesJour.length > 1 ? 's' : ''} programmé{lignesJour.length > 1 ? 's' : ''}</p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </div>
+                      <Badge tone={detail.statut === 'VALIDE' || detail.statut === 'VERROUILLE' ? 'success' : detail.statut === 'SOUMIS' ? 'info' : 'warning'}>
+                        {detail.statut === 'BROUILLON' ? 'En cours' : detail.statut === 'SOUMIS' ? 'En attente de validation' : detail.statut === 'VALIDE' || detail.statut === 'VERROUILLE' ? 'Validé' : detail.statut}
+                      </Badge>
+                    </div>
+                    <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Récapitulatif par potentiel</h4>
+                    <div className="mb-5 grid grid-cols-3 gap-2">
+                      {potentiels.map((p) => (
+                        <div key={p.potentiel} className="rounded-xl bg-ink-50 p-3">
+                          <p className="text-xs text-ink-500">{p.potentiel === 'GROS' ? 'Gros potentiel' : p.potentiel === 'MOYEN' ? 'Potentiel moyen' : 'Faible potentiel'}</p>
+                          <p className="mt-1 text-xl font-bold text-ink-800">{p.count}</p>
+                          <p className="text-[11px] text-ink-400">clients programmés</p>
+                        </div>
+                      ))}
+                    </div>
+                    <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Récapitulatif par spécialité</h4>
+                    <div className="mb-5 flex flex-wrap gap-2">
+                      {specialites.length ? specialites.map(([name, count]) => (
+                        <div key={name} className="flex min-w-[120px] items-center justify-between gap-3 rounded-lg bg-ink-50 px-3 py-2">
+                          <span className="text-xs text-ink-600">{name}</span><strong className="text-sm text-ink-800">{count}</strong>
+                        </div>
+                      )) : <p className="text-xs text-ink-400">Aucune spécialité à récapituler.</p>}
+                    </div>
+                    <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Liste des clients — {JOUR_LABEL[detailJourActif as keyof typeof JOUR_LABEL]}</h4>
+                    <div className="space-y-2">
+                      {lignesJour.length ? lignesJour.map((l) => (
+                        <div key={l.id} className="flex items-center justify-between gap-3 rounded-xl bg-ink-50 px-3.5 py-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-ink-800">{l.clients?.nom ?? 'Client'}</p>
+                            <p className="text-xs text-ink-500">{l.clients?.centre || l.clients?.specialite || 'Centre non renseigné'} · {l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</p>
+                          </div>
+                          {l.clients?.potentiel && <PotentielBadge potentiel={l.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
+                        </div>
+                      )) : <p className="rounded-xl bg-ink-50 py-8 text-center text-sm text-ink-400">Aucun client programmé ce jour.</p>}
+                    </div>
+                  </>
+                )
+              })()}
+            </section>
+          </div>
+        )}
       </Modal>
     </div>
   )
