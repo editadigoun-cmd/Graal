@@ -79,7 +79,7 @@ export default function Cloture() {
     setPhotoPreviews((current) => { if (current[index]) URL.revokeObjectURL(current[index]); return current.filter((_, i) => i !== index) })
   }
 
-  const restantesSansMotif = manquantes.filter((l) => !dejaMotivees.has(l.programme_ligne_id) && !reports[l.programme_ligne_id])
+  const restantesSansMotif = manquantes.filter((l) => l.programme_ligne_id !== null && !dejaMotivees.has(l.programme_ligne_id) && !reports[l.programme_ligne_id])
   const jourCourant = todayBenin()
   const lundi = jourCourant.subtract((jourCourant.day() + 6) % 7, 'day')
   const joursReportPossibles = [0, 1, 2, 3, 4].map((offset) => lundi.add(offset, 'day'))
