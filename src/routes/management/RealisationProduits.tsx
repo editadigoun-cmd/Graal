@@ -70,7 +70,14 @@ export default function ManagementRealisationProduits() {
       }
     }
     charger()
-    return () => { vivant = false }
+    const channel = supabase.channel('dashboard-realisation-produits')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ventes_hebdomadaires' }, () => { void charger() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'objectifs_mensuels_produits' }, () => { void charger() })
+      .subscribe()
+    return () => {
+      vivant = false
+      void supabase.removeChannel(channel)
+    }
   }, [profile?.id, profile?.role, semaine, mois])
 
   const lignes = useMemo(() => produits.map((p) => {
@@ -97,9 +104,9 @@ export default function ManagementRealisationProduits() {
       </div>
       {erreur && <Card className="border border-red-200 bg-red-50 text-sm text-red-700">{erreur}</Card>}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <StatCard label="Réalisation actuelle" value={realiseTotal.toLocaleString('fr-FR')} tone="royal" />
-        <StatCard label="Objectif hebdomadaire" value={objectifTotal.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} tone="neutral" />
-        <StatCard label="Taux général" value={tauxGeneral === null ? '—' : `${tauxGeneral.toFixed(1)}%`} tone={tauxGeneral !== null && tauxGeneral >= 100 ? 'emerald' : 'flame'} />
+        <StatCard label="Réalisation actuelle" value={realiseTotal} tone="royal" />
+        <StatCard label="Objectif hebdomadaire" value={objectifTotal} decimals={1} tone="ink" />
+        <StatCard label="Taux général" value={tauxGeneral ?? 0} decimals={1} suffix="%" tone={tauxGeneral !== null && tauxGeneral >= 100 ? "emerald" : "flame"} sub={tauxGeneral === null ? "Aucun objectif hebdomadaire défini" : undefined} />
       </div>
       {lignes.length === 0 ? <Card className="text-sm text-ink-400">Aucun produit actif pour votre périmètre.</Card> : (
         <div className="space-y-2">
