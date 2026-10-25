@@ -306,10 +306,10 @@ export default function PilotageVentes() {
         ) : lignes.length === 0 ? (
           <p className="p-8 text-center text-sm text-ink-400">Aucun produit pour ce laboratoire. Ajoutez-en un pour commencer.</p>
         ) : (
-          <table className="w-full text-xs">
+          <table className="w-full min-w-max text-xs">
             <thead>
               <tr className="border-b border-ink-100 text-left font-semibold text-ink-400 uppercase tracking-wide">
-                <th rowSpan={2} className="sticky left-0 z-10 bg-white px-4 py-2 align-bottom">Produit</th>
+                <th rowSpan={2} className="sticky left-0 z-30 min-w-[220px] w-[220px] bg-white px-4 py-2 align-bottom shadow-[2px_0_4px_rgba(15,23,42,0.08)]">Produit</th>
                 <th rowSpan={2} className="px-2 py-2 align-bottom">PGHT</th>
                 <th rowSpan={2} className="px-2 py-2 align-bottom">Obj. mensuel</th>
                 <th colSpan={grossistes.length} className="px-2 py-1.5 text-center border-l border-ink-100">Ventes — semaine</th>
@@ -344,7 +344,7 @@ export default function PilotageVentes() {
                 const tauxMois = l.objectifMensuel && l.objectifMensuel > 0 ? (l.cumulMensuel / l.objectifMensuel) * 100 : null
                 return (
                   <tr key={l.produitId} className="border-b border-ink-50 last:border-0 hover:bg-ink-50/40">
-                    <td className="sticky left-0 z-10 bg-white px-4 py-2 font-semibold text-ink-700 whitespace-nowrap">
+                    <td className="sticky left-0 z-20 min-w-[220px] w-[220px] bg-white px-4 py-2 font-semibold text-ink-700 whitespace-nowrap shadow-[2px_0_4px_rgba(15,23,42,0.08)]">
                       {l.nom}{!l.actif && <span className="ml-1.5 text-ink-300 font-normal">(inactif)</span>}
                     </td>
                     <td className="px-2 py-2">
