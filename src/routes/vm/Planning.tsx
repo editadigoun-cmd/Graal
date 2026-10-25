@@ -210,7 +210,8 @@ export default function Planning() {
       ? pointsMedical(j) >= 100 - 0.01
       : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
-  const standardsCompositionOk = estFawaz || (jeudiStandardsOk && vendrediStandardsOk)
+  // En mode pharmacie uniquement, aucun plafond ni ratio par potentiel ne s'applique.
+  const standardsCompositionOk = pharmacieUniquement || estFawaz || (jeudiStandardsOk && vendrediStandardsOk)
   // Fawaz et Frankel peuvent soumettre un brouillon incomplet : le superviseur
   // verra le rapport de conformité et pourra demander les compléments nécessaires.
   const prêtPourSoumission = autoriseSoumissionPartielle
