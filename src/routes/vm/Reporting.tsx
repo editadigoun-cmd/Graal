@@ -41,11 +41,35 @@ export default function Reporting() {
     if (!session) return
     setLoading(true)
     setSaved(false)
+    const debutMois = dayjs().startOf('month').format('YYYY-MM-DD')
+    const debutMoisSuivant = dayjs().add(1, 'month').startOf('month').format('YYYY-MM-DD')
     Promise.all([
+      supabase.from('portefeuille').select('client_id, clients(id, specialite, actif)').eq('vm_id', session.user.id),
+      supabase.from('visites').select('client_id, jour').eq('vm_id', session.user.id).eq('statut', 'REALISEE').gte('jour', debutMois).lt('jour', debutMoisSuivant),
       supabase.from('reporting_hebdomadaire').select('*').eq('vm_id', session.user.id).eq('semaine_debut', semaineDebut).maybeSingle(),
       supabase.from('v_taux_realisation_hebdomadaire').select('*').eq('vm_id', session.user.id).eq('semaine_debut', semaineDebut),
       supabase.from('v_score_hebdomadaire_pondere').select('*').eq('vm_id', session.user.id).eq('semaine_debut', semaineDebut).maybeSingle()
-    ]).then(([r, t, s]) => {
+    ]).then(([p, v, r, t, s]) => {
+      const portefeuille = ((p.data ?? []) as unknown as { client_id: string; clients: { id: string; specialite: string | null; actif: boolean } | null }[]).filter((row) => row.clients?.actif)
+      const visitesMois = new Set((v.data ?? []).map((row) => row.client_id))
+      const parSpecialite = new Map<string, { total: number; couverts: Set<string> }>()
+      portefeuille.forEach((row) => {
+        if (!row.clients) return
+        const nom = row.clients.specialite?.trim() || 'Autre spécialité'
+        const item = parSpecialite.get(nom) ?? { total: 0, couverts: new Set<string>() }
+        item.total += 1
+        if (visitesMois.has(row.client_id)) item.couverts.add(row.client_id)
+        parSpecialite.set(nom, item)
+      })
+      const lignesMois = [...parSpecialite.entries()].map(([specialite, item]) => ({
+        specialite, couverts: item.couverts.size, total: item.total,
+        taux: item.total ? Math.round(item.couverts.size / item.total * 100) : 0
+      })).sort((a, b) => a.specialite.localeCompare(b.specialite))
+      setCouvertureMois(lignesMois)
+      setCouvertureGlobaleMois({
+        couverts: lignesMois.reduce((sum, row) => sum + row.couverts, 0),
+        total: lignesMois.reduce((sum, row) => sum + row.total, 0)
+      })
       setReporting(r.data ?? {})
       setTaux(t.data ?? [])
       setScorePondere(s.data ?? null)
@@ -121,6 +145,32 @@ export default function Reporting() {
                 </div>
               ))}
               {taux.length === 0 && <p className="text-xs text-ink-400">Aucune donnée pour cette semaine.</p>}
+            </div>
+          </Card>
+
+          <Card>
+            <p className="text-sm font-bold text-ink-800">Bulletin mensuel — couverture du portefeuille</p>
+            <p className="mt-1 text-xs text-ink-500">{dayjs().format('MMMM YYYY')} · clients actifs distincts visités au moins une fois ce mois-ci</p>
+            <div className="mt-3 rounded-xl bg-royal-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-royal-800">Réalisation globale du mois</span>
+                <span className="text-lg font-bold text-royal-700">{couvertureGlobaleMois.total ? Math.round(couvertureGlobaleMois.couverts / couvertureGlobaleMois.total * 100) : 0}%</span>
+              </div>
+              <p className="mt-1 text-xs text-royal-700">{couvertureGlobaleMois.couverts} clients couverts sur {couvertureGlobaleMois.total} dans le portefeuille</p>
+            </div>
+            <div className="mt-3 space-y-3">
+              {couvertureMois.map((row) => (
+                <div key={row.specialite}>
+                  <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                    <span className="font-medium text-ink-700">{row.specialite}</span>
+                    <span className="font-semibold text-ink-800">{row.couverts}/{row.total} · {row.taux}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-ink-100">
+                    <div className="h-full rounded-full bg-royal-500" style={{ width: `${row.taux}%` }} />
+                  </div>
+                </div>
+              ))}
+              {couvertureMois.length === 0 && <p className="text-xs text-ink-400">Aucune fiche active dans le portefeuille.</p>}
             </div>
           </Card>
 
