@@ -121,7 +121,7 @@ export default function Planning() {
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
     // Le programme fixe le secteur autorisé pour cette semaine : secteur courant cette semaine,
     // secteur opposé pour la semaine suivante. Le serveur applique la même règle.
-    if (!estFawaz && !estFagbede && programme?.secteur && c.secteur !== programme.secteur) return false
+    if (!pharmacieUniquement && !estFawaz && !estFagbede && programme?.secteur && c.secteur !== programme.secteur) return false
     // Afficher les clients du secteur autorisé même si leur potentiel ne permet pas de les
     // programmer le jour sélectionné ; les règles de potentiel restent appliquées plus bas.
     if (clientIdsUtilises.has(c.id)) return false
@@ -498,9 +498,9 @@ export default function Planning() {
 
         {!verrouille && !jourVerrouille && (
           <div className="grid grid-cols-2 gap-2.5">
-            <button onClick={() => ouvrirPicker('MEDICAL')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-royal-200 py-3 text-sm font-semibold text-royal-600">
+            {!pharmacieUniquement && <button onClick={() => ouvrirPicker('MEDICAL')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-royal-200 py-3 text-sm font-semibold text-royal-600">
               <IconPlus className="h-4 w-4" /> Client médical
-            </button>
+            </button>}
             <button onClick={() => ouvrirPicker('PHARMACIE')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-emerald-200 py-3 text-sm font-semibold text-emerald-600">
               <IconPlus className="h-4 w-4" /> Pharmacie
             </button>
@@ -580,11 +580,11 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
-                  const potentielIndisponible = !estFawaz && !estFagbede && !potentielAutorise(jourActif, c.potentiel, picking!)
-                  const bloqueFaibleJeudi = !estFawaz && !estFagbede && faibleJeudiBloque(c.id, c.potentiel)
-                  const bloqueMoyen = !estFawaz && !estFagbede && moyenDerogationBloque(c.id, c.potentiel)
-                  const bloquePharmacieMoyenne = !estFawaz && !estFagbede && pharmacieMoyenneBloquee(c.id, c.potentiel)
-                  const bloqueGros = !estFawaz && !estFagbede && grosJourBloque(c.id, c.potentiel)
+                  const potentielIndisponible = !pharmacieUniquement && !estFawaz && !estFagbede && !potentielAutorise(jourActif, c.potentiel, picking!)
+                  const bloqueFaibleJeudi = !pharmacieUniquement && !estFawaz && !estFagbede && faibleJeudiBloque(c.id, c.potentiel)
+                  const bloqueMoyen = !pharmacieUniquement && !estFawaz && !estFagbede && moyenDerogationBloque(c.id, c.potentiel)
+                  const bloquePharmacieMoyenne = !pharmacieUniquement && !estFawaz && !estFagbede && pharmacieMoyenneBloquee(c.id, c.potentiel)
+                  const bloqueGros = !pharmacieUniquement && !estFawaz && !estFagbede && grosJourBloque(c.id, c.potentiel)
                   const bloque = potentielIndisponible || bloqueFaibleJeudi || bloqueMoyen || bloquePharmacieMoyenne || bloqueGros
                   return (
                     <button
