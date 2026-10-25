@@ -39,6 +39,7 @@ export default function SuiviTerrain() {
   const [vmId, setVmId] = useState('')
   const [date, setDate] = useState(todayBenin().format('YYYY-MM-DD'))
   const [lignes, setLignes] = useState<Ligne[]>([])
+  const [lignesSemaine, setLignesSemaine] = useState<Ligne[]>([])
   const [visites, setVisites] = useState<Visite[]>([])
   const [manquants, setManquants] = useState<Manquant[]>([])
   const [cloture, setCloture] = useState<ClotureRow | null>(null)
@@ -91,7 +92,7 @@ export default function SuiviTerrain() {
       ])
       setScoreJour(scoreJourData?.taux_realisation == null ? null : Math.round(Number(scoreJourData.taux_realisation) * 100))
       setScoreSemaine(scoreSemaineData?.score_pondere_pourcentage == null ? null : Number(scoreSemaineData.score_pondere_pourcentage))
-      setLignes(lignesData ?? [])
+      setLignes(lignesData ?? [])\n      setLignesSemaine(semaineData ?? [])
       setVisites((visitesData as unknown as Visite[]) ?? [])
       setCloture(clotureData ?? null)
       setGarde(gardeData ?? null)
@@ -120,7 +121,7 @@ export default function SuiviTerrain() {
 
   const total = lignes.length
   const realisees = lignes.filter((l) => l.statut_reel === 'REALISEE').length
-  const nonFaites = lignes.filter((l) => l.statut_reel === 'NON_FAITE').length
+  const nonFaites = lignes.filter((l) => l.statut_reel === 'NON_FAITE').length\n  const recapPotentiel = ['GROS', 'MOYEN', 'FAIBLE'].map((potentiel) => {\n    const group = lignesSemaine.filter((l) => l.potentiel === potentiel)\n    const specialites = [...new Set(group.map((l) => l.specialite || (l.type_visite === 'PHARMACIE' ? 'Pharmacie' : 'Autre spécialité')))]\n    return { potentiel, total: group.length, realisees: group.filter((l) => l.statut_reel === 'REALISEE').length, specialites: specialites.map((specialite) => { const rows = group.filter((l) => (l.specialite || (l.type_visite === 'PHARMACIE' ? 'Pharmacie' : 'Autre spécialité')) === specialite); return { specialite, total: rows.length, realisees: rows.filter((l) => l.statut_reel === 'REALISEE').length } }) }\n  })
 
   const pointsTrajet: PointTrajet[] = [
     ...[...visites].sort((a, b) => a.horodatage.localeCompare(b.horodatage)).map((v) => ({
@@ -211,6 +212,22 @@ export default function SuiviTerrain() {
             <Skeleton className="h-64" />
           ) : (
             <>
+              <Card>
+                <p className="text-sm font-bold text-ink-800">Récapitulatif hebdomadaire par potentiel</p>
+                <p className="mt-1 text-xs text-ink-500">Semaine du {dayjs(date).isoWeekday(1).format('DD/MM/YYYY')} · {lignesSemaine.length} visites programmées</p>
+                <div className="mt-3 space-y-3">
+                  {recapPotentiel.map((g) => (
+                    <div key={g.potentiel} className="rounded-xl border border-ink-100 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-ink-800">{g.potentiel === 'GROS' ? 'Gros potentiel' : g.potentiel === 'MOYEN' ? 'Potentiel moyen' : 'Faible potentiel'}</span>
+                        <span className="text-xs font-semibold text-ink-600">{g.realisees}/{g.total} visites</span>
+                      </div>
+                      {g.specialites.length > 0 ? <div className="mt-2 space-y-1.5">{g.specialites.map((s) => <div key={s.specialite} className="flex items-center justify-between gap-3 text-xs"><span className="text-ink-500">{s.specialite}</span><span className="font-medium text-ink-700">{s.realisees}/{s.total} réalisées</span></div>)}</div> : <p className="mt-2 text-xs text-ink-400">Aucune visite programmée pour ce potentiel.</p>}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
               <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
                 <StatCard label="Prévues" value={total} tone="ink" icon={<IconClock className="h-4 w-4" />} />
                 <StatCard label="Réalisées" value={realisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
