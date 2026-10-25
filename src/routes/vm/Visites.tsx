@@ -37,8 +37,8 @@ export default function Visites() {
     try {
       const maintenant = nowBenin()
       let jourCible = todayBenin()
-      // À partir de 20 h, la fiche du prochain jour ouvrable devient téléchargeable.
-      if (maintenant.hour() >= 20) {
+      // À partir de 19 h, la fiche du prochain jour ouvrable devient téléchargeable.
+      if (maintenant.hour() >= 19) {
         jourCible = jourCible.add(1, 'day')
         while (jourCible.day() === 0 || jourCible.day() === 6) {
           jourCible = jourCible.add(1, 'day')
