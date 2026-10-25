@@ -34,7 +34,7 @@ const STATUT_LABEL: Record<string, string> = {
 
 export default function SuiviTerrain() {
   const { profile } = useAuth()
-  const [vms, setVms] = useState<{ id: string; full_name: string; equipe_id: string | null }[]>([])
+  const [vms, setVms] = useState<{ id: string; full_name: string; equipe_id: string | null; equipes: { nom: string } | null }[]>([])
   const [supervisedIds, setSupervisedIds] = useState<string[]>([])
   const [vmId, setVmId] = useState('')
   const [date, setDate] = useState(todayBenin().format('YYYY-MM-DD'))
@@ -55,7 +55,7 @@ export default function SuiviTerrain() {
   useEffect(() => {
     async function init() {
       const [{ data: vmList }, se] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, equipe_id').eq('role', 'vm').order('full_name'),
+        supabase.from('profiles').select('id, full_name, equipe_id, equipes(nom)').eq('role', 'vm').order('full_name'),
         profile?.role === 'superviseur'
           ? supabase.from('superviseur_equipes').select('equipe_id').eq('superviseur_id', profile.id)
           : Promise.resolve({ data: [] as { equipe_id: string }[] })
@@ -113,6 +113,13 @@ export default function SuiviTerrain() {
   }, [vmId, date])
 
   if (loading) return <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-64" /></div>
+
+  const vmSelectionne = vmsVisibles.find((v) => v.id === vmId)
+  const equipeNom = (vmSelectionne?.equipes?.nom ?? '').toUpperCase()
+  const joursGarde: Record<string, number[]> = { PROPHADIS: [1, 3], ODYPAHARM: [2, 4], 'TIL HEALTH CARE': [2, 3, 4] }
+  const joursEquipe = joursGarde[equipeNom] ?? []
+  const jourSemaine = dayjs(date).day() || 7
+  const gardePrevue = joursEquipe.includes(jourSemaine)
 
   const visiteParId = Object.fromEntries(visites.map((v) => [v.id, v]))
   const manquantParLigne = Object.fromEntries(manquants.map((m) => [m.programme_ligne_id, m]))
@@ -212,6 +219,17 @@ export default function SuiviTerrain() {
             <Skeleton className="h-64" />
           ) : (
             <>
+              <Card className={gardePrevue ? 'border border-royal-200 bg-royal-50/50' : ''}>
+                <div className="flex items-start gap-3">
+                  <div className="rounded-xl bg-ink-100 p-2"><IconMoon className="h-4 w-4 text-ink-600" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-ink-800">Planning des gardes</p>
+                    <p className="mt-1 text-xs text-ink-500">{vmSelectionne?.equipes?.nom ?? 'Équipe non renseignée'} · {joursEquipe.length ? joursEquipe.map((j) => ({1:'lundi',2:'mardi',3:'mercredi',4:'jeudi',5:'vendredi',6:'samedi',7:'dimanche'}[j])).join(', ') : 'jours de garde à configurer'}</p>
+                    <p className={gardePrevue ? 'mt-2 text-xs font-semibold text-royal-700' : 'mt-2 text-xs text-ink-500'}>{gardePrevue ? 'Garde prévue pour la date sélectionnée' : 'Pas de garde prévue pour la date sélectionnée'}</p>
+                  </div>
+                </div>
+              </Card>
+
               <Card>
                 <p className="text-sm font-bold text-ink-800">Récapitulatif hebdomadaire par potentiel</p>
                 <p className="mt-1 text-xs text-ink-500">Semaine du {dayjs(date).isoWeekday(1).format('DD/MM/YYYY')} · {lignesSemaine.length} visites programmées</p>
