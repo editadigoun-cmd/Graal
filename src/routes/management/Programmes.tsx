@@ -145,7 +145,7 @@ export default function ManagementProgrammes() {
   async function validerJour(programmeId: string, jour: string) {
     setBusy(programmeId + ':' + jour)
     setForceMsg(null)
-    const { error } = await supabase.rpc('valider_jour_programme', {
+    const { data, error } = await supabase.rpc('valider_jour_programme', {
       p_programme_id: programmeId, p_jour: jour, p_date_limite: null
     })
     setBusy(null)
@@ -153,8 +153,24 @@ export default function ManagementProgrammes() {
       setForceMsg({ type: 'error', text: error.message })
       return
     }
-    setDetailJours((current) => ({ ...current, [jour]: { ...current[jour], statut: 'VALIDE' } }))
-    setForceMsg({ type: 'success', text: jour + ' validé.' })
+
+    // Recharger les validations depuis la base : ne pas supposer que la journée
+    // est validée uniquement à partir du clic, et refléter le statut hebdomadaire.
+    const { data: validations, error: validationError } = await supabase
+      .from('programme_jours_validation')
+      .select('jour, statut, soumis_at')
+      .eq('programme_id', programmeId)
+    if (validationError) {
+      setForceMsg({ type: 'error', text: 'Journée validée, mais impossible d’actualiser son statut : ' + validationError.message })
+      await load()
+      return
+    }
+    setDetailJours(Object.fromEntries((validations ?? []).map((v: any) => [v.jour, { statut: v.statut, soumis_at: v.soumis_at }])))
+    const resultat = data as { programme_valide?: boolean } | null
+    setForceMsg({
+      type: 'success',
+      text: resultat?.programme_valide ? 'Les cinq journées sont validées : programme validé.' : 'Journée validée.'
+    })
     await load()
   }
 
