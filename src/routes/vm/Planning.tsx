@@ -47,6 +47,7 @@ const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiP
 export default function Planning() {
   const { profile } = useAuth()
   const isProphadis = profile?.equipe_id === 'f2e94e91-40ee-4be5-b72b-0cee7cc1fd9c'
+  const isOdypharm = profile?.equipe_id === '929677bc-0a37-4fbd-bb27-074153aad709'
   const { programme, lignes: lignesBrutes, portefeuille, secteurVm, loading, error, setError, reload } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
   const [picking, setPicking] = useState<TypeVisite | null>(null)
@@ -65,8 +66,10 @@ export default function Planning() {
   const lignes = estFawaz && !programme?.mode_pharmacie_uniquement ? lignesBrutes.filter((l) => l.type_visite !== 'PHARMACIE') : lignesBrutes
   const estSemaineActuelle = semaineDebut === isoWeekMonday().format('YYYY-MM-DD')
   const delaiMardi = ['45a172c9-8e94-402b-90e5-a39f59bd584b', 'fd879be3-1200-48be-a1ff-77d15bd4dc06', '4519e59c-ae91-44d7-98a8-b906662a7f2d'].includes(programme?.vm_id ?? '')
-  const deadline = isProphadis
-    ? dayjs.tz(semaineDebut, BENIN_TZ).subtract(1, 'day').hour(11).minute(0).second(0).millisecond(0)
+  const deadline = isOdypharm && programme?.delai_supplementaire_jusqu_a
+    ? dayjs(programme.delai_supplementaire_jusqu_a).tz(BENIN_TZ)
+    : isProphadis
+      ? dayjs.tz(semaineDebut, BENIN_TZ).subtract(1, 'day').hour(11).minute(0).second(0).millisecond(0)
     : estSemaineActuelle
       ? isoWeekMonday().add(delaiMardi ? 1 : 0, 'day').hour(23).minute(delaiMardi ? 0 : 50).second(0).millisecond(0)
       : deadlineSoumission(semaineDebut)
@@ -267,7 +270,7 @@ export default function Planning() {
 
   if (loading) return <div className="space-y-3 mt-2"><Skeleton className="h-24" /><Skeleton className="h-64" /></div>
 
-  const verrouille = !!programme && (programme.statut !== 'BROUILLON' || (isProphadis && !countdown))
+  const verrouille = !!programme && (programme.statut !== 'BROUILLON' || ((isProphadis || isOdypharm) && !countdown))
   const estValide = programme?.statut === 'VALIDE' || programme?.statut === 'VERROUILLE'
 
   if (estValide) {
@@ -295,10 +298,10 @@ export default function Planning() {
         <p className="text-xs text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
       </div>
 
-      {isProphadis && !countdown && programme?.statut === 'BROUILLON' && (
+      {(isProphadis || isOdypharm) && !countdown && programme?.statut === 'BROUILLON' && (
         <Card className="border border-amber-200 bg-amber-50">
           <p className="text-sm font-bold text-amber-800">Délai de programmation dépassé</p>
-          <p className="mt-1 text-xs text-amber-700">La programmation des pharmacies Prophadis devait être terminée dimanche à 11 h. Contactez votre superviseur si une correction est nécessaire.</p>
+          <p className="mt-1 text-xs text-amber-700">La date limite de programmation des pharmacies est dépassée. Contactez votre superviseur si une correction est nécessaire.</p>
         </Card>
       )}
 
