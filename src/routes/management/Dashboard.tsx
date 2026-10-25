@@ -221,7 +221,7 @@ export default function ManagementDashboard() {
         )}
       </div>
 
-      {(profile?.role === 'superviseur' || profile?.role === 'admin') && <ManagementRealisationProduits />}
+      {profile?.role === 'superviseur' && <ManagementRealisationProduits />}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="VM actifs" value={progressFiltre.length} tone="royal" icon={<IconUsers className="h-4 w-4" />} />
