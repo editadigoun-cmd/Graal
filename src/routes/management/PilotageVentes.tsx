@@ -346,7 +346,7 @@ export default function PilotageVentes() {
                   <th className="border-r border-ink-200 bg-[#f5edbd] px-2 py-2 text-right">% réalisé</th>
                   <th className="px-2 py-2 text-right">Qté</th>
                   <th className="px-2 py-2 text-right">CA (€)</th>
-                  <th className="px-2 py-2 text-right">Évol. vs mois</th>
+                  <th className="px-2 py-2 text-right">Part CA mensuel</th>
                 </tr>
               </thead>
               <tbody>
@@ -356,7 +356,7 @@ export default function PilotageVentes() {
                   const caMois = l.cumulMensuel * l.pght
                   const caSemaine = totalSemaine * l.pght
                   const tauxMois = l.objectifMensuel && l.objectifMensuel > 0 ? (l.cumulMensuel / l.objectifMensuel) * 100 : null
-                  const evol = caMois > 0 ? ((caSemaine - caMois) / caMois) * 100 : null
+                  const partCaMensuel = caMois > 0 ? (caSemaine / caMois) * 100 : null
                   const fmt = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 1 })
                   return (
                     <tr key={l.produitId} className={`border-b border-ink-100 ${index % 2 === 0 ? 'bg-white' : 'bg-[#f5f7f6]'} hover:bg-emerald-50/60`}>
@@ -378,7 +378,7 @@ export default function PilotageVentes() {
                       </td>
                       <td className="px-2 py-2.5 text-right font-semibold text-ink-700">{fmt(totalSemaine)}</td>
                       <td className="px-2 py-2.5 text-right font-semibold text-ink-700">{fmt(caSemaine)}</td>
-                      <td className="px-2 py-2.5 text-right"><span className={evol !== null && evol < 0 ? 'font-semibold text-rose-700' : 'font-semibold text-emerald-700'}>{evol !== null ? `${evol > 0 ? '+' : ''}${Math.round(evol)} %` : '—'}</span></td>
+                      <td className="px-2 py-2.5 text-right"><span className={partCaMensuel !== null && partCaMensuel < 0 ? 'font-semibold text-rose-700' : 'font-semibold text-emerald-700'}>{partCaMensuel !== null ? `${Math.round(partCaMensuel)} %` : '—'}</span></td>
                     </tr>
                   )
                 })}
@@ -386,7 +386,7 @@ export default function PilotageVentes() {
               <tfoot>
                 <tr className="bg-[#bda83d] font-extrabold text-ink-900">
                   <td className="sticky left-0 z-10 border-r border-white/40 bg-[#bda83d] px-3 py-3">TOTAL GÉNÉRAL</td>
-                  <td className="px-2 py-3 text-right">{Object.values(lignes.reduce((acc, l) => ({...acc, ...l.stockSemaine}), {} as Record<string, number>)).reduce((s, v) => s + v, 0).toLocaleString('fr-FR')}</td>
+                  <td className="px-2 py-3 text-right">{lignes.reduce((s, l) => s + Object.values(l.stockSemaine).reduce((a, v) => a + v, 0), 0).toLocaleString('fr-FR')}</td>
                   <td className="px-2 py-3 text-right">—</td>
                   <td className="border-r border-white/40 px-2 py-3 text-right">{Math.round(totaux.valeurStock).toLocaleString('fr-FR')}</td>
                   <td className="px-2 py-3 text-right">{lignes.reduce((s, l) => s + l.cumulMensuel, 0).toLocaleString('fr-FR')}</td>
