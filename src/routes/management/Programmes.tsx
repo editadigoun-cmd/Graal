@@ -230,6 +230,8 @@ export default function ManagementProgrammes() {
   const soumis = programmes.filter((p) => p.statut === 'SOUMIS')
   const autres = programmes.filter((p) => p.statut !== 'SOUMIS')
   const valides = programmes.filter((p) => p.statut === 'VALIDE' || p.statut === 'VERROUILLE').length
+  const semaineProchaineUniquement = isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD')
+  const brouillonsSemaineProchaine = brouillons.filter((b) => b.semaine_debut === semaineProchaineUniquement)
   const brouillonsEnRetard = brouillons.filter((b) => deadlinePassee(b.semaine_debut))
 
   return (
@@ -301,7 +303,7 @@ export default function ManagementProgrammes() {
       </div>
 
       <div>
-        <p className="text-sm font-bold text-ink-600 mb-3">Programmes en cours — brouillons ({brouillons.length})</p>
+        <p className="text-sm font-bold text-ink-600 mb-3">Programmes de la semaine prochaine — brouillons ({brouillonsSemaineProchaine.length})</p>
         {brouillons.length === 0 ? (
           <Card className="text-sm text-ink-400 text-center py-5">Aucun programme en cours pour la semaine actuelle ou la semaine prochaine.</Card>
         ) : (
