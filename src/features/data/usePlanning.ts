@@ -19,8 +19,13 @@ const DELAI_MARDI_VM_IDS = new Set([
   '4519e59c-ae91-44d7-98a8-b906662a7f2d', // Herbert
 ])
 
-export function targetSemaineDebut(vmId?: string) {
+export function targetSemaineDebut(vmId?: string, equipeId?: string | null) {
   const lundi = isoWeekMonday()
+  // Prophadis prépare le programme de la semaine qui commence le lundi suivant :
+  // le créneau de saisie est le dimanche précédent, jusqu'à 11 h (heure du Bénin).
+  if (equipeId === 'f2e94e91-40ee-4be5-b72b-0cee7cc1fd9c' && nowBenin().day() === 0) {
+    return lundi.add(7, 'day').format('YYYY-MM-DD')
+  }
   // Sans VM connue (affichage transitoire), appliquer le délai le plus long
   // pour éviter de faire apparaître brièvement la semaine suivante trop tôt.
   const delaiMardi = vmId ? DELAI_MARDI_VM_IDS.has(vmId) : true
@@ -64,7 +69,15 @@ export function usePlanning() {
       return
     }
 
-    let semaineDebut = targetSemaineDebut(vmId)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles').select('secteur, equipe_id').eq('id', vmId).maybeSingle()
+    if (profileError || !profile) {
+      setError(profileError?.message ?? 'Profil utilisateur introuvable. Contacte un administrateur ; aucun programme n’a été supprimé.')
+      setLoading(false)
+      return
+    }
+
+    let semaineDebut = targetSemaineDebut(vmId, profile.equipe_id)
 
     // Une prolongation admin de la semaine en cours prime sur l'échéance habituelle :
     // ne jamais afficher/créer le programme de la semaine suivante tant qu'elle court.
@@ -81,14 +94,6 @@ export function usePlanning() {
       if (programmeActuel && ['VALIDE', 'VERROUILLE'].includes(programmeActuel.statut)) {
         semaineDebut = isoWeekMonday().add(7, 'day').format('YYYY-MM-DD')
       }
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles').select('secteur, equipe_id').eq('id', vmId).maybeSingle()
-    if (profileError || !profile) {
-      setError(profileError?.message ?? 'Profil utilisateur introuvable. Contacte un administrateur ; aucun programme n’a été supprimé.')
-      setLoading(false)
-      return
     }
 
     // Le secteur alterne d'une semaine à l'autre : A -> B et B -> A.
