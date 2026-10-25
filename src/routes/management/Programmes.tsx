@@ -89,7 +89,7 @@ export default function ManagementProgrammes() {
         .from('programmes_hebdomadaires')
         .select('id, semaine_debut, mode_pharmacie_uniquement, vm_id, delai_supplementaire_jusqu_a, profiles!programmes_hebdomadaires_vm_id_fkey(full_name)')
         .eq('statut', 'BROUILLON')
-        .in('semaine_debut', [semaineCourante, semaineProchaine]),
+        .eq('semaine_debut', semaineProchaine),
       supabase.from('fusions_secteurs').select('*').order('created_at', { ascending: false }).limit(10)
     ])
     setProgrammes((data as unknown as ProgrammeRow[]) ?? [])
@@ -106,6 +106,7 @@ export default function ManagementProgrammes() {
     const channel = supabase
       .channel('programmes-management')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'programmes_hebdomadaires' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'programme_lignes' }, load)
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [])
@@ -298,6 +299,31 @@ export default function ManagementProgrammes() {
         <StatCard label="En attente" value={soumis.length} tone="flame" icon={<IconClock className="h-4 w-4" />} />
         <StatCard label="Validés" value={valides} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
         <StatCard label="Total récent" value={programmes.length} tone="royal" icon={<IconCalendar className="h-4 w-4" />} />
+      </div>
+
+      <div>
+        <p className="text-sm font-bold text-ink-600 mb-3">Programmations en cours — semaine du {dayjs(isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD')).format('DD/MM/YYYY')} ({brouillons.length})</p>
+        {brouillons.length === 0 ? (
+          <Card className="text-sm text-ink-400 text-center py-5">Aucun brouillon pour la semaine prochaine pour le moment.</Card>
+        ) : (
+          <div className="grid lg:grid-cols-2 gap-3">
+            {brouillons.map((b) => (
+              <Card key={b.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-ink-800 truncate">{b.profiles?.full_name}</p>
+                    <p className="text-xs text-ink-400">Semaine du {dayjs(b.semaine_debut).format('DD/MM/YYYY')} · Brouillon en cours</p>
+                  </div>
+                  <Button size="sm" variant="secondary" icon={<IconEye className="h-4 w-4" />} onClick={() => ouvrirDetail({
+                    id: b.id, vm_id: b.vm_id, semaine_debut: b.semaine_debut, statut: 'BROUILLON',
+                    soumis_at: null, mode_pharmacie_uniquement: b.mode_pharmacie_uniquement,
+                    profiles: b.profiles, programme_conformite: []
+                  })}>Voir le programme</Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>
