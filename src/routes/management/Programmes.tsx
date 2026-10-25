@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/Button'
 import { Badge, PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
-import { Modal } from '@/components/ui/Modal'
 import { IconCheckCircle, IconX, IconClock, IconCalendar, IconPill, IconUsers, IconAlert, IconSend, IconEye } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -66,6 +65,7 @@ export default function ManagementProgrammes() {
   const [detail, setDetail] = useState<ProgrammeRow | null>(null)
   const [detailLignes, setDetailLignes] = useState<LigneRow[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
+  const [jourDetail, setJourDetail] = useState<string>('LUNDI')
 
   const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
 
@@ -129,6 +129,7 @@ export default function ManagementProgrammes() {
 
   async function ouvrirDetail(p: ProgrammeRow) {
     setDetail(p)
+    setJourDetail('LUNDI')
     setDetailLoading(true)
     setDetailLignes([])
     const { data } = await supabase
@@ -232,6 +233,69 @@ export default function ManagementProgrammes() {
   const autres = programmes.filter((p) => p.statut !== 'SOUMIS')
   const valides = programmes.filter((p) => p.statut === 'VALIDE' || p.statut === 'VERROUILLE').length
   const brouillonsEnRetard = brouillons.filter((b) => deadlinePassee(b.semaine_debut))
+
+  if (detail) {
+    const lignesJour = detailLignes.filter((l) => l.jour === jourDetail)
+    const nombreMedical = detailLignes.filter((l) => l.type_visite === 'MEDICAL').length
+    const nombrePharmacie = detailLignes.filter((l) => l.type_visite !== 'MEDICAL').length
+    return (
+      <div className="space-y-5">
+        <button onClick={() => setDetail(null)} className="inline-flex items-center gap-2 text-sm font-semibold text-royal-600 hover:text-royal-800">
+          ← Retour aux programmes
+        </button>
+        <div className="rounded-2xl bg-gradient-to-r from-royal-700 to-royal-500 p-5 sm:p-7 text-white">
+          <p className="text-xs font-semibold uppercase tracking-wider text-white/70">Programme hebdomadaire · {detail.statut}</p>
+          <h1 className="mt-2 text-2xl font-bold">{detail.profiles?.full_name ?? 'Visiteur médical'}</h1>
+          <p className="mt-1 text-sm text-white/80">Semaine du {dayjs(detail.semaine_debut).format('DD/MM/YYYY')}</p>
+          <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="rounded-xl bg-white/10 p-3"><p className="text-2xl font-bold">{detailLignes.length}</p><p className="text-xs text-white/75">Visites prévues</p></div>
+            <div className="rounded-xl bg-white/10 p-3"><p className="text-2xl font-bold">{nombreMedical}</p><p className="text-xs text-white/75">Médicales</p></div>
+            <div className="rounded-xl bg-white/10 p-3"><p className="text-2xl font-bold">{nombrePharmacie}</p><p className="text-xs text-white/75">Pharmacies</p></div>
+          </div>
+        </div>
+        {detail.programme_conformite?.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {detail.programme_conformite.map((c) => (
+              <Card key={c.cible}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold text-ink-600">{c.cible.replace(/_/g, ' ')}</p>
+                  <Badge tone={c.statut === 'CONFORME' ? 'success' : c.statut === 'SOUS_COUVERT' ? 'warning' : 'info'}>{c.quantite_programmee}/{c.quota_attendu}</Badge>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+        <div>
+          <h2 className="text-lg font-bold text-ink-800">Programme jour par jour</h2>
+          <p className="text-sm text-ink-400">Sélectionnez un jour pour consulter les clients programmés.</p>
+        </div>
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+          {JOURS.map((j) => {
+            const count = detailLignes.filter((l) => l.jour === j).length
+            return <button key={j} onClick={() => setJourDetail(j)} className={`rounded-xl border px-1 py-3 text-center transition ${jourDetail === j ? 'border-royal-600 bg-royal-600 text-white shadow-sm' : 'border-ink-100 bg-white text-ink-600 hover:border-royal-300'}`}>
+              <span className="block text-[11px] sm:text-xs font-semibold">{JOUR_LABEL[j].slice(0, 3)}</span>
+              <span className="mt-1 block text-lg font-bold">{count}</span>
+              <span className="block text-[10px] opacity-75">visites</span>
+            </button>
+          })}
+        </div>
+        <Card>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div><h3 className="font-bold text-ink-800">{JOUR_LABEL[jourDetail]}</h3><p className="text-xs text-ink-400">{lignesJour.length} visite(s) programmée(s)</p></div>
+            <Badge tone="info">{jourDetail}</Badge>
+          </div>
+          {detailLoading ? <div className="space-y-2"><Skeleton className="h-14" /><Skeleton className="h-14" /></div> :
+            lignesJour.length === 0 ? <p className="py-8 text-center text-sm text-ink-400">Aucun client programmé pour ce jour.</p> :
+            <div className="space-y-2">{lignesJour.map((l, index) => <div key={l.id} className="flex items-center gap-3 rounded-xl border border-ink-100 p-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-sm font-bold text-royal-700">{index + 1}</div>
+              <div className="min-w-0 flex-1"><p className="font-semibold text-ink-800">{l.clients?.nom ?? 'Client non renseigné'}</p><p className="mt-0.5 text-xs text-ink-400">{l.clients?.centre || l.clients?.specialite || 'Centre non renseigné'}</p><p className="mt-1 text-xs text-ink-500">{l.type_visite === 'MEDICAL' ? 'Visite médicale' : 'Visite pharmacie'}</p></div>
+              {l.clients?.potentiel && <PotentielBadge potentiel={l.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
+            </div>)}</div>
+          }
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -528,55 +592,6 @@ export default function ManagementProgrammes() {
         </Card>
       )}
 
-      <Modal
-        open={detail !== null}
-        onClose={() => setDetail(null)}
-        title={detail?.profiles?.full_name ?? 'Détail du programme'}
-        description={detail ? `Semaine du ${dayjs(detail.semaine_debut).format('DD/MM/YYYY')}` : undefined}
-        maxWidth="max-w-2xl"
-      >
-        {detail && detail.programme_conformite?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 border-b border-ink-100 pb-4 mb-4">
-            {detail.programme_conformite.map((c) => (
-              <Badge key={c.cible} tone={c.statut === 'CONFORME' ? 'success' : c.statut === 'SOUS_COUVERT' ? 'warning' : 'info'}>
-                {c.cible.replace(/_/g, ' ')}: {c.quantite_programmee}/{c.quota_attendu}
-              </Badge>
-            ))}
-          </div>
-        )}
-        <div className="space-y-4">
-          {detailLoading ? (
-            <div className="space-y-2"><Skeleton className="h-14" /><Skeleton className="h-14" /></div>
-          ) : detailLignes.length === 0 ? (
-            <p className="text-sm text-ink-400 text-center py-6">Aucun client programmé.</p>
-          ) : (
-            JOURS.map((j) => {
-              const lignesJour = detailLignes.filter((l) => l.jour === j)
-              if (lignesJour.length === 0) return null
-              return (
-                <div key={j}>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">
-                    {JOUR_LABEL[j]} <span className="font-normal normal-case text-ink-300">({lignesJour.length})</span>
-                  </p>
-                  <div className="space-y-1.5">
-                    {lignesJour.map((l) => (
-                      <div key={l.id} className="flex items-center justify-between rounded-xl bg-ink-50 px-3.5 py-2.5">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-ink-800 truncate">{l.clients?.nom}</p>
-                          <p className="text-[11px] text-ink-400 truncate">
-                            {l.clients?.centre || l.clients?.specialite} · {l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}
-                          </p>
-                        </div>
-                        {l.clients?.potentiel && <PotentielBadge potentiel={l.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </div>
-      </Modal>
     </div>
   )
 }
