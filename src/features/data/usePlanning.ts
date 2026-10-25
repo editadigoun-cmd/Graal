@@ -190,9 +190,9 @@ export function usePlanning() {
     const isOdypharm = profile.equipe_id === '929677bc-0a37-4fbd-bb27-074153aad709'
     let clientIds = [...new Set((portefeuilleData ?? []).map((item) => item.client_id))]
 
-    // Exception de programmation Prophadis : les VM peuvent choisir des pharmacies
-    // des deux zones, sans élargir leur portefeuille pour les autres spécialités.
-    if (isProphadis || isOdypharm) {
+    // Prophadis et ODYPHARM (sauf Fawaz, dont le portefeuille ne contient pas de pharmacies) :
+    // permettre la sélection de pharmacies des deux zones sans élargir les autres portefeuilles.
+    if (isProphadis || (isOdypharm && vmId !== 'e86efe52-ed01-4d04-8eec-e539fd1e4b30')) {
       const { data: pharmacies, error: pharmaciesError } = await supabase
         .from('clients').select('id').eq('specialite', 'PHARMACIE').eq('actif', true)
       if (pharmaciesError) {
