@@ -163,6 +163,8 @@ function VisiteCard({ l, index, done, reported }: { l: ReturnType<typeof useVisi
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-ink-800 truncate">{l.client_nom}</p>
+            {l.type_visite === 'MEDICAL' && l.specialite && <p className="mt-0.5 text-xs font-medium text-royal-700">{l.specialite}</p>}
+            {l.centre && <p className="mt-0.5 truncate text-xs text-ink-500">{l.centre}</p>}
             <div className="mt-1 flex flex-wrap items-center gap-2">
               {l.potentiel && <PotentielBadge potentiel={l.potentiel} compact />}
               <span className="text-[11px] text-ink-400">{l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
