@@ -110,7 +110,17 @@ export default function Planning() {
     if (picking === 'PHARMACIE' && c.specialite !== 'PHARMACIE') return false
     // Afficher aussi les clients dont le potentiel n'est pas autorisé ce jour, mais les désactiver dans la liste avec une explication.
     if (clientIdsUtilises.has(c.id)) return false
-    if (recherche && !normalizeText(c.nom).includes(normalizeText(recherche))) return false
+    if (recherche) {
+      // Chercher aussi dans la spécialité et le centre : une fiche peut s'appeler
+      // « TOGOUDO » tout en étant recherchée comme « Pharmacie Togoudo ».
+      const texteRecherche = normalizeText(
+        [c.nom, c.centre, c.specialite, c.secteur ? `zone ${c.secteur}` : '']
+          .filter(Boolean)
+          .join(' ')
+      )
+      const termesRecherche = normalizeText(recherche).split(/\s+/).filter(Boolean)
+      if (!termesRecherche.every((terme) => texteRecherche.includes(terme))) return false
+    }
     return true
   }).sort((a, b) =>
     String(a.secteur ?? '').localeCompare(String(b.secteur ?? '')) ||
