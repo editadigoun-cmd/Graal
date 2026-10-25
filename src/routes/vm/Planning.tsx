@@ -6,6 +6,7 @@ import { PotentielBadge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { IconPlus, IconX, IconClock, IconCheckCircle, IconAlert, IconSearch, IconCheck } from '@/components/ui/icons'
 import { usePlanning, targetSemaineDebut } from '@/features/data/usePlanning'
+import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { JOURS, JOURS_DEROGATION_MOYEN, potentielAutorise } from '@/lib/rules'
 import { JOUR_LABEL } from '@/lib/theme'
@@ -44,6 +45,8 @@ interface Seuils {
 const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50, maxMoyenLunMarMer: 3, poidsMoyenReduit: 2.5 }
 
 export default function Planning() {
+  const { profile } = useAuth()
+  const isProphadis = profile?.equipe_id === 'f2e94e91-40ee-4be5-b72b-0cee7cc1fd9c'
   const { programme, lignes: lignesBrutes, portefeuille, secteurVm, loading, error, setError, reload } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
   const [picking, setPicking] = useState<TypeVisite | null>(null)
@@ -62,9 +65,11 @@ export default function Planning() {
   const lignes = estFawaz ? lignesBrutes.filter((l) => l.type_visite !== 'PHARMACIE') : lignesBrutes
   const estSemaineActuelle = semaineDebut === isoWeekMonday().format('YYYY-MM-DD')
   const delaiMardi = ['45a172c9-8e94-402b-90e5-a39f59bd584b', 'fd879be3-1200-48be-a1ff-77d15bd4dc06', '4519e59c-ae91-44d7-98a8-b906662a7f2d'].includes(programme?.vm_id ?? '')
-  const deadline = estSemaineActuelle
-    ? isoWeekMonday().add(delaiMardi ? 1 : 0, 'day').hour(23).minute(delaiMardi ? 0 : 50).second(0).millisecond(0)
-    : deadlineSoumission(semaineDebut)
+  const deadline = isProphadis
+    ? dayjs(semaineDebut).subtract(1, 'day').hour(11).minute(0).second(0).millisecond(0)
+    : estSemaineActuelle
+      ? isoWeekMonday().add(delaiMardi ? 1 : 0, 'day').hour(23).minute(delaiMardi ? 0 : 50).second(0).millisecond(0)
+      : deadlineSoumission(semaineDebut)
   const countdown = formatCountdown(deadline)
 
   useEffect(() => {
@@ -290,12 +295,24 @@ export default function Planning() {
         <p className="text-xs text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
       </div>
 
+      {pharmacieUniquement && (
+        <Card className="border border-emerald-200 bg-emerald-50">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-emerald-100 p-2 text-emerald-700"><IconCheckCircle className="h-5 w-5" /></div>
+            <div>
+              <p className="text-sm font-bold text-emerald-800">Semaine dédiée aux pharmacies</p>
+              <p className="mt-1 text-xs text-emerald-700">Votre programme doit contenir uniquement des pharmacies. Le bouton médical est désactivé pour cette semaine.</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card className={countdown ? 'bg-gradient-to-br from-royal-600 to-royal-700 text-white' : undefined}>
         {programme?.statut === 'BROUILLON' ? (
           countdown ? (
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-white/70">Soumission avant {delaiMardi ? "mardi 23h00" : "lundi 23h50"}</p>
+                <p className="text-xs text-white/70">Soumission avant {isProphadis ? "dimanche 11h00" : delaiMardi ? "mardi 23h00" : "lundi 23h50"}</p>
                 <p className="text-xl font-extrabold font-display">{countdown}</p>
               </div>
               <IconClock className="h-8 w-8 text-white/60" />
@@ -439,10 +456,10 @@ export default function Planning() {
         </AnimatePresence>
 
         {!verrouille && (
-          <div className={`grid ${estFawaz ? 'grid-cols-1' : 'grid-cols-2'} gap-2.5`}>
-            <button onClick={() => ouvrirPicker('MEDICAL')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-royal-200 py-3 text-sm font-semibold text-royal-600">
+          <div className={`grid ${estFawaz || pharmacieUniquement ? 'grid-cols-1' : 'grid-cols-2'} gap-2.5`}>
+            {!pharmacieUniquement && <button onClick={() => ouvrirPicker('MEDICAL')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-royal-200 py-3 text-sm font-semibold text-royal-600">
               <IconPlus className="h-4 w-4" /> Client médical
-            </button>
+            </button>}
             {!estFawaz && <button onClick={() => ouvrirPicker('PHARMACIE')} className="flex items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-emerald-200 py-3 text-sm font-semibold text-emerald-600">
               <IconPlus className="h-4 w-4" /> Pharmacie
             </button>}
@@ -508,7 +525,7 @@ export default function Planning() {
             >
               <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink-200" />
               <p className="text-sm font-bold text-ink-800 mb-1">Ajouter des clients — {JOUR_LABEL[jourActif]}</p>
-              <p className="text-xs text-ink-400 mb-3">Seuls les clients de votre portefeuille et compatibles avec le type de visite sont affichés. Le jour habituel indiqué dans la fiche du médecin ne bloque plus la programmation. La liste est classée par spécialité.</p>
+              <p className="text-xs text-ink-400 mb-3">Les clients compatibles avec le type de visite sont affichés. Pour Prophadis, les pharmacies des zones A et B sont disponibles ensemble. Le jour habituel ne bloque pas la programmation.</p>
               <div className="relative mb-3">
                 <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
                 <input
@@ -544,7 +561,7 @@ export default function Planning() {
                         </span>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-ink-800 truncate">{c.nom}</p>
-                          <p className="text-[11px] text-ink-400 truncate">
+                          <p className="text-[11px] text-ink-400 truncate">{isProphadis && c.specialite === 'PHARMACIE' ? `Zone ${c.secteur ?? 'non définie'} · ` : ''}
                             {bloquePotentiel
                               ? `Potentiel ${c.potentiel ?? 'non renseigné'} non autorisé le ${JOUR_LABEL[jourActif]}`
                               : bloqueMoyen
