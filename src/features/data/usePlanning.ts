@@ -23,7 +23,7 @@ export function targetSemaineDebut(vmId?: string, equipeId?: string | null) {
   const lundi = isoWeekMonday()
   // Prophadis prépare le programme de la semaine qui commence le lundi suivant :
   // le créneau de saisie est le dimanche précédent, jusqu'à 11 h (heure du Bénin).
-  if (equipeId === 'f2e94e91-40ee-4be5-b72b-0cee7cc1fd9c' && nowBenin().day() === 0) {
+  if (['f2e94e91-40ee-4be5-b72b-0cee7cc1fd9c', '929677bc-0a37-4fbd-bb27-074153aad709'].includes(equipeId ?? '') && nowBenin().day() === 0) {
     return lundi.add(7, 'day').format('YYYY-MM-DD')
   }
   // Sans VM connue (affichage transitoire), appliquer le délai le plus long
@@ -187,11 +187,12 @@ export function usePlanning() {
     }
 
     const isProphadis = profile.equipe_id === 'f2e94e91-40ee-4be5-b72b-0cee7cc1fd9c'
+    const isOdypharm = profile.equipe_id === '929677bc-0a37-4fbd-bb27-074153aad709'
     let clientIds = [...new Set((portefeuilleData ?? []).map((item) => item.client_id))]
 
     // Exception de programmation Prophadis : les VM peuvent choisir des pharmacies
     // des deux zones, sans élargir leur portefeuille pour les autres spécialités.
-    if (isProphadis) {
+    if (isProphadis || isOdypharm) {
       const { data: pharmacies, error: pharmaciesError } = await supabase
         .from('clients').select('id').eq('specialite', 'PHARMACIE').eq('actif', true)
       if (pharmaciesError) {
