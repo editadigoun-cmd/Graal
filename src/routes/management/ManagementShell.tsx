@@ -72,11 +72,6 @@ const groups: NavGroup[] = [
     label: 'Commercial',
     icon: IconClipboard,
     children: [
-      { to: '/admin/facturation', label: 'Facturation', icon: IconClipboard },
-      { to: '/admin/facturation?tab=proformas', label: 'Factures proforma', icon: IconClipboard },
-      { to: '/admin/facturation?tab=bordereaux', label: 'Bordereaux de livraison', icon: IconClipboard },
-      { to: '/admin/facturation?tab=clients', label: 'Clients facturation', icon: IconUsers },
-      { to: '/admin/facturation?tab=produits', label: 'Produits facturation', icon: IconPill },
     ],
   },
   {
