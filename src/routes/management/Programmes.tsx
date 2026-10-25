@@ -78,7 +78,6 @@ export default function ManagementProgrammes() {
 
   async function load() {
     const semaineProchaine = isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD')
-    const semaineCourante = isoWeekMonday().format('YYYY-MM-DD')
     const [{ data }, { data: br }, { data: fu }] = await Promise.all([
       supabase
         .from('programmes_hebdomadaires')
@@ -90,7 +89,7 @@ export default function ManagementProgrammes() {
         .from('programmes_hebdomadaires')
         .select('id, semaine_debut, mode_pharmacie_uniquement, vm_id, delai_supplementaire_jusqu_a, profiles!programmes_hebdomadaires_vm_id_fkey(full_name)')
         .eq('statut', 'BROUILLON')
-        .in('semaine_debut', [semaineCourante, semaineProchaine]),
+        .eq('semaine_debut', semaineProchaine),
       supabase.from('fusions_secteurs').select('*').order('created_at', { ascending: false }).limit(10)
     ])
     setProgrammes((data as unknown as ProgrammeRow[]) ?? [])
