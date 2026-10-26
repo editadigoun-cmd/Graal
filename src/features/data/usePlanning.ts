@@ -22,6 +22,8 @@ export function usePlanning() {
   const [programme, setProgramme] = useState<Programme | null>(null)
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [portefeuille, setPortefeuille] = useState<ClientRow[]>([])
+  const [derogationZoneActive, setDerogationZoneActive] = useState(false)
+  const [derogationPotentielActive, setDerogationPotentielActive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -119,6 +121,19 @@ export function usePlanning() {
       return
     }
 
+    const [{ data: zoneDerogation }, { data: potentielDerogation }] = await Promise.all([
+      (supabase as any).rpc('derogation_planning_active', {
+        p_vm_id: vmId, p_semaine_debut: semaineDebut, p_type: 'ZONE'
+      }),
+      (supabase as any).rpc('derogation_planning_active', {
+        p_vm_id: vmId, p_semaine_debut: semaineDebut, p_type: 'POTENTIEL'
+      })
+    ])
+    const zoneLibre = zoneDerogation === true
+    const potentielLibre = potentielDerogation === true
+    setDerogationZoneActive(zoneLibre)
+    setDerogationPotentielActive(potentielLibre)
+
     // Supabase limite chaque réponse à 1 000 lignes par défaut. La table clients
     // contient plus de 2 000 fiches : charger toutes les pages évite de masquer
     // des pharmacies situées après la première tranche alphabétique.
@@ -141,12 +156,15 @@ export function usePlanning() {
     // pas seulement dans le composant d'affichage, pour éviter tout mélange A/B.
     const idsPortefeuille = new Set((portefeuilleData ?? []).map((item) => item.client_id))
     setPortefeuille((clientsData ?? []).filter((client) => {
-      // En mode « pharmacie uniquement », la liste source est strictement limitée
-      // aux pharmacies affectées à CE VM. Ne pas laisser les politiques RLS élargies
-      // (notamment les fusions) introduire des clients d'un autre portefeuille.
-      if (!idsPortefeuille.has(client.id)) return false
-      if (prog!.mode_pharmacie_uniquement) return client.specialite === 'PHARMACIE'
-      return estFawaz || estFagbede || !prog!.secteur || client.secteur === prog!.secteur
+      // En mode « pharmacie uniquement », la liste est strictement limitée aux
+      // pharmacies assignées à CE VM, tous secteurs et potentiels confondus.
+      if (prog!.mode_pharmacie_uniquement) {
+        return idsPortefeuille.has(client.id) && client.specialite === 'PHARMACIE'
+      }
+      // La dérogation de zone permet aussi de sélectionner des clients hors portefeuille,
+      // mais uniquement pour le programme/semaine autorisé par l'administration.
+      if (!idsPortefeuille.has(client.id) && !zoneLibre) return false
+      return zoneLibre || estFawaz || estFagbede || !prog!.secteur || client.secteur === prog!.secteur
     }))
     setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
@@ -154,5 +172,5 @@ export function usePlanning() {
 
   useEffect(() => { load() }, [load])
 
-  return { programme, lignes, portefeuille, loading, error, setError, reload: load, estFawaz, estFagbede }
+  return { programme, lignes, portefeuille, loading, error, setError, reload: load, estFawaz, estFagbede, derogationZoneActive, derogationPotentielActive }
 }
