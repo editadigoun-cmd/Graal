@@ -599,7 +599,7 @@ export default function ManagementProgrammes() {
             <p className="text-sm font-bold text-ink-800">Semaines pharmacie uniquement</p>
           </div>
           <p className="text-xs text-ink-400 mb-4">
-            Bascule un programme en brouillon (semaine en cours ou prochaine) en mode "pharmacie uniquement".
+            Active ou désactive le mode "pharmacie uniquement" pour les brouillons de la semaine sélectionnée.
           </p>
           {brouillonsSemaine.length === 0 ? (
             <p className="text-xs text-ink-400 py-2">Aucun programme en brouillon pour l'instant.</p>
@@ -691,7 +691,7 @@ export default function ManagementProgrammes() {
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-ink-500">Semaine (lundi)</label>
-              <input type="date" value={derogSemaine} onChange={(e) => setDerogSemaine(e.target.value)}
+              <input type="date" value={derogSemaine} onChange={(e) => e.target.value && setDerogSemaine(isoWeekMonday(dayjs(e.target.value)).format('YYYY-MM-DD'))}
                 className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400" />
             </div>
             <div>
