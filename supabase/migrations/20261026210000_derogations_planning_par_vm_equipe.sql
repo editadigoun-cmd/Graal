@@ -252,11 +252,11 @@ begin
     into v_definition;
   v_updated := replace(
     v_definition,
-    'if nb_jeudi_total > 0 then',
-    'if nb_jeudi_total > 0 and not prog.mode_pharmacie_uniquement and not public.derogation_planning_active(prog.vm_id, prog.semaine_debut, ''POTENTIEL'') then'
+    'if not prog.mode_pharmacie_uniquement and not public.is_fawaz_vm(prog.vm_id) then',
+    'if not prog.mode_pharmacie_uniquement and not public.is_fawaz_vm(prog.vm_id) and not public.derogation_planning_active(prog.vm_id, prog.semaine_debut, ''POTENTIEL'') then'
   );
   if v_updated = v_definition then
-    raise exception 'Patch de soumission non appliqué : le contrôle du ratio jeudi a changé de forme.';
+    raise exception 'Patch de soumission non appliqué : les contrôles de quotas jeudi/vendredi ont changé de forme.';
   end if;
   execute v_updated;
 end;
