@@ -580,7 +580,7 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
-                  const potentielIndisponible = !pharmacieUniquement && !estFawaz && !estFagbede && !potentielAutorise(jourActif, c.potentiel, picking!)
+                  const potentielIndisponible = !pharmacieUniquement && !derogationPotentielActive && !estFawaz && !estFagbede && !potentielAutorise(jourActif, c.potentiel, picking!)
                   const bloqueFaibleJeudi = !pharmacieUniquement && !estFawaz && !estFagbede && faibleJeudiBloque(c.id, c.potentiel)
                   const bloqueMoyen = !pharmacieUniquement && !estFawaz && !estFagbede && moyenDerogationBloque(c.id, c.potentiel)
                   const bloquePharmacieMoyenne = !pharmacieUniquement && !estFawaz && !estFagbede && pharmacieMoyenneBloquee(c.id, c.potentiel)
