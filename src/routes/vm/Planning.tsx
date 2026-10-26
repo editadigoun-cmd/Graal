@@ -177,7 +177,7 @@ export default function Planning() {
   const moyenLunMarMerProjete = lignesJourActifMoyenMedical + selectionMoyenCount
 
   function moyenDerogationBloque(candidatId: string, potentiel: string) {
-    if (picking !== 'MEDICAL' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
+    if (pharmacieUniquement || derogationPotentielActive || picking !== 'MEDICAL' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
     return moyenLunMarMerProjete + 1 > seuils.maxMoyenLunMarMer
   }
 
@@ -191,7 +191,7 @@ export default function Planning() {
       }).length
     : 0
   function pharmacieMoyenneBloquee(candidatId: string, potentiel: string) {
-    if (picking !== 'PHARMACIE' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
+    if (pharmacieUniquement || derogationPotentielActive || picking !== 'PHARMACIE' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
     return pharmaciesMoyennesJour + selectionPharmaciesMoyennes >= 1
   }
 
@@ -234,7 +234,7 @@ export default function Planning() {
     ? true
     : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
-  const jeudiRatioOk = jeudiTotalActuel === 0 || (jeudiFaibleActuel / jeudiTotalActuel) * 100 <= seuils.maxFaibleJeudiPct
+  const jeudiRatioOk = pharmacieUniquement || derogationPotentielActive || jeudiTotalActuel === 0 || (jeudiFaibleActuel / jeudiTotalActuel) * 100 <= seuils.maxFaibleJeudiPct
   const prêtPourSoumission = pharmacieUniquement
     ? lignes.length > 0 && jeudiRatioOk
     : joursCouverts === 5 && JOURS.every(jourOk) && jeudiRatioOk
