@@ -46,6 +46,16 @@ interface LigneRow {
   clients: { id: string; nom: string; potentiel: string; specialite: string | null; centre: string | null } | null
 }
 
+interface DerogationPlanningRow {
+  id: string
+  semaine_debut: string
+  vm_id: string | null
+  equipe_id: string | null
+  lever_zone: boolean
+  lever_potentiel: boolean
+  actif: boolean
+}
+
 type Potentiel = 'GROS' | 'MOYEN' | 'FAIBLE'
 const POTENTIELS: Potentiel[] = ['GROS', 'MOYEN', 'FAIBLE']
 
@@ -61,6 +71,17 @@ export default function ManagementProgrammes() {
   const [fusionSemaine, setFusionSemaine] = useState(isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD'))
   const [fusionPotentiels, setFusionPotentiels] = useState<Potentiel[]>(['GROS'])
   const [fusionBusy, setFusionBusy] = useState(false)
+
+  const [vmOptions, setVmOptions] = useState<{ id: string; full_name: string }[]>([])
+  const [equipeOptions, setEquipeOptions] = useState<{ id: string; nom: string }[]>([])
+  const [derogationsPlanning, setDerogationsPlanning] = useState<DerogationPlanningRow[]>([])
+  const [derogCibleType, setDerogCibleType] = useState<'vm' | 'equipe'>('vm')
+  const [derogVmId, setDerogVmId] = useState('')
+  const [derogEquipeId, setDerogEquipeId] = useState('')
+  const [derogSemaine, setDerogSemaine] = useState(isoWeekMonday(nowBenin()).format('YYYY-MM-DD'))
+  const [derogZone, setDerogZone] = useState(false)
+  const [derogPotentiel, setDerogPotentiel] = useState(false)
+  const [derogPlanningBusy, setDerogPlanningBusy] = useState(false)
 
   const [detail, setDetail] = useState<ProgrammeRow | null>(null)
   const [detailLignes, setDetailLignes] = useState<LigneRow[]>([])
@@ -80,24 +101,30 @@ export default function ManagementProgrammes() {
   const [derogBusy, setDerogBusy] = useState(false)
 
   async function load() {
-    const [{ data }, { data: br }, { data: fu }] = await Promise.all([
+    const [{ data }, { data: br }, { data: fu }, vms, equipes, derogs] = await Promise.all([
       supabase
         .from('programmes_hebdomadaires')
         .select('*, profiles!programmes_hebdomadaires_vm_id_fkey(full_name), programme_conformite(cible, quota_attendu, quantite_programmee, statut)')
         .in('statut', ['BROUILLON', 'SOUMIS', 'VALIDE', 'VERROUILLE'])
         .order('semaine_debut', { ascending: false })
-        .limit(30),
+        .limit(100),
       supabase
         .from('programmes_hebdomadaires')
         .select('id, semaine_debut, mode_pharmacie_uniquement, vm_id, delai_supplementaire_jusqu_a, profiles!programmes_hebdomadaires_vm_id_fkey(full_name)')
         .eq('statut', 'BROUILLON')
         .order('semaine_debut', { ascending: false })
         .limit(100),
-      supabase.from('fusions_secteurs').select('*').order('created_at', { ascending: false }).limit(10)
+      supabase.from('fusions_secteurs').select('*').order('created_at', { ascending: false }).limit(10),
+      supabase.from('profiles').select('id, full_name').eq('role', 'vm').eq('actif', true).order('full_name'),
+      supabase.from('equipes').select('id, nom').order('nom'),
+      (supabase as any).from('derogations_planning').select('*').order('semaine_debut', { ascending: false }).limit(100)
     ])
     setProgrammes((data as unknown as ProgrammeRow[]) ?? [])
     setBrouillons((br as unknown as BrouillonRow[]) ?? [])
     setFusions((fu as unknown as FusionRow[]) ?? [])
+    setVmOptions(((vms as any)?.data ?? []) as { id: string; full_name: string }[])
+    setEquipeOptions(((equipes as any)?.data ?? []) as { id: string; nom: string }[])
+    setDerogationsPlanning((((derogs as any)?.data ?? []) as DerogationPlanningRow[]))
     setLoading(false)
   }
 
@@ -254,13 +281,39 @@ export default function ManagementProgrammes() {
   }
 
   async function desactiverFusion(f: FusionRow) {
-    // definir_fusion_secteurs() n'insère que de nouvelles lignes : fusion_active() vérifie
-    // l'existence d'une ligne actif=true pour la semaine, donc désactiver revient à mettre
-    // à jour la ligne existante directement (RLS déjà restreinte à superviseur/admin).
     setBusy(f.id)
     await supabase.from('fusions_secteurs').update({ actif: false }).eq('id', f.id)
     setBusy(null)
     load()
+  }
+
+  async function enregistrerDerogationPlanning() {
+    if ((!derogVmId && derogCibleType === 'vm') || (!derogEquipeId && derogCibleType === 'equipe') || (!derogZone && !derogPotentiel)) return
+    setDerogPlanningBusy(true)
+    setForceMsg(null)
+    const { error } = await (supabase as any).rpc('definir_derogation_planning', {
+      p_semaine_debut: derogSemaine,
+      p_vm_id: derogCibleType === 'vm' ? derogVmId : null,
+      p_equipe_id: derogCibleType === 'equipe' ? derogEquipeId : null,
+      p_lever_zone: derogZone,
+      p_lever_potentiel: derogPotentiel,
+      p_actif: true
+    })
+    setDerogPlanningBusy(false)
+    if (error) setForceMsg({ type: 'error', text: error.message })
+    else {
+      setForceMsg({ type: 'success', text: 'Dérogation de planning enregistrée pour la semaine sélectionnée.' })
+      setDerogZone(false); setDerogPotentiel(false)
+      await load()
+    }
+  }
+
+  async function desactiverDerogationPlanning(d: DerogationPlanningRow) {
+    setBusy(d.id)
+    const { error } = await (supabase as any).from('derogations_planning').update({ actif: false }).eq('id', d.id)
+    setBusy(null)
+    if (error) setForceMsg({ type: 'error', text: error.message })
+    else await load()
   }
 
   if (loading) return <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-24" /></div>
@@ -625,6 +678,71 @@ export default function ManagementProgrammes() {
           )}
         </Card>
       </div>
+
+      {profile?.role === 'admin' && (
+        <Card>
+          <div className="flex items-center gap-2 mb-1">
+            <IconCheckCircle className="h-4 w-4 text-royal-600" />
+            <p className="text-sm font-bold text-ink-800">Dérogations de planning par semaine</p>
+          </div>
+          <p className="text-xs text-ink-400 mb-4">
+            Autorise un VM ou une équipe à programmer hors zone/portefeuille, à lever les contraintes de potentiel, ou les deux, uniquement pour la semaine choisie.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-ink-500">Semaine (lundi)</label>
+              <input type="date" value={derogSemaine} onChange={(e) => setDerogSemaine(e.target.value)}
+                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-ink-500">Portée</label>
+              <select value={derogCibleType} onChange={(e) => setDerogCibleType(e.target.value as 'vm' | 'equipe')}
+                className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm">
+                <option value="vm">Un visiteur médical</option><option value="equipe">Une équipe</option>
+              </select>
+            </div>
+            {derogCibleType === 'vm' ? (
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-ink-500">Visiteur médical</label>
+                <select value={derogVmId} onChange={(e) => setDerogVmId(e.target.value)} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm">
+                  <option value="">Sélectionner…</option>{vmOptions.map((v) => <option key={v.id} value={v.id}>{v.full_name}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-ink-500">Équipe</label>
+                <select value={derogEquipeId} onChange={(e) => setDerogEquipeId(e.target.value)} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm">
+                  <option value="">Sélectionner…</option>{equipeOptions.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <label className="flex items-center gap-2 rounded-xl border border-ink-100 p-3 text-xs text-ink-700">
+              <input type="checkbox" checked={derogZone} onChange={(e) => setDerogZone(e.target.checked)} />
+              Lever la contrainte de zone / portefeuille
+            </label>
+            <label className="flex items-center gap-2 rounded-xl border border-ink-100 p-3 text-xs text-ink-700">
+              <input type="checkbox" checked={derogPotentiel} onChange={(e) => setDerogPotentiel(e.target.checked)} />
+              Lever les contraintes GROS / MOYEN / FAIBLE
+            </label>
+          </div>
+          <div className="mt-3"><Button size="sm" loading={derogPlanningBusy}
+            disabled={(!derogVmId && derogCibleType === 'vm') || (!derogEquipeId && derogCibleType === 'equipe') || (!derogZone && !derogPotentiel)}
+            onClick={enregistrerDerogationPlanning}>Enregistrer la dérogation</Button></div>
+          {derogationsPlanning.length > 0 && <div className="mt-4 space-y-2 border-t border-ink-100 pt-3">
+            {derogationsPlanning.filter((d) => d.semaine_debut === semaineSelectionnee).map((d) => {
+              const vm = vmOptions.find((v) => v.id === d.vm_id)
+              const equipe = equipeOptions.find((e) => e.id === d.equipe_id)
+              return <div key={d.id} className="flex items-center justify-between gap-3 rounded-xl bg-ink-50 p-3">
+                <div className="min-w-0"><p className="text-xs font-semibold text-ink-800">{vm?.full_name ?? equipe?.nom ?? 'Cible'}</p>
+                  <p className="text-[11px] text-ink-500">{[d.lever_zone ? 'Zone' : null, d.lever_potentiel ? 'Potentiels' : null].filter(Boolean).join(' + ')} · {d.actif ? 'Active' : 'Inactive'}</p></div>
+                {d.actif ? <button onClick={() => desactiverDerogationPlanning(d)} disabled={busy === d.id} className="text-xs font-semibold text-flame-600">Désactiver</button> : <Badge tone="neutral">Inactive</Badge>}
+              </div>
+            })}
+          </div>}
+        </Card>
+      )}
 
       {profile?.role === 'admin' && (
         <Card>
