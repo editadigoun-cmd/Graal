@@ -193,3 +193,71 @@ begin
   return new;
 end;
 $$;
+
+
+-- Une dérogation de zone explicite autorise aussi la soumission du programme sans
+-- bloquer sur les contrôles de secteur hérités.
+create or replace function public.guard_secteur_soumission_programme()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+begin
+  if new.statut is distinct from old.statut
+     and new.statut = 'VALIDE'::public.statut_programme
+     and public.is_admin() then
+    return new;
+  end if;
+
+  if new.statut is distinct from old.statut
+     and new.statut in ('SOUMIS'::public.statut_programme, 'VALIDE'::public.statut_programme) then
+    if new.secteur is null
+       and not public.derogation_planning_active(new.vm_id, new.semaine_debut, 'ZONE') then
+      raise exception 'Impossible de soumettre un programme sans secteur défini.';
+    end if;
+
+    if new.vm_id <> '2aada0be-9c4c-4e00-b366-cc3b7bc4ff7f'::uuid
+       and not public.is_fawaz_vm(new.vm_id)
+       and new.vm_id <> '96388406-e88e-4146-a372-1df07481c8e4'::uuid
+       and not public.derogation_planning_active(new.vm_id, new.semaine_debut, 'ZONE')
+       and exists (
+        select 1 from public.programme_lignes pl
+        join public.clients c on c.id = pl.client_id
+        where pl.programme_id = new.id
+          and not exists (
+            select 1 from public.programme_jours_validation pjv
+            where pjv.programme_id = pl.programme_id
+              and pjv.jour = pl.jour
+              and pjv.statut = 'VALIDE'
+          )
+          and not public.fusion_active(new.semaine_debut, c.potentiel)
+          and c.secteur is distinct from new.secteur
+       ) then
+      raise exception 'Programme non conforme au secteur % : une dérogation de zone est nécessaire pour cette semaine.', new.secteur;
+    end if;
+  end if;
+  return new;
+end;
+$function$;
+
+-- Le mode pharmacie et la dérogation de potentiel ne doivent pas être bloqués
+-- par le contrôle de proportion des faibles potentiels du jeudi à la soumission.
+do $$
+declare
+  v_definition text;
+  v_updated text;
+begin
+  select pg_get_functiondef('public.soumettre_programme_hebdomadaire(uuid)'::regprocedure)
+    into v_definition;
+  v_updated := replace(
+    v_definition,
+    'if nb_jeudi_total > 0 then',
+    'if nb_jeudi_total > 0 and not prog.mode_pharmacie_uniquement and not public.derogation_planning_active(prog.vm_id, prog.semaine_debut, ''POTENTIEL'') then'
+  );
+  if v_updated = v_definition then
+    raise exception 'Patch de soumission non appliqué : le contrôle du ratio jeudi a changé de forme.';
+  end if;
+  execute v_updated;
+end;
+$$;
