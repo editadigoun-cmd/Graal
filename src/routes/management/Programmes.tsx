@@ -69,6 +69,7 @@ export default function ManagementProgrammes() {
   const [detailJourActif, setDetailJourActif] = useState<string>(JOURS[0])
 
   const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
+  const semaineCourante = isoWeekMonday(nowBenin()).format('YYYY-MM-DD')
   const semaineProchaine = isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD')
 
   const [derogProgrammeId, setDerogProgrammeId] = useState('')
@@ -89,7 +90,7 @@ export default function ManagementProgrammes() {
         .from('programmes_hebdomadaires')
         .select('id, semaine_debut, mode_pharmacie_uniquement, vm_id, delai_supplementaire_jusqu_a, profiles!programmes_hebdomadaires_vm_id_fkey(full_name)')
         .eq('statut', 'BROUILLON')
-        .eq('semaine_debut', semaineProchaine),
+        .in('semaine_debut', [semaineCourante, semaineProchaine]),
       supabase.from('fusions_secteurs').select('*').order('created_at', { ascending: false }).limit(10)
     ])
     setProgrammes((data as unknown as ProgrammeRow[]) ?? [])
@@ -263,7 +264,7 @@ export default function ManagementProgrammes() {
   if (loading) return <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-24" /></div>
 
   const soumis = programmes.filter((p) => p.statut === 'SOUMIS')
-  const enCours = programmes.filter((p) => p.statut === 'BROUILLON' && p.semaine_debut === semaineProchaine)
+  const enCours = programmes.filter((p) => p.statut === 'BROUILLON' && p.semaine_debut === semaineCourante)
   const autres = programmes.filter((p) => p.statut !== 'SOUMIS' && p.statut !== 'BROUILLON')
   const valides = programmes.filter((p) => p.statut === 'VALIDE' || p.statut === 'VERROUILLE').length
   const brouillonsEnRetard = brouillons.filter((b) => deadlinePassee(b.semaine_debut))
