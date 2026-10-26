@@ -71,6 +71,7 @@ export default function ManagementProgrammes() {
   const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
   const semaineCourante = isoWeekMonday(nowBenin()).format('YYYY-MM-DD')
   const semaineProchaine = isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD')
+  const [semaineSelectionnee, setSemaineSelectionnee] = useState(semaineCourante)
 
   const [derogProgrammeId, setDerogProgrammeId] = useState('')
   const [derogClients, setDerogClients] = useState<{ id: string; nom: string }[]>([])
@@ -90,7 +91,8 @@ export default function ManagementProgrammes() {
         .from('programmes_hebdomadaires')
         .select('id, semaine_debut, mode_pharmacie_uniquement, vm_id, delai_supplementaire_jusqu_a, profiles!programmes_hebdomadaires_vm_id_fkey(full_name)')
         .eq('statut', 'BROUILLON')
-        .in('semaine_debut', [semaineCourante, semaineProchaine]),
+        .order('semaine_debut', { ascending: false })
+        .limit(100),
       supabase.from('fusions_secteurs').select('*').order('created_at', { ascending: false }).limit(10)
     ])
     setProgrammes((data as unknown as ProgrammeRow[]) ?? [])
@@ -263,11 +265,18 @@ export default function ManagementProgrammes() {
 
   if (loading) return <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-24" /></div>
 
-  const soumis = programmes.filter((p) => p.statut === 'SOUMIS')
-  const enCours = programmes.filter((p) => p.statut === 'BROUILLON' && p.semaine_debut === semaineCourante)
-  const autres = programmes.filter((p) => p.statut !== 'SOUMIS' && p.statut !== 'BROUILLON')
-  const valides = programmes.filter((p) => p.statut === 'VALIDE' || p.statut === 'VERROUILLE').length
-  const brouillonsEnRetard = brouillons.filter((b) => deadlinePassee(b.semaine_debut))
+  const semainesDisponibles = Array.from(new Set([
+    semaineCourante, semaineProchaine,
+    ...programmes.map((p) => p.semaine_debut),
+    ...brouillons.map((b) => b.semaine_debut)
+  ])).sort((a, b) => b.localeCompare(a))
+  const programmesSemaine = programmes.filter((p) => p.semaine_debut === semaineSelectionnee)
+  const brouillonsSemaine = brouillons.filter((b) => b.semaine_debut === semaineSelectionnee)
+  const soumis = programmesSemaine.filter((p) => p.statut === 'SOUMIS')
+  const enCours = programmesSemaine.filter((p) => p.statut === 'BROUILLON')
+  const autres = programmesSemaine.filter((p) => p.statut !== 'SOUMIS' && p.statut !== 'BROUILLON')
+  const valides = programmesSemaine.filter((p) => p.statut === 'VALIDE' || p.statut === 'VERROUILLE').length
+  const brouillonsEnRetard = brouillonsSemaine.filter((b) => deadlinePassee(b.semaine_debut))
 
   const detailPotentiels = POTENTIELS.map((potentiel) => ({
     potentiel,
@@ -366,6 +375,24 @@ export default function ManagementProgrammes() {
           {forceMsg.text}
         </p>
       )}
+
+      <Card>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-ink-800">Navigation par semaine</h2>
+            <p className="text-xs text-ink-400">Les brouillons, validations et délais affichés ci-dessous correspondent à la semaine choisie.</p>
+          </div>
+          <Badge tone="info">{programmesSemaine.length} programme(s)</Badge>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {semainesDisponibles.map((semaine) => (
+            <button key={semaine} type="button" onClick={() => setSemaineSelectionnee(semaine)}
+              className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold transition ${semaineSelectionnee === semaine ? 'border-royal-600 bg-royal-600 text-white' : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'}`}>
+              Semaine du {dayjs(semaine).format('DD/MM/YYYY')}
+            </button>
+          ))}
+        </div>
+      </Card>
 
       {brouillonsEnRetard.length > 0 && (
         <div>
@@ -521,11 +548,11 @@ export default function ManagementProgrammes() {
           <p className="text-xs text-ink-400 mb-4">
             Bascule un programme en brouillon (semaine en cours ou prochaine) en mode "pharmacie uniquement".
           </p>
-          {brouillons.length === 0 ? (
+          {brouillonsSemaine.length === 0 ? (
             <p className="text-xs text-ink-400 py-2">Aucun programme en brouillon pour l'instant.</p>
           ) : (
             <div className="space-y-2">
-              {brouillons.map((b) => (
+              {brouillonsSemaine.map((b) => (
                 <div key={b.id} className="flex items-center justify-between rounded-xl bg-ink-50 p-2.5">
                   <div>
                     <p className="text-xs font-semibold text-ink-800">{b.profiles?.full_name}</p>
