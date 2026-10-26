@@ -33,12 +33,27 @@ export function usePlanning() {
     const semaineActuelle = isoWeekMonday().format('YYYY-MM-DD')
     const semaineSuivante = targetSemaineDebut()
 
-    // Cet écran sert à préparer la semaine prochaine, même si la clôture de la
-    // semaine en cours reste ouverte. Les deux workflows sont indépendants.
-    const semaineDebut = semaineSuivante
-    // Le secteur alterne d'une semaine à l'autre : si le VM est en A cette semaine,
-    // le programme de la semaine prochaine est en B, et inversement.
-    const secteurProgramme = profile?.secteur === 'A' ? 'B' : profile?.secteur === 'B' ? 'A' : null
+    // Par défaut, cet écran prépare la semaine prochaine. Mais si un délai
+    // supplémentaire est encore actif sur le programme de cette semaine, le VM
+    // doit rester sur ce programme jusqu'à l'expiration du délai ou sa validation.
+    const { data: programmeActuel, error: erreurProgrammeActuel } = await supabase
+      .from('programmes_hebdomadaires').select('*')
+      .eq('vm_id', vmId).eq('semaine_debut', semaineActuelle).maybeSingle()
+    if (erreurProgrammeActuel) {
+      setError(erreurProgrammeActuel.message)
+      setLoading(false)
+      return
+    }
+    const statutTermine = programmeActuel?.statut === 'VALIDE' || programmeActuel?.statut === 'VERROUILLE'
+    const delaiActif = !!programmeActuel?.delai_supplementaire_jusqu_a &&
+      new Date(programmeActuel.delai_supplementaire_jusqu_a).getTime() > Date.now()
+    const semaineDebut = programmeActuel && delaiActif && !statutTermine
+      ? semaineActuelle
+      : semaineSuivante
+    // Alterner le secteur uniquement lors de la préparation de la semaine suivante.
+    const secteurProgramme = semaineDebut === semaineSuivante
+      ? (profile?.secteur === 'A' ? 'B' : profile?.secteur === 'B' ? 'A' : null)
+      : profile?.secteur ?? null
 
     let { data: prog, error: programmeError } = await supabase
       .from('programmes_hebdomadaires').select('*')
