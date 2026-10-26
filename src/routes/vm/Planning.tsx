@@ -121,7 +121,7 @@ export default function Planning() {
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
     // Le programme fixe le secteur autorisé pour cette semaine : secteur courant cette semaine,
     // secteur opposé pour la semaine suivante. Le serveur applique la même règle.
-    if (!pharmacieUniquement && !estFawaz && !estFagbede && programme?.secteur && c.secteur !== programme.secteur) return false
+    if (!pharmacieUniquement && !derogationZoneActive && !estFawaz && !estFagbede && programme?.secteur && c.secteur !== programme.secteur) return false
     // Afficher les clients du secteur autorisé même si leur potentiel ne permet pas de les
     // programmer le jour sélectionné ; les règles de potentiel restent appliquées plus bas.
     if (clientIdsUtilises.has(c.id)) return false
@@ -155,14 +155,14 @@ export default function Planning() {
   const jeudiFaibleProjete = jeudiFaibleActuel + selectionFaibleCount
 
   function faibleJeudiBloque(candidatId: string, potentiel: string) {
-    if (jourActif !== 'JEUDI' || potentiel !== 'FAIBLE' || selection.has(candidatId)) return false
+    if (pharmacieUniquement || derogationPotentielActive || jourActif !== 'JEUDI' || potentiel !== 'FAIBLE' || selection.has(candidatId)) return false
     const total = jeudiTotalProjete + 1
     const faible = jeudiFaibleProjete + 1
     return (faible / total) * 100 > seuils.maxFaibleJeudiPct
   }
 
   function grosJourBloque(candidatId: string, potentiel: string) {
-    if (potentiel !== 'GROS' || selection.has(candidatId)) return false
+    if (pharmacieUniquement || derogationPotentielActive || potentiel !== 'GROS' || selection.has(candidatId)) return false
     if (jourActif === 'JEUDI') return grosJeudiActuel + selectionGrosCount + 1 > MAX_GROS_JEUDI
     if (jourActif === 'VENDREDI') return grosVendrediActuel + selectionGrosCount + 1 > MAX_GROS_VENDREDI
     return false
