@@ -140,11 +140,14 @@ export function usePlanning() {
     // du programme de la semaine. Le filtrage est fait dès le chargement des données,
     // pas seulement dans le composant d'affichage, pour éviter tout mélange A/B.
     const idsPortefeuille = new Set((portefeuilleData ?? []).map((item) => item.client_id))
-    setPortefeuille((clientsData ?? []).filter((client) =>
-      idsPortefeuille.has(client.id) && (
-        prog!.mode_pharmacie_uniquement || estFawaz || estFagbede || !prog!.secteur || client.secteur === prog!.secteur
-      )
-    ))
+    setPortefeuille((clientsData ?? []).filter((client) => {
+      // En mode « pharmacie uniquement », la liste source est strictement limitée
+      // aux pharmacies affectées à CE VM. Ne pas laisser les politiques RLS élargies
+      // (notamment les fusions) introduire des clients d'un autre portefeuille.
+      if (!idsPortefeuille.has(client.id)) return false
+      if (prog!.mode_pharmacie_uniquement) return client.specialite === 'PHARMACIE'
+      return estFawaz || estFagbede || !prog!.secteur || client.secteur === prog!.secteur
+    }))
     setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
   }, [session, profile?.secteur, profile?.id])
