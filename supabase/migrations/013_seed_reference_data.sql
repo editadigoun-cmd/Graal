@@ -1,6 +1,6 @@
 -- 013: données de référence (équipes, motifs, produits, quotas, paramètres par défaut)
 
-insert into public.equipes (nom) values ('PROPHADIS'), ('TIL'), ('ODYPAHARM')
+insert into public.equipes (nom) values ('PROPHADIS'), ('TIL'), ('ODYPHARM')
 on conflict (nom) do nothing;
 
 insert into public.motifs_non_visite (libelle, ordre) values
