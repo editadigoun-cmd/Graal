@@ -80,7 +80,8 @@ export default function ManagementProgrammes() {
   const [derogEquipeId, setDerogEquipeId] = useState('')
   const [derogSemaine, setDerogSemaine] = useState(isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD'))
   const [derogZone, setDerogZone] = useState(false)
-  const [derogPotentiel, setDerogPotentiel] = useState(false)\n  const [derogGeneralistes, setDerogGeneralistes] = useState(false)
+  const [derogPotentiel, setDerogPotentiel] = useState(false)
+  const [derogGeneralistes, setDerogGeneralistes] = useState(false)
   const [derogPlanningBusy, setDerogPlanningBusy] = useState(false)
 
   const [detail, setDetail] = useState<ProgrammeRow | null>(null)
