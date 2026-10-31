@@ -181,19 +181,12 @@ export default function Planning() {
     return moyenLunMarMerProjete + 1 > seuils.maxMoyenLunMarMer
   }
 
-  // Une pharmacie MOYENNE est autorisée du lundi au mercredi, indépendamment
-  // du quota distinct des visites médicales MOYENNES : une seule par jour.
-  const pharmaciesMoyennesJour = lignes.filter((l) => l.jour === jourActif && l.type_visite === 'PHARMACIE' && l.clients?.potentiel === 'MOYEN').length
-  const selectionPharmaciesMoyennes = picking === 'PHARMACIE' && JOURS_DEROGATION_MOYEN.includes(jourActif)
-    ? selectionArray.filter((id) => {
-        const client = portefeuille.find((c) => c.id === id)
-        return client?.specialite === 'PHARMACIE' && client?.potentiel === 'MOYEN'
-      }).length
-    : 0
-  function pharmacieMoyenneBloquee(candidatId: string, potentiel: string) {
-    if (pharmacieUniquement || derogationPotentielActive || picking !== 'PHARMACIE' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
-    return pharmaciesMoyennesJour + selectionPharmaciesMoyennes >= 1
+  // Les VM choisissent librement le nombre de pharmacies GROS et MOYENNES
+  // chaque jour ; seul le potentiel FAIBLE est interdit du lundi au mercredi.
+  function pharmacieMoyenneBloquee(_candidatId: string, _potentiel: string) {
+    return false
   }
+
 
   // Récapitulatif hebdomadaire par spécialité + par potentiel (toute la semaine, tous jours confondus).
   const specialiteCounts: Partial<Record<Specialite, number>> = {}
