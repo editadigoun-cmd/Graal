@@ -127,6 +127,9 @@ export function usePlanning() {
       }),
       (supabase as any).rpc('derogation_planning_active', {
         p_vm_id: vmId, p_semaine_debut: semaineDebut, p_type: 'POTENTIEL'
+      }),
+      (supabase as any).rpc('derogation_planning_active', {
+        p_vm_id: vmId, p_semaine_debut: semaineDebut, p_type: 'SPECIALITE:GENERALISTE'
       })
     ])
     const zoneLibre = zoneDerogation === true
