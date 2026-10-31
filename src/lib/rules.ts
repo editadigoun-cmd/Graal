@@ -17,6 +17,8 @@ export const MAX_GROS_JEUDI = 7
 export const MAX_GROS_VENDREDI = 3
 
 export function potentielAutorise(jour: Jour, potentiel: Potentiel, typeVisite: TypeVisite): boolean {
+  // Pharmacies : nombre libre par potentiel ; aucun potentiel FAIBLE du lundi au mercredi.
+  if (typeVisite === 'PHARMACIE' && JOURS_DEROGATION_MOYEN.includes(jour)) return potentiel !== 'FAIBLE'
   if ((typeVisite === 'MEDICAL' || typeVisite === 'PHARMACIE') && potentiel === 'MOYEN' && JOURS_DEROGATION_MOYEN.includes(jour)) {
     return true
   }
