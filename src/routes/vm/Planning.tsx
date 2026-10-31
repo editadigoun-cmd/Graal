@@ -228,9 +228,13 @@ export default function Planning() {
     : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
   const jeudiRatioOk = pharmacieUniquement || derogationPotentielActive || jeudiTotalActuel === 0 || (jeudiFaibleActuel / jeudiTotalActuel) * 100 <= seuils.maxFaibleJeudiPct
+  // Au moins une pharmacie de potentiel GROS chacun des trois premiers jours.
+  const grosPharmacieParJourOk = (['LUNDI', 'MARDI', 'MERCREDI'] as Jour[]).every((j) =>
+    lignes.some((l) => l.jour === j && l.type_visite === 'PHARMACIE' && l.clients?.potentiel === 'GROS')
+  )
   const prêtPourSoumission = pharmacieUniquement
-    ? lignes.length > 0 && jeudiRatioOk
-    : joursCouverts === 5 && JOURS.every(jourOk) && jeudiRatioOk
+    ? lignes.length > 0 && jeudiRatioOk && grosPharmacieParJourOk
+    : joursCouverts === 5 && JOURS.every(jourOk) && jeudiRatioOk && grosPharmacieParJourOk
 
   function ouvrirPicker(type: TypeVisite) {
     setPicking(type)
