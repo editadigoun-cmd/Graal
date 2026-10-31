@@ -76,11 +76,11 @@ export default function ManagementProgrammes() {
   const [equipeOptions, setEquipeOptions] = useState<{ id: string; nom: string }[]>([])
   const [derogationsPlanning, setDerogationsPlanning] = useState<DerogationPlanningRow[]>([])
   const [derogCibleType, setDerogCibleType] = useState<'vm' | 'equipe'>('vm')
-  const [derogVmId, setDerogVmId] = useState('')
+  const [derogVmId, setDerogVmId] = useState('fd879be3-1200-48be-a1ff-77d15bd4dc06')
   const [derogEquipeId, setDerogEquipeId] = useState('')
-  const [derogSemaine, setDerogSemaine] = useState(isoWeekMonday(nowBenin()).format('YYYY-MM-DD'))
+  const [derogSemaine, setDerogSemaine] = useState(isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD'))
   const [derogZone, setDerogZone] = useState(false)
-  const [derogPotentiel, setDerogPotentiel] = useState(false)
+  const [derogPotentiel, setDerogPotentiel] = useState(false)\n  const [derogGeneralistes, setDerogGeneralistes] = useState(false)
   const [derogPlanningBusy, setDerogPlanningBusy] = useState(false)
 
   const [detail, setDetail] = useState<ProgrammeRow | null>(null)
@@ -288,7 +288,7 @@ export default function ManagementProgrammes() {
   }
 
   async function enregistrerDerogationPlanning() {
-    if ((!derogVmId && derogCibleType === 'vm') || (!derogEquipeId && derogCibleType === 'equipe') || (!derogZone && !derogPotentiel)) return
+    if ((!derogVmId && derogCibleType === 'vm') || (!derogEquipeId && derogCibleType === 'equipe') || (!derogZone && !derogPotentiel && !derogGeneralistes) || (derogGeneralistes && derogCibleType !== 'vm')) return
     setDerogPlanningBusy(true)
     setForceMsg(null)
     const { error } = await (supabase as any).rpc('definir_derogation_planning', {
@@ -303,7 +303,7 @@ export default function ManagementProgrammes() {
     if (error) setForceMsg({ type: 'error', text: error.message })
     else {
       setForceMsg({ type: 'success', text: 'Dérogation de planning enregistrée pour la semaine sélectionnée.' })
-      setDerogZone(false); setDerogPotentiel(false)
+      setDerogZone(false); setDerogPotentiel(false); setDerogGeneralistes(false)
       await load()
     }
   }
@@ -728,7 +728,7 @@ export default function ManagementProgrammes() {
             </label>
           </div>
           <div className="mt-3"><Button size="sm" loading={derogPlanningBusy}
-            disabled={(!derogVmId && derogCibleType === 'vm') || (!derogEquipeId && derogCibleType === 'equipe') || (!derogZone && !derogPotentiel)}
+            disabled={(!derogVmId && derogCibleType === 'vm') || (!derogEquipeId && derogCibleType === 'equipe') || (!derogZone && !derogPotentiel && !derogGeneralistes) || (derogGeneralistes && derogCibleType !== 'vm')}
             onClick={enregistrerDerogationPlanning}>Enregistrer la dérogation</Button></div>
           {derogationsPlanning.length > 0 && <div className="mt-4 space-y-2 border-t border-ink-100 pt-3">
             {derogationsPlanning.filter((d) => d.semaine_debut === semaineSelectionnee).map((d) => {
@@ -736,7 +736,7 @@ export default function ManagementProgrammes() {
               const equipe = equipeOptions.find((e) => e.id === d.equipe_id)
               return <div key={d.id} className="flex items-center justify-between gap-3 rounded-xl bg-ink-50 p-3">
                 <div className="min-w-0"><p className="text-xs font-semibold text-ink-800">{vm?.full_name ?? equipe?.nom ?? 'Cible'}</p>
-                  <p className="text-[11px] text-ink-500">{[d.lever_zone ? 'Zone' : null, d.lever_potentiel ? 'Potentiels' : null].filter(Boolean).join(' + ')} · {d.actif ? 'Active' : 'Inactive'}</p></div>
+                  <p className="text-[11px] text-ink-500">{[d.specialite_autorisee ? `Spécialité : ${d.specialite_autorisee}` : null, d.lever_zone ? 'Zone' : null, d.lever_potentiel ? 'Potentiels' : null].filter(Boolean).join(' + ')} · {d.actif ? 'Active' : 'Inactive'}</p></div>
                 {d.actif ? <button onClick={() => desactiverDerogationPlanning(d)} disabled={busy === d.id} className="text-xs font-semibold text-flame-600">Désactiver</button> : <Badge tone="neutral">Inactive</Badge>}
               </div>
             })}
