@@ -19,7 +19,7 @@ interface ProgrammeRow {
   soumis_at: string | null
   vm_id: string
   mode_pharmacie_uniquement?: boolean
-  profiles: { full_name: string } | null
+  profiles: { full_name: string; equipe_id?: string | null } | null
   programme_conformite: { cible: string; quota_attendu: number; quantite_programmee: number; statut: string }[]
 }
 
@@ -87,6 +87,8 @@ export default function ManagementProgrammes() {
 
   const [detail, setDetail] = useState<ProgrammeRow | null>(null)
   const [detailLignes, setDetailLignes] = useState<LigneRow[]>([])
+  const [detailQuotas, setDetailQuotas] = useState<{ cible: string; libelle: string; quota_hebdomadaire: number }[]>([])
+  const [detailEquipeNom, setDetailEquipeNom] = useState('')
   const [detailJours, setDetailJours] = useState<Record<string, { statut: string; soumis_at?: string | null }>>({})
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailJourActif, setDetailJourActif] = useState<string>(JOURS[0])
@@ -106,7 +108,7 @@ export default function ManagementProgrammes() {
     const [{ data }, { data: br }, { data: fu }, vms, equipes, derogs] = await Promise.all([
       supabase
         .from('programmes_hebdomadaires')
-        .select('*, profiles!programmes_hebdomadaires_vm_id_fkey(full_name), programme_conformite(cible, quota_attendu, quantite_programmee, statut)')
+        .select('*, profiles!programmes_hebdomadaires_vm_id_fkey(full_name, equipe_id), programme_conformite(cible, quota_attendu, quantite_programmee, statut)')
         .in('statut', ['BROUILLON', 'SOUMIS', 'VALIDE', 'VERROUILLE'])
         .order('semaine_debut', { ascending: false })
         .limit(100),
@@ -163,13 +165,20 @@ export default function ManagementProgrammes() {
     setDetailJourActif(JOURS[0])
     setDetailLoading(true)
     setDetailLignes([])
-    const [{ data }, { data: validations }] = await Promise.all([
+    setDetailQuotas([])
+    setDetailEquipeNom('')
+    const equipeId = p.profiles?.equipe_id
+    const [{ data }, { data: validations }, { data: quotas }, { data: equipe }] = await Promise.all([
       supabase.from('programme_lignes')
         .select('id, jour, type_visite, clients(id, nom, potentiel, specialite, centre)')
         .eq('programme_id', p.id).order('ordre'),
-      supabase.from('programme_jours_validation').select('jour, statut, soumis_at').eq('programme_id', p.id)
+      supabase.from('programme_jours_validation').select('jour, statut, soumis_at').eq('programme_id', p.id),
+      equipeId ? supabase.from('quotas_cibles').select('cible, libelle, quota_hebdomadaire').eq('equipe_id', equipeId).order('ordre') : Promise.resolve({ data: [] as any[] }),
+      equipeId ? supabase.from('equipes').select('nom').eq('id', equipeId).maybeSingle() : Promise.resolve({ data: null as any })
     ])
     setDetailLignes((data as unknown as LigneRow[]) ?? [])
+    setDetailQuotas((quotas ?? []) as { cible: string; libelle: string; quota_hebdomadaire: number }[])
+    setDetailEquipeNom(equipe?.nom ?? '')
     setDetailJours(Object.fromEntries((validations ?? []).map((v: any) => [v.jour, { statut: v.statut, soumis_at: v.soumis_at }])))
     setDetailLoading(false)
   }
