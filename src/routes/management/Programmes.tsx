@@ -92,7 +92,7 @@ export default function ManagementProgrammes() {
   const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
   const semaineCourante = isoWeekMonday(nowBenin()).format('YYYY-MM-DD')
   const semaineProchaine = isoWeekMonday(nowBenin().add(1, 'week')).format('YYYY-MM-DD')
-  const [semaineSelectionnee, setSemaineSelectionnee] = useState(semaineCourante)
+  const [semaineSelectionnee, setSemaineSelectionnee] = useState(semaineProchaine)
 
   const [derogProgrammeId, setDerogProgrammeId] = useState('')
   const [derogClients, setDerogClients] = useState<{ id: string; nom: string }[]>([])
