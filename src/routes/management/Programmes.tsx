@@ -53,6 +53,7 @@ interface DerogationPlanningRow {
   equipe_id: string | null
   lever_zone: boolean
   lever_potentiel: boolean
+  specialite_autorisee?: string | null
   actif: boolean
 }
 
