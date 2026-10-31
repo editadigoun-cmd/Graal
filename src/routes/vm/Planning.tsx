@@ -530,6 +530,9 @@ export default function Planning() {
                 {!jeudiRatioOk && (
                   <li className="text-xs text-flame-700">• Jeudi : trop de clients FAIBLE potentiel (max {seuils.maxFaibleJeudiPct}%)</li>
                 )}
+                {!grosPharmacieParJourOk && (
+                  <li className="text-xs text-flame-700">• Programmer au moins une pharmacie GROS le lundi, le mardi et le mercredi.</li>
+                )}
               </ul>
             </Card>
           )}
