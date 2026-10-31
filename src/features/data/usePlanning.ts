@@ -166,8 +166,8 @@ export function usePlanning() {
       }
       // La dérogation de zone permet aussi de sélectionner des clients hors portefeuille,
       // mais uniquement pour le programme/semaine autorisé par l'administration.
-      if (!idsPortefeuille.has(client.id) && !zoneLibre) return false
-      return zoneLibre || estFawaz || estFagbede || !prog!.secteur || client.secteur === prog!.secteur
+      if (!idsPortefeuille.has(client.id) && !zoneLibre && !(generalisteDerogation === true && client.specialite === 'GENERALISTE')) return false
+      return zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || !prog!.secteur || client.secteur === prog!.secteur
     }))
     setLignes((lignesData as Ligne[]) ?? [])
     setLoading(false)
