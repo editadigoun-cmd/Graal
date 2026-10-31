@@ -376,8 +376,18 @@ export default function ManagementProgrammes() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {detailPotentiels.map((x) => <div key={x.potentiel} className="rounded-xl border border-ink-100 p-3"><p className="text-xs text-ink-500">{x.potentiel === 'GROS' ? 'Gros potentiel' : x.potentiel === 'MOYEN' ? 'Potentiel moyen' : 'Faible potentiel'}</p><p className="mt-1 text-xl font-extrabold text-ink-800">{x.total}</p><p className="text-[11px] text-ink-400">clients programmés</p></div>)}
         </div>
-        <p className="mt-4 mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">Répartition par spécialité</p>
-        {detailSpecialites.length === 0 ? <p className="text-xs text-ink-400">Aucune spécialité renseignée.</p> : <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{detailSpecialites.map(([nom, n]) => <div key={nom} className="flex items-center justify-between gap-2 rounded-lg bg-ink-50 px-3 py-2"><span className="text-xs text-ink-600">{nom}</span><span className="text-sm font-bold text-ink-800">{n}</span></div>)}</div>}
+        <div className="mt-4 mb-2 flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-bold uppercase tracking-wide text-ink-500">Programmé / objectif par spécialité</p>{detailEquipeNom && <span className="rounded-full bg-royal-50 px-2.5 py-1 text-[10px] font-semibold text-royal-700">Équipe {detailEquipeNom}</span>}</div>
+        {detailQuotas.length > 0 ? <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{detailQuotas.map((q) => {
+          const specialitesCible: Record<string, string[]> = {
+            MEDECINS_GENERALISTES: ['GENERALISTE'], DISPENSAIRES: ['DISPENSAIRE'], MATERNITES: ['MATERNITE'],
+            PEDIATRES: ['PEDIATRE'], GYNECOLOGUES: ['GYNECOLOGUE'], PHARMACIES: ['PHARMACIE'],
+            CARDIOLOGUES: ['CARDIOLOGUE'], AUTRES_SPECIALITES: ['ORL', 'RHUMATOLOGUE', 'AUTRE_SPECIALITE']
+          }
+          const spec = specialitesCible[q.cible] ?? []
+          const programme = detailLignes.filter((l) => !!l.clients?.specialite && spec.includes(l.clients.specialite)).length
+          const atteint = q.quota_hebdomadaire > 0 && programme >= q.quota_hebdomadaire
+          return <div key={q.cible} className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-ink-100 bg-white px-3 py-2"><span className="min-w-0 text-xs text-ink-600">{q.libelle}</span><span className={`shrink-0 text-sm font-extrabold tabular-nums ${atteint ? 'text-emerald-700' : 'text-ink-800'}`}>{programme}/{q.quota_hebdomadaire}</span></div>
+        })}</div> : detailSpecialites.length === 0 ? <p className="text-xs text-ink-400">Aucune spécialité renseignée.</p> : <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{detailSpecialites.map(([nom, n]) => <div key={nom} className="flex items-center justify-between gap-2 rounded-lg bg-ink-50 px-3 py-2"><span className="text-xs text-ink-600">{nom}</span><span className="text-sm font-bold text-ink-800">{n}</span></div>)}</div>}
       </Card>
 
       <div>
