@@ -164,9 +164,9 @@ export function usePlanning() {
       if (prog!.mode_pharmacie_uniquement) {
         return idsPortefeuille.has(client.id) && client.specialite === 'PHARMACIE'
       }
-      // La dérogation de zone permet aussi de sélectionner des clients hors portefeuille,
-      // mais uniquement pour le programme/semaine autorisé par l'administration.
-      if (!idsPortefeuille.has(client.id) && !zoneLibre && !(generalisteDerogation === true && client.specialite === 'GENERALISTE')) return false
+      // Toute dérogation de spécialité reste limitée aux clients du portefeuille du VM.
+      // La dérogation GENERALISTE autorise les deux secteurs, mais n'ajoute aucun client externe.
+      if (!idsPortefeuille.has(client.id) && !zoneLibre) return false
       return zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || !prog!.secteur || client.secteur === prog!.secteur
     }))
     setLignes((lignesData as Ligne[]) ?? [])
