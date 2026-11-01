@@ -215,6 +215,33 @@ export default function ManagementProgrammes() {
     await load()
   }
 
+  async function invaliderJour(programmeId: string, jour: string) {
+    if (!window.confirm(`Invalider la validation du ${JOUR_LABEL[jour as keyof typeof JOUR_LABEL]} ? Le VM pourra à nouveau modifier cette journée.`)) return
+    setBusy(programmeId + ':' + jour)
+    setForceMsg(null)
+    const { error } = await supabase.rpc('invalider_jour_programme', {
+      p_programme_id: programmeId, p_jour: jour as any
+    })
+    if (error) {
+      setBusy(null)
+      setForceMsg({ type: 'error', text: error.message })
+      return
+    }
+    const { data: validations, error: validationError } = await supabase
+      .from('programme_jours_validation')
+      .select('jour, statut, soumis_at')
+      .eq('programme_id', programmeId)
+    setBusy(null)
+    if (validationError) {
+      setForceMsg({ type: 'error', text: 'Journée invalidée, mais impossible d’actualiser son statut : ' + validationError.message })
+      await load()
+      return
+    }
+    setDetailJours(Object.fromEntries((validations ?? []).map((v: any) => [v.jour, { statut: v.statut, soumis_at: v.soumis_at }])))
+    setForceMsg({ type: 'success', text: 'Validation annulée. Le VM peut de nouveau modifier cette journée.' })
+    await load()
+  }
+
   async function forcerSoumission(programmeId: string) {
     setBusy(programmeId)
     setForceMsg(null)
@@ -417,6 +444,7 @@ export default function ManagementProgrammes() {
           <div><h2 className="text-base font-bold text-ink-800">{JOUR_LABEL[detailJourActif]}</h2><p className="text-xs text-ink-400">{lignesJourActif.length} client(s) programmé(s)</p></div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={detailJours[detailJourActif]?.statut === 'VALIDE' ? 'success' : detailJours[detailJourActif]?.statut === 'SOUMIS' ? 'info' : 'warning'}>{detailJours[detailJourActif]?.statut === 'VALIDE' ? 'Journée validée' : detailJours[detailJourActif]?.statut === 'SOUMIS' ? 'Soumise' : 'En cours / non soumise'}</Badge>
+            {profile?.role === 'admin' && detailJours[detailJourActif]?.statut === 'VALIDE' && <Button size="sm" variant="secondary" loading={busy === detail.id + ':' + detailJourActif} onClick={() => void invaliderJour(detail.id, detailJourActif)}>Invalider cette journée</Button>}
             {profile?.role === 'admin' && detailJours[detailJourActif]?.statut !== 'VALIDE' && lignesJourActif.length > 0 && <Button size="sm" variant="secondary" loading={busy === detail.id + ':' + detailJourActif} onClick={() => void validerJour(detail.id, detailJourActif)}>Valider cette journée</Button>}
           </div>
         </div>
