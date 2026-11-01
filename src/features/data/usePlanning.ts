@@ -24,6 +24,7 @@ export function usePlanning() {
   const [portefeuille, setPortefeuille] = useState<ClientRow[]>([])
   const [derogationZoneActive, setDerogationZoneActive] = useState(false)
   const [derogationPotentielActive, setDerogationPotentielActive] = useState(false)
+  const [derogationGeneralisteActive, setDerogationGeneralisteActive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -134,8 +135,10 @@ export function usePlanning() {
     ])
     const zoneLibre = zoneDerogation === true
     const potentielLibre = potentielDerogation === true
+    const generalisteLibre = generalisteDerogation === true
     setDerogationZoneActive(zoneLibre)
     setDerogationPotentielActive(potentielLibre)
+    setDerogationGeneralisteActive(generalisteLibre)
 
     // Supabase limite chaque réponse à 1 000 lignes par défaut. La table clients
     // contient plus de 2 000 fiches : charger toutes les pages évite de masquer
@@ -175,5 +178,5 @@ export function usePlanning() {
 
   useEffect(() => { load() }, [load])
 
-  return { programme, lignes, portefeuille, loading, error, setError, reload: load, estFawaz, estFagbede, derogationZoneActive, derogationPotentielActive }
+  return { programme, lignes, portefeuille, loading, error, setError, reload: load, estFawaz, estFagbede, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive }
 }
