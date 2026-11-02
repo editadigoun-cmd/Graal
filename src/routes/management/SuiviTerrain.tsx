@@ -52,6 +52,7 @@ export default function SuiviTerrain() {
   const [vmId, setVmId] = useState('')
   const [date, setDate] = useState(todayBenin().format('YYYY-MM-DD'))
   const [lignes, setLignes] = useState<Ligne[]>([])
+  const [specialitesClients, setSpecialitesClients] = useState<Record<string, string>>({})
   const [visites, setVisites] = useState<Visite[]>([])
   const [lignesSemaine, setLignesSemaine] = useState<Ligne[]>([])
   const [visitesSemaine, setVisitesSemaine] = useState<Visite[]>([])
@@ -107,6 +108,13 @@ export default function SuiviTerrain() {
           .eq('vm_id', vmId).gte('jour', lundi).lte('jour', vendredi)
       ])
       setLignes(lignesData ?? [])
+      const clientIds = [...new Set((lignesData ?? []).map((ligne) => ligne.client_id).filter((id): id is string => !!id))]
+      if (clientIds.length > 0) {
+        const { data: clientsSpecialites } = await supabase.from('clients').select('id, specialite').in('id', clientIds)
+        setSpecialitesClients(Object.fromEntries((clientsSpecialites ?? []).map((client) => [client.id, client.specialite ?? ''])))
+      } else {
+        setSpecialitesClients({})
+      }
       setVisites((visitesData as unknown as Visite[]) ?? [])
       setLignesSemaine(lignesSemaineData ?? [])
       setVisitesSemaine((visitesSemaineData as unknown as Visite[]) ?? [])
@@ -449,6 +457,7 @@ export default function SuiviTerrain() {
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             {l.potentiel && <PotentielBadge potentiel={l.potentiel} compact />}
                             <span className="text-[11px] text-ink-400">{l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
+                            {l.type_visite === 'MEDICAL' && specialitesClients[l.client_id ?? ''] && <Badge tone="info">{afficherSpecialite(specialitesClients[l.client_id ?? ''])}</Badge>}
                           </div>
                         </div>
                         <Badge tone={STATUT_TONE[l.statut_reel ?? ''] ?? 'neutral'}>{STATUT_LABEL[l.statut_reel ?? ''] ?? l.statut_reel}</Badge>
