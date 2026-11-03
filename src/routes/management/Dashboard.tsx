@@ -85,7 +85,7 @@ export default function ManagementDashboard() {
         supabase.from('clotures_journalieres').select('id, vm_id, statut, heure_cloture, photo_path, en_retard, profiles(full_name)').eq('jour', today),
         supabase.from('equipes').select('id, nom').order('nom'),
         supabase.from('programmes_hebdomadaires').select('vm_id').eq('semaine_debut', semaineProchaine),
-        supabase.from('profiles').select('id, full_name, role, date_anniversaire').in('role', ['vm', 'superviseur']).not('date_anniversaire', 'is', null),
+        supabase.from('anniversaires_collaborateurs').select('id, nom, date_anniversaire').order('date_anniversaire'),
         profile?.role === 'superviseur'
           ? supabase.from('superviseur_equipes').select('equipe_id').eq('superviseur_id', profile.id)
           : Promise.resolve({ data: [] as { equipe_id: string }[] })
@@ -112,7 +112,7 @@ export default function ManagementDashboard() {
       setVmEquipeById(vmEquipeMap)
 
       const vmIdsAvecProgramme = new Set((progSemaine ?? []).map((pr) => pr.vm_id))
-      setAnniversaires((staffBirthday ?? []) as { id: string; full_name: string; role: string; date_anniversaire: string }[])
+      setAnniversaires((staffBirthday ?? []).map((a: any) => ({ id: a.id, full_name: a.nom, role: 'vm', date_anniversaire: a.date_anniversaire })) as { id: string; full_name: string; role: string; date_anniversaire: string }[])
 
       if (profile?.role === 'superviseur') {
         const { count } = await supabase.from('visites').select('id', { count: 'exact', head: true }).eq('vm_id', profile.id).eq('jour', today).eq('statut', 'REALISEE')
