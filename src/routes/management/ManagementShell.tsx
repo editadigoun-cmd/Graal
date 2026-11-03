@@ -31,6 +31,7 @@ type NavGroup = {
 const topItems: NavItem[] = [
   { to: '/admin', label: 'Tableau de bord', icon: IconHome, end: true },
   { to: '/admin/messages', label: 'Messages', icon: IconChat },
+  { to: '/admin/notifications', label: 'Notifications', icon: IconBell },
 ]
 
 const groups: NavGroup[] = [
