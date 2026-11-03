@@ -231,10 +231,11 @@ export default function ManagementDashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="VM actifs" value={progressFiltre.length} tone="royal" icon={<IconUsers className="h-4 w-4" />} />
         <StatCard label="Visites prévues" value={totalPrevues} tone="ink" icon={<IconStethoscope className="h-4 w-4" />} />
         <StatCard label="Visites réalisées" value={totalRealisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
+        <StatCard label="Taux de réalisation équipe" value={totalPrevues > 0 ? Math.round((totalRealisees / totalPrevues) * 100) : 0} suffix="%" tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
         <StatCard label="VM en retard" value={enRetard} tone="flame" icon={<IconAlert className="h-4 w-4" />} />
       </div>
 
