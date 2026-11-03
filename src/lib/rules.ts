@@ -13,8 +13,12 @@ export const JOURS: Jour[] = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI']
 // le nombre max/jour est vérifié séparément, ici on ne fait que lever le blocage de hiérarchisation.
 export const JOURS_DEROGATION_MOYEN: Jour[] = ['LUNDI', 'MARDI', 'MERCREDI']
 
-export const MAX_GROS_JEUDI = 7
-export const MAX_GROS_VENDREDI = 3
+export const MAX_GROS_JEUDI = 8
+export const MAX_GROS_VENDREDI = 5
+export const MAX_FAIBLE_JEUDI = 2
+export const MAX_FAIBLE_VENDREDI = 3
+export const MAX_VISITES_JOUR = 22
+export const MAX_MOYEN_LUN_MAR_MER = 5
 
 export function potentielAutorise(jour: Jour, potentiel: Potentiel, typeVisite: TypeVisite): boolean {
   // Pharmacies : nombre libre par potentiel ; aucun potentiel FAIBLE du lundi au mercredi.
