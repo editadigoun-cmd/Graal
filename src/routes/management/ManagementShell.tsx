@@ -7,7 +7,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import {
   IconHome, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity,
   IconUser, IconClipboard, IconMapPin, IconPill, IconTrendingUp, IconBarChart,
-  IconMenu, IconX, IconChevronRight
+  IconMenu, IconX, IconChevronRight, IconGift
 } from '@/components/ui/icons'
 import logoFull from '@/assets/logo-full.png'
 import logoMark from '@/assets/logo-mark.png'
@@ -76,6 +76,7 @@ const groups: NavGroup[] = [
     children: [
       { to: '/admin/activite', label: 'Activité & notifications', icon: IconActivity },
       { to: '/admin/parametres', label: 'Paramètres', icon: IconSettings, adminOnly: true },
+      { to: '/admin/anniversaires', label: 'Anniversaires', icon: IconGift },
       { to: '/admin/profil', label: 'Mon profil', icon: IconUser },
     ],
   },
@@ -101,7 +102,7 @@ export function ManagementShell() {
     '/admin/terrain', '/admin/suivi-terrain', '/admin/vad-plan',
     '/admin/rapport-activite-hebdo', '/admin/controle-frequence',
     '/admin/rapports-duo', '/admin/animation-equipe', '/admin/equipes',
-    '/admin/portefeuille', '/admin/activite', '/admin/profil'
+    '/admin/portefeuille', '/admin/activite', '/admin/anniversaires', '/admin/profil'
   ])
   const visibleGroups = useMemo(() => {
     if (profile?.role === 'admin') {
