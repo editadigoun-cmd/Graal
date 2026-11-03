@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { IconBell, IconCheckCircle, IconGift } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth/AuthProvider'
 
 type NotificationRow = {
   id: string
@@ -17,22 +18,25 @@ type NotificationRow = {
 }
 
 export default function ManagementNotifications() {
+  const { profile } = useAuth()
   const [rows, setRows] = useState<NotificationRow[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
+    if (!profile?.id) return
     setLoading(true)
     const { data, error } = await supabase
       .from('notifications')
       .select('id,type,titre,corps,lue,metadata,created_at')
+      .eq('profile_id', profile.id)
       .order('created_at', { ascending: false })
       .limit(100)
     if (error) setError(error.message)
     else { setRows((data ?? []) as NotificationRow[]); setError('') }
     setLoading(false)
-  }, [])
+  }, [profile?.id])
 
   useEffect(() => { void load() }, [load])
 
