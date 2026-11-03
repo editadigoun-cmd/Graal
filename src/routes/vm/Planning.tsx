@@ -151,7 +151,7 @@ export default function Planning() {
   function quotaPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId)) return false
     if (totalJourProjete >= MAX_VISITES_JOUR) return true
-    if (pharmacieUniquement || derogationPotentielActive || estFawaz || estFagbede) return false
+    if (derogationPotentielActive || estFawaz || estFagbede) return false
     if (JOURS_DEROGATION_MOYEN.includes(jourActif)) {
       if (potentiel === 'FAIBLE') return true
       if (potentiel === 'MOYEN' && moyenJourProjete >= MAX_MOYEN_LUN_MAR_MER) return true
