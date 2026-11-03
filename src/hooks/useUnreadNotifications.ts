@@ -14,6 +14,7 @@ export function useUnreadNotifications() {
       const { count } = await supabase
         .from('notifications')
         .select('id', { count: 'exact', head: true })
+        .eq('profile_id', session.user.id)
         .eq('lue', false)
       if (active) setCount(count ?? 0)
     }
