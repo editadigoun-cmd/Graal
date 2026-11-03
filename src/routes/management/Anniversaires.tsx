@@ -9,13 +9,15 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import logoFull from '@/assets/logo-full.png'
 
 type Birthday = { id:string; profile_id:string|null; nom:string; date_anniversaire:string; annee_connue:boolean; photo_url:string|null }
-type Member = { id:string; full_name:string; avatar_url:string|null }\ntype BirthdayCard = { id:string; message:string; created_at:string }
+type Member = { id:string; full_name:string; avatar_url:string|null }
+type BirthdayCard = { id:string; message:string; created_at:string }
 const months=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 const DEFAULT_MESSAGE="Toute l'équipe GRAAL Medical Solutions te souhaite un merveilleux anniversaire. Que cette nouvelle année t'apporte santé, bonheur et réussite. Merci pour ton engagement au sein de notre équipe !"
 
 export default function ManagementAnniversaires(){
  const {profile}=useAuth(); const isAdmin=profile?.role==='admin'
- const [items,setItems]=useState<Birthday[]>([]),[members,setMembers]=useState<Record<string,Member>>({})\n const [history,setHistory]=useState<BirthdayCard[]>([])
+ const [items,setItems]=useState<Birthday[]>([]),[members,setMembers]=useState<Record<string,Member>>({})
+ const [history,setHistory]=useState<BirthdayCard[]>([])
  const [month,setMonth]=useState(new Date().getMonth()),[search,setSearch]=useState(''),[selectedId,setSelectedId]=useState('')
  const [message,setMessage]=useState(DEFAULT_MESSAGE),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false)
  const [notice,setNotice]=useState<{ok:boolean;text:string}|null>(null)
@@ -28,7 +30,8 @@ export default function ManagementAnniversaires(){
   if(ids.length){const {data:p}=await supabase.from('profiles').select('id,full_name,avatar_url').in('id',ids);setMembers(Object.fromEntries(((p??[]) as Member[]).map(x=>[x.id,x])))}
   setSelectedId(v=>v&&rows.some(x=>x.id===v)?v:rows[0]?.id??'');setLoading(false)
  }
- useEffect(()=>{load()},[])\n useEffect(()=>{if(!selectedId){setHistory([]);return}let active=true;supabase.from('cartes_anniversaire').select('id,message,created_at').eq('anniversaire_id',selectedId).order('created_at',{ascending:false}).limit(10).then(({data})=>{if(active)setHistory((data??[]) as BirthdayCard[])});return()=>{active=false}},[selectedId])
+ useEffect(()=>{load()},[])
+ useEffect(()=>{if(!selectedId){setHistory([]);return}let active=true;supabase.from('cartes_anniversaire').select('id,message,created_at').eq('anniversaire_id',selectedId).order('created_at',{ascending:false}).limit(10).then(({data})=>{if(active)setHistory((data??[]) as BirthdayCard[])});return()=>{active=false}},[selectedId])
  const filtered=useMemo(()=>{const q=search.toLocaleLowerCase('fr').trim();return items.filter(x=>Number(x.date_anniversaire.slice(5,7))===month+1&&(!q||x.nom.toLocaleLowerCase('fr').includes(q))).sort((a,b)=>a.date_anniversaire.slice(8,10).localeCompare(b.date_anniversaire.slice(8,10)))},[items,month,search])
  const selected=items.find(x=>x.id===selectedId)||null
  const photo=selected?.photo_url||(selected?.profile_id?members[selected.profile_id]?.avatar_url:null)||null
