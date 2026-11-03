@@ -345,7 +345,7 @@ export default function SuiviTerrain() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
                     <StatCard label="Visités" value={recapSemaine.realisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
                     <StatCard label="À visiter" value={recapSemaine.restantes} tone="royal" icon={<IconClock className="h-4 w-4" />} />
-                    <StatCard label="Taux de réalisation" value={recapSemaine.total > 0 ? `${Math.round((recapSemaine.realisees / recapSemaine.total) * 100)}%` : '0%'} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
+                    <StatCard label="Taux de réalisation" value={recapSemaine.total > 0 ? Math.round((recapSemaine.realisees / recapSemaine.total) * 100) : 0} suffix="%" tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
                   </div>
                   <p className="mb-2 text-xs font-bold text-ink-600">Répartition par potentiel — global</p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -372,7 +372,7 @@ export default function SuiviTerrain() {
                   <StatCard label="Prévues" value={total} tone="ink" icon={<IconClock className="h-4 w-4" />} />
                   <StatCard label="Réalisées" value={realisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
                   <StatCard label="Restantes" value={enAttente} tone="royal" icon={<IconClock className="h-4 w-4" />} />
-                  <StatCard label="Taux de réalisation" value={total > 0 ? `${Math.round((realisees / total) * 100)}%` : '0%'} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
+                  <StatCard label="Taux de réalisation" value={total > 0 ? Math.round((realisees / total) * 100) : 0} suffix="%" tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
                 </div>
                 <Card>
                   <p className="text-sm font-bold text-ink-800 mb-3">Récapitulatif par potentiel</p>
