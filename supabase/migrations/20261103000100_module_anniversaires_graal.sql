@@ -103,6 +103,6 @@ do $$
 declare v_job_id bigint;
 begin
   for v_job_id in select jobid from cron.job where jobname='graal-anniversaires' loop perform cron.unschedule(v_job_id); end loop;
-  perform cron.schedule('graal-anniversaires','0 6 * * *','select public.notifier_anniversaires();');
+  perform cron.schedule('graal-anniversaires','0 5 * * *','select public.notifier_anniversaires();');
 end;
 $$;
