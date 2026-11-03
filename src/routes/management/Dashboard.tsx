@@ -201,7 +201,7 @@ export default function ManagementDashboard() {
 
   const totalPrevues = progressFiltre.reduce((s, p) => s + p.prevues, 0)
   const totalRealisees = progressFiltre.reduce((s, p) => s + p.realisees, 0)
-  const enRetard = progressFiltre.filter((p) => p.prevues > 0 && p.realisees < p.prevues).length
+  const enRetard = progressFiltre.filter((p) => p.prevues > 0 && p.realisees === 0).length
 
   const parEquipe = Object.entries(
     progressFiltre.reduce<Record<string, { prevues: number; realisees: number }>>((acc, p) => {
