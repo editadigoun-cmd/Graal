@@ -146,7 +146,7 @@ export default function Planning() {
   const moyenJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'MOYEN').length + countSelection('MOYEN')
   const grosJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'GROS').length + countSelection('GROS')
   const faibleJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'FAIBLE').length + countSelection('FAIBLE')
-  const grosMoyenRestant = candidats.some((c) => !selection.has(c.id) && (c.potentiel === 'GROS' || c.potentiel === 'MOYEN'))
+  const grosMoyenRestant = portefeuille.some((c) => !clientIdsUtilises.has(c.id) && !selection.has(c.id) && c.actif && (c.potentiel === 'GROS' || c.potentiel === 'MOYEN') && (pharmacieUniquement || derogationZoneActive || estFawaz || estFagbede || !programme?.secteur || c.secteur === programme.secteur))
 
   function quotaPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId)) return false
@@ -204,7 +204,7 @@ export default function Planning() {
     ? true
     : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
-  const jeudiRatioOk = pharmacieUniquement || derogationPotentielActive || jeudiTotalActuel === 0 || (jeudiFaibleActuel / jeudiTotalActuel) * 100 <= seuils.maxFaibleJeudiPct
+  const jeudiRatioOk = true
   // Au moins une pharmacie de potentiel GROS chacun des trois premiers jours.
   const grosPharmacieParJourOk = (['LUNDI', 'MARDI', 'MERCREDI'] as Jour[]).every((j) =>
     lignes.some((l) => l.jour === j && l.type_visite === 'PHARMACIE' && l.clients?.potentiel === 'GROS')
@@ -417,20 +417,6 @@ export default function Planning() {
               </div>
             </div>
           </div>
-          {jourActif === 'JEUDI' && (
-            <div className="mt-3 pt-3 border-t border-ink-100">
-              <div className="flex items-center justify-between text-[11px] mb-1">
-                <span className="text-ink-500">Clients FAIBLE potentiel</span>
-                <span className={jeudiRatioOk ? 'text-emerald-600 font-semibold' : 'text-flame-600 font-semibold'}>
-                  {jeudiFaibleActuel}/{jeudiTotalActuel || 0} (max {seuils.maxFaibleJeudiPct}%)
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
-                <div className={`h-full rounded-full ${jeudiRatioOk ? 'bg-emerald-500' : 'bg-flame-500'}`}
-                  style={{ width: `${jeudiTotalActuel ? Math.min(100, (jeudiFaibleActuel / jeudiTotalActuel) * 100) : 0}%` }} />
-              </div>
-            </div>
-          )}
         </Card>
       )}
 
@@ -503,9 +489,6 @@ export default function Planning() {
                       </li>
                     ))}
                   </>
-                )}
-                {!jeudiRatioOk && (
-                  <li className="text-xs text-flame-700">• Jeudi : trop de clients FAIBLE potentiel (max {seuils.maxFaibleJeudiPct}%)</li>
                 )}
                 {!grosPharmacieParJourOk && (
                   <li className="text-xs text-flame-700">• Programmer au moins une pharmacie GROS le lundi, le mardi et le mercredi.</li>
