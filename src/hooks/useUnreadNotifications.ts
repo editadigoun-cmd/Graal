@@ -7,27 +7,36 @@ export function useUnreadNotifications() {
   const [count, setCount] = useState(0)
 
   useEffect(() => {
-    if (!session) return
+    const userId = session?.user?.id
+    if (!userId) {
+      setCount(0)
+      return
+    }
+
     let active = true
 
     async function load() {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from('notifications')
         .select('id', { count: 'exact', head: true })
-        .eq('profile_id', session.user.id)
+        .eq('profile_id', userId)
         .eq('lue', false)
-      if (active) setCount(count ?? 0)
+
+      if (!error && active) setCount(count ?? 0)
     }
-    load()
+
+    void load()
 
     const channel = supabase
       .channel('notifications-badge')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+        void load()
+      })
       .subscribe()
 
     return () => {
       active = false
-      supabase.removeChannel(channel)
+      void supabase.removeChannel(channel)
     }
   }, [session])
 
