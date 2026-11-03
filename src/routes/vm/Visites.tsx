@@ -46,7 +46,7 @@ export default function Visites() {
 
   async function confirmerTelechargement() {
     const maintenant = nowBenin()
-    const jourFiche = maintenant.hour() >= 20 ? prochainJourOuvrable(todayBenin()) : todayBenin()
+    const jourFiche = maintenant.hour() >= 19 ? prochainJourOuvrable(todayBenin()) : todayBenin()
     setExporting(true)
     try {
       await ouvrirFicheJour(jourFiche.format('YYYY-MM-DD'))
@@ -62,8 +62,8 @@ export default function Visites() {
   const estCloturee = cloture?.statut === 'CLOTUREE' || cloture?.statut === 'CLOTUREE_FORCEE'
   const jourFicheAffiche = maintenantJourFiche()
   const maintenant = nowBenin()
-  const limiteNormale = maintenant.hour(18).minute(0).second(0).millisecond(0)
-  const limiteAutomatique = maintenant.hour(20).minute(0).second(0).millisecond(0)
+  const limiteNormale = maintenant.hour(19).minute(0).second(0).millisecond(0)
+  const limiteAutomatique = maintenant.hour(19).minute(0).second(0).millisecond(0)
   const cibleCloture = maintenant.isBefore(limiteNormale) ? limiteNormale : limiteAutomatique
   const secondesRestantes = Math.max(0, cibleCloture.diff(maintenant, 'second'))
   const compteARebours = `${String(Math.floor(secondesRestantes / 3600)).padStart(2, '0')}:${String(Math.floor((secondesRestantes % 3600) / 60)).padStart(2, '0')}:${String(secondesRestantes % 60).padStart(2, '0')}`
@@ -133,11 +133,11 @@ export default function Visites() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-ink-500">
-              {maintenant.isBefore(limiteNormale) ? 'Temps restant avant la clôture (18 h)' : maintenant.isBefore(limiteAutomatique) ? 'Clôture en retard — clôture automatique à 20 h' : 'Heure limite dépassée'}
+              {maintenant.isBefore(limiteNormale) ? 'Temps restant avant la clôture (19 h)' : maintenant.isBefore(limiteAutomatique) ? 'Clôture en retard — clôture automatique à 19 h' : 'Heure limite dépassée'}
             </p>
             <p className="mt-0.5 text-2xl font-extrabold tracking-wider text-ink-900 tabular-nums">{compteARebours}</p>
             <p className="mt-0.5 text-[11px] text-ink-500">
-              {maintenant.isBefore(limiteNormale) ? 'Pensez à clôturer votre journée avant 18 h.' : maintenant.isBefore(limiteAutomatique) ? 'Clôturez dès maintenant pour éviter la clôture forcée.' : 'La clôture automatique doit être exécutée à présent. Actualisez la page dans un instant.'}
+              {maintenant.isBefore(limiteNormale) ? 'Pensez à clôturer votre journée avant 19 h.' : maintenant.isBefore(limiteAutomatique) ? 'Clôturez dès maintenant pour éviter la clôture forcée.' : 'La clôture automatique doit être exécutée à présent. Actualisez la page dans un instant.'}
             </p>
           </div>
         </div>
@@ -254,5 +254,5 @@ function prochainJourOuvrable(date: dayjs.Dayjs) {
 
 function maintenantJourFiche() {
   const maintenant = nowBenin()
-  return maintenant.hour() >= 20 ? prochainJourOuvrable(todayBenin()) : todayBenin()
+  return maintenant.hour() >= 19 ? prochainJourOuvrable(todayBenin()) : todayBenin()
 }
