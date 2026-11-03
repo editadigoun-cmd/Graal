@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { IconPlus, IconX, IconClock, IconCheckCircle, IconAlert, IconSearch, IconCheck } from '@/components/ui/icons'
 import { usePlanning, targetSemaineDebut } from '@/features/data/usePlanning'
 import { supabase } from '@/lib/supabase'
-import { JOURS, JOURS_DEROGATION_MOYEN, MAX_GROS_JEUDI, MAX_GROS_VENDREDI, potentielAutorise } from '@/lib/rules'
+import { JOURS, JOURS_DEROGATION_MOYEN, MAX_GROS_JEUDI, MAX_GROS_VENDREDI, MAX_VISITES_JOUR, MAX_MOYEN_LUN_MAR_MER, MAX_FAIBLE_JEUDI, MAX_FAIBLE_VENDREDI, potentielAutorise } from '@/lib/rules'
 import { JOUR_LABEL } from '@/lib/theme'
 import { deadlineSoumission, formatCountdown, nowBenin } from '@/lib/time'
 import { normalizeText } from '@/lib/text'
@@ -41,7 +41,7 @@ interface Seuils {
   poidsMoyenReduit: number
 }
 
-const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50, maxMoyenLunMarMer: 3, poidsMoyenReduit: 2.5 }
+const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50, maxMoyenLunMarMer: 5, poidsMoyenReduit: 2.5 }
 
 function selectionGrosCountSafe(selection: Set<string>, portefeuille: Database['public']['Tables']['clients']['Row'][]) {
   return Array.from(selection).filter((id) => portefeuille.find((client) => client.id === id)?.potentiel === 'GROS').length
@@ -139,54 +139,31 @@ export default function Planning() {
     return true
   })
 
-  // Jeudi : la part de clients FAIBLE potentiel ne doit pas dépasser seuils.maxFaibleJeudiPct —
-  // on bloque la sélection de nouveaux clients FAIBLE dès que l'ajouter dépasserait le seuil,
-  // au lieu de laisser le VM tout construire puis découvrir le refus à la soumission.
-  const lignesJeudi = lignes.filter((l) => l.jour === 'JEUDI')
-  const lignesVendredi = lignes.filter((l) => l.jour === 'VENDREDI')
-  const grosJeudiActuel = lignesJeudi.filter((l) => l.clients?.potentiel === 'GROS').length
-  const grosVendrediActuel = lignesVendredi.filter((l) => l.clients?.potentiel === 'GROS').length
-  const selectionGrosCount = selectionGrosCountSafe(selection, portefeuille)
-  const jeudiTotalActuel = lignesJeudi.length
-  const jeudiFaibleActuel = lignesJeudi.filter((l) => l.clients?.potentiel === 'FAIBLE').length
+  // Quotas quotidiens : toutes les visites médicales et pharmacies sont comptées ensemble.
   const selectionArray = Array.from(selection)
-  const selectionFaibleCount = selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === 'FAIBLE').length
-  const jeudiTotalProjete = jeudiTotalActuel + selectionArray.length
-  const jeudiFaibleProjete = jeudiFaibleActuel + selectionFaibleCount
+  const countSelection = (p: Potentiel) => selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === p).length
+  const totalJourProjete = lignesJour.length + selection.size
+  const moyenJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'MOYEN').length + countSelection('MOYEN')
+  const grosJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'GROS').length + countSelection('GROS')
+  const faibleJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'FAIBLE').length + countSelection('FAIBLE')
+  const grosMoyenRestant = candidats.some((c) => !selection.has(c.id) && (c.potentiel === 'GROS' || c.potentiel === 'MOYEN'))
 
-  function faibleJeudiBloque(candidatId: string, potentiel: string) {
-    if (pharmacieUniquement || derogationPotentielActive || jourActif !== 'JEUDI' || potentiel !== 'FAIBLE' || selection.has(candidatId)) return false
-    const total = jeudiTotalProjete + 1
-    const faible = jeudiFaibleProjete + 1
-    return (faible / total) * 100 > seuils.maxFaibleJeudiPct
-  }
-
-  function grosJourBloque(candidatId: string, potentiel: string) {
-    if (pharmacieUniquement || derogationPotentielActive || potentiel !== 'GROS' || selection.has(candidatId)) return false
-    if (jourActif === 'JEUDI') return grosJeudiActuel + selectionGrosCount + 1 > MAX_GROS_JEUDI
-    if (jourActif === 'VENDREDI') return grosVendrediActuel + selectionGrosCount + 1 > MAX_GROS_VENDREDI
+  function quotaPotentielBloque(candidatId: string, potentiel: string) {
+    if (selection.has(candidatId)) return false
+    if (totalJourProjete >= MAX_VISITES_JOUR) return true
+    if (pharmacieUniquement || derogationPotentielActive || estFawaz || estFagbede) return false
+    if (JOURS_DEROGATION_MOYEN.includes(jourActif)) {
+      if (potentiel === 'FAIBLE') return true
+      if (potentiel === 'MOYEN' && moyenJourProjete >= MAX_MOYEN_LUN_MAR_MER) return true
+    }
+    if (jourActif === 'JEUDI' || jourActif === 'VENDREDI') {
+      const maxGros = jourActif === 'JEUDI' ? MAX_GROS_JEUDI : MAX_GROS_VENDREDI
+      const maxFaible = jourActif === 'JEUDI' ? MAX_FAIBLE_JEUDI : MAX_FAIBLE_VENDREDI
+      if (potentiel === 'GROS' && grosJourProjete >= maxGros) return true
+      if (potentiel === 'FAIBLE' && faibleJourProjete >= maxFaible && grosMoyenRestant) return true
+    }
     return false
   }
-
-  // Dérogation plafonnée "médecins moyens" lundi/mardi/mercredi (cf. migration 043) : au-delà
-  // de seuils.maxMoyenLunMarMer sur le jour actif, le serveur refusera l'ajout.
-  const lignesJourActifMoyenMedical = lignesJour.filter((l) => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'MOYEN').length
-  const selectionMoyenCount = picking === 'MEDICAL' && JOURS_DEROGATION_MOYEN.includes(jourActif)
-    ? selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === 'MOYEN').length
-    : 0
-  const moyenLunMarMerProjete = lignesJourActifMoyenMedical + selectionMoyenCount
-
-  function moyenDerogationBloque(candidatId: string, potentiel: string) {
-    if (pharmacieUniquement || derogationPotentielActive || picking !== 'MEDICAL' || !JOURS_DEROGATION_MOYEN.includes(jourActif) || potentiel !== 'MOYEN' || selection.has(candidatId)) return false
-    return moyenLunMarMerProjete + 1 > seuils.maxMoyenLunMarMer
-  }
-
-  // Les VM choisissent librement le nombre de pharmacies GROS et MOYENNES
-  // chaque jour ; seul le potentiel FAIBLE est interdit du lundi au mercredi.
-  function pharmacieMoyenneBloquee(_candidatId: string, _potentiel: string) {
-    return false
-  }
-
 
   // Récapitulatif hebdomadaire par spécialité + par potentiel (toute la semaine, tous jours confondus).
   const specialiteCounts: Partial<Record<Specialite, number>> = {}
@@ -581,11 +558,8 @@ export default function Planning() {
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
                   const potentielIndisponible = !pharmacieUniquement && !derogationPotentielActive && !estFawaz && !estFagbede && !potentielAutorise(jourActif, c.potentiel, picking!)
-                  const bloqueFaibleJeudi = !pharmacieUniquement && !estFawaz && !estFagbede && faibleJeudiBloque(c.id, c.potentiel)
-                  const bloqueMoyen = !pharmacieUniquement && !estFawaz && !estFagbede && moyenDerogationBloque(c.id, c.potentiel)
-                  const bloquePharmacieMoyenne = !pharmacieUniquement && !estFawaz && !estFagbede && pharmacieMoyenneBloquee(c.id, c.potentiel)
-                  const bloqueGros = !pharmacieUniquement && !estFawaz && !estFagbede && grosJourBloque(c.id, c.potentiel)
-                  const bloque = potentielIndisponible || bloqueFaibleJeudi || bloqueMoyen || bloquePharmacieMoyenne || bloqueGros
+                  const bloqueQuota = quotaPotentielBloque(c.id, c.potentiel)
+                  const bloque = potentielIndisponible || bloqueQuota
                   return (
                     <button
                       key={c.id} onClick={() => !bloque && toggleSelection(c.id)}
@@ -602,14 +576,12 @@ export default function Planning() {
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-ink-800 truncate">{c.nom}</p>
                           <p className="text-[11px] text-ink-400 truncate">
-                            {bloqueFaibleJeudi
-                              ? `Max ${seuils.maxFaibleJeudiPct}% de clients FAIBLE le jeudi atteint`
-                              : bloqueGros
-                              ? `Maximum de clients GROS atteint (${jourActif === 'JEUDI' ? MAX_GROS_JEUDI : MAX_GROS_VENDREDI})`
-                              : bloqueMoyen
-                              ? `Max ${seuils.maxMoyenLunMarMer} médecin(s) "moyen" atteint pour ce jour`
-                              : bloquePharmacieMoyenne
-                              ? 'Une seule pharmacie MOYENNE autorisée par jour du lundi au mercredi'
+                            {bloqueQuota
+                              ? totalJourProjete >= MAX_VISITES_JOUR ? `Maximum de ${MAX_VISITES_JOUR} visites par jour atteint` :
+                                JOURS_DEROGATION_MOYEN.includes(jourActif) && c.potentiel === 'MOYEN' ? `Maximum de ${MAX_MOYEN_LUN_MAR_MER} MOYENS par jour (médical + pharmacie)` :
+                                JOURS_DEROGATION_MOYEN.includes(jourActif) ? 'Seuls les potentiels GROS et MOYEN sont autorisés du lundi au mercredi' :
+                                c.potentiel === 'GROS' ? `Maximum de ${jourActif === 'JEUDI' ? MAX_GROS_JEUDI : MAX_GROS_VENDREDI} GROS` :
+                                'Quota FAIBLE atteint : programmez d’abord les GROS et MOYENS disponibles'
                               : potentielIndisponible
                               ? (c.potentiel
                                   ? `${c.centre || c.specialite} · Potentiel ${c.potentiel} non autorisé le ${JOUR_LABEL[jourActif]}`
