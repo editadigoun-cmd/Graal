@@ -210,7 +210,7 @@ export default function SuiviTerrain() {
     ...[...visites].filter((v) => Number.isFinite(v.latitude) && Number.isFinite(v.longitude) && v.latitude !== 0 && v.longitude !== 0).sort((a, b) => a.horodatage.localeCompare(b.horodatage)).map((v) => ({
       id: v.id, lat: v.latitude, lng: v.longitude,
       label: [v.clients?.nom ?? v.client_nom_libre ?? (v.type_visite === 'PHARMACIE' ? 'Pharmacie' : 'Client'), v.clients?.centre ?? v.client_centre_libre, v.clients?.specialite ? afficherSpecialite(v.clients.specialite) : v.client_specialite_libre, v.type_visite === 'PHARMACIE' ? 'Pharmacie' : 'Visite médicale'].filter(Boolean).join(' · '), heure: dayjs(v.horodatage).format('HH:mm'),
-      type: (v.garde_id ? 'garde' : 'visite') as PointTrajet['type']
+      type: (v.garde_id ? 'garde' : v.type_visite === 'PHARMACIE' ? 'pharmacie' : 'visite') as PointTrajet['type']
     })),
     ...(cloture?.photo_latitude != null && cloture.photo_longitude != null
       ? [{ id: 'cloture', lat: cloture.photo_latitude, lng: cloture.photo_longitude, label: 'Clôture de journée', heure: cloture.heure_cloture ? dayjs(cloture.heure_cloture).format('HH:mm') : '', type: 'cloture' as const }]
@@ -434,7 +434,8 @@ export default function SuiviTerrain() {
                   <div className="mb-2 flex items-center justify-between px-1">
                     <p className="text-sm font-bold text-ink-800">Zones parcourues</p>
                     <div className="flex items-center gap-3 text-[10px] text-ink-400">
-                      <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#1d4ed8]" /> Visite</span>
+                      <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#1d4ed8]" /> Médical</span>
+                      <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> Pharmacie</span>
                       <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#8b5cf6]" /> Garde</span>
                       <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#f97316]" /> Clôture</span>
                     </div>
