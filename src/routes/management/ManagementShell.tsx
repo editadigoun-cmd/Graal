@@ -96,7 +96,7 @@ export function ManagementShell() {
   const unread = useUnreadNotifications()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['Pilotage', 'Terrain & activité']))
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['Pilotage', 'Terrain & activité', 'Administration']))
 
   const supervisorPaths = new Set([
     '/admin/programmes', '/admin/plan-activites', '/admin/reporting',
