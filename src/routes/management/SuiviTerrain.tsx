@@ -485,7 +485,7 @@ export default function SuiviTerrain() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-ink-800 truncate">{v.clients?.nom ?? v.client_nom_libre ?? 'Client non renseigné'}</p>
-                            {(v.clients?.centre ?? v.client_centre_libre) && <p className="mt-0.5 text-xs text-ink-500">{v.clients?.centre ?? v.client_centre_libre}</p>}
+                            {(v.clients?.centre ?? v.client_centre_libre) && <p className="mt-0.5 text-xs text-ink-500">{v.clients?.centre ?? v.client_centre_libre}</p>}}
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               {v.clients?.potentiel && <PotentielBadge potentiel={v.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
                               <span className="text-[11px] text-ink-400">{v.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
