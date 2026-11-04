@@ -53,7 +53,7 @@ const groups: NavGroup[] = [
     children: [
       { to: '/admin/terrain', label: 'Vue terrain', icon: IconMapPin },
       { to: '/admin/suivi-terrain', label: 'Suivi terrain', icon: IconMapPin },
-      { to: '/admin/vad-plan', label: 'VAD & Duo', icon: IconMapPin },
+      { to: '/admin/vad-plan', label: 'VAD', icon: IconMapPin },
       { to: '/admin/rapport-activite-hebdo', label: 'Rapport hebdomadaire', icon: IconClipboard },
       { to: '/admin/controle-frequence', label: 'Fréquence clients', icon: IconUsers },
       { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconUsers },
