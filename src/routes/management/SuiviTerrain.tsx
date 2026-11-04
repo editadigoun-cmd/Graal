@@ -53,6 +53,7 @@ export default function SuiviTerrain() {
   const [date, setDate] = useState(todayBenin().format('YYYY-MM-DD'))
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [specialitesClients, setSpecialitesClients] = useState<Record<string, string>>({})
+  const [centresClients, setCentresClients] = useState<Record<string, string>>({})
   const [visites, setVisites] = useState<Visite[]>([])
   const [lignesSemaine, setLignesSemaine] = useState<Ligne[]>([])
   const [visitesSemaine, setVisitesSemaine] = useState<Visite[]>([])
@@ -110,10 +111,12 @@ export default function SuiviTerrain() {
       setLignes(lignesData ?? [])
       const clientIds = [...new Set((lignesData ?? []).map((ligne) => ligne.client_id).filter((id): id is string => !!id))]
       if (clientIds.length > 0) {
-        const { data: clientsSpecialites } = await supabase.from('clients').select('id, specialite').in('id', clientIds)
+        const { data: clientsSpecialites } = await supabase.from('clients').select('id, specialite, centre').in('id', clientIds)
         setSpecialitesClients(Object.fromEntries((clientsSpecialites ?? []).map((client) => [client.id, client.specialite ?? ''])))
+        setCentresClients(Object.fromEntries((clientsSpecialites ?? []).map((client) => [client.id, client.centre ?? ''])))
       } else {
         setSpecialitesClients({})
+        setCentresClients({})
       }
       setVisites((visitesData as unknown as Visite[]) ?? [])
       setLignesSemaine(lignesSemaineData ?? [])
@@ -204,9 +207,9 @@ export default function SuiviTerrain() {
   }
 
   const pointsTrajet: PointTrajet[] = [
-    ...[...visites].sort((a, b) => a.horodatage.localeCompare(b.horodatage)).map((v) => ({
+    ...[...visites].filter((v) => Number.isFinite(v.latitude) && Number.isFinite(v.longitude) && v.latitude !== 0 && v.longitude !== 0).sort((a, b) => a.horodatage.localeCompare(b.horodatage)).map((v) => ({
       id: v.id, lat: v.latitude, lng: v.longitude,
-      label: v.clients?.nom ?? 'Client', heure: dayjs(v.horodatage).format('HH:mm'),
+      label: [v.clients?.nom ?? v.client_nom_libre ?? (v.type_visite === 'PHARMACIE' ? 'Pharmacie' : 'Client'), v.clients?.centre ?? v.client_centre_libre, v.clients?.specialite ? afficherSpecialite(v.clients.specialite) : v.client_specialite_libre, v.type_visite === 'PHARMACIE' ? 'Pharmacie' : 'Visite médicale'].filter(Boolean).join(' · '), heure: dayjs(v.horodatage).format('HH:mm'),
       type: (v.garde_id ? 'garde' : 'visite') as PointTrajet['type']
     })),
     ...(cloture?.photo_latitude != null && cloture.photo_longitude != null
@@ -456,6 +459,7 @@ export default function SuiviTerrain() {
                             {l.potentiel && <PotentielBadge potentiel={l.potentiel} compact />}
                             <span className="text-[11px] text-ink-400">{l.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
                             {l.type_visite === 'MEDICAL' && specialitesClients[l.client_id ?? ''] && <Badge tone="info">{afficherSpecialite(specialitesClients[l.client_id ?? ''])}</Badge>}
+                            {l.client_id && centresClients[l.client_id] && <span className="text-[11px] text-ink-500">{centresClients[l.client_id]}</span>}
                           </div>
                         </div>
                         <Badge tone={STATUT_TONE[l.statut_reel ?? ''] ?? 'neutral'}>{STATUT_LABEL[l.statut_reel ?? ''] ?? l.statut_reel}</Badge>
@@ -480,6 +484,7 @@ export default function SuiviTerrain() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-ink-800 truncate">{v.clients?.nom ?? v.client_nom_libre ?? 'Client non renseigné'}</p>
+                            {(v.clients?.centre ?? v.client_centre_libre) && <p className="mt-0.5 text-xs text-ink-500">{v.clients?.centre ?? v.client_centre_libre}</p>}
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               {v.clients?.potentiel && <PotentielBadge potentiel={v.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
                               <span className="text-[11px] text-ink-400">{v.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
@@ -512,7 +517,8 @@ export default function SuiviTerrain() {
                       <Card key={v.id}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-ink-800 truncate">{v.clients?.nom}</p>
+                            <p className="text-sm font-semibold text-ink-800 truncate">{v.clients?.nom ?? v.client_nom_libre ?? 'Client non renseigné'}</p>
+                            {(v.clients?.centre ?? v.client_centre_libre) && <p className="mt-0.5 text-xs text-ink-500">{v.clients?.centre ?? v.client_centre_libre}</p>
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               {v.clients?.potentiel && <PotentielBadge potentiel={v.clients.potentiel as 'GROS' | 'MOYEN' | 'FAIBLE'} compact />}
                               <span className="text-[11px] text-ink-400">{v.type_visite === 'MEDICAL' ? 'Médical' : 'Pharmacie'}</span>
