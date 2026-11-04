@@ -8,12 +8,13 @@ export interface PointTrajet {
   lng: number
   label: string
   heure: string
-  type: 'visite' | 'garde' | 'cloture'
+  type: 'visite' | 'pharmacie' | 'garde' | 'cloture'
 }
 
 const COTONOU: [number, number] = [6.3703, 2.3912]
 const COULEUR: Record<PointTrajet['type'], string> = {
   visite: '#1d4ed8',
+  pharmacie: '#059669',
   garde: '#8b5cf6',
   cloture: '#f97316'
 }
