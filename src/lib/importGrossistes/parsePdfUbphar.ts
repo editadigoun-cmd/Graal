@@ -24,8 +24,14 @@ function parsePage(items: ItemTexte[]): {
   enteteReconnu: boolean
 } {
   const entete = items.filter((it) => it.y > 0)
-  const xReference = entete.find((it) => normaliser(it.str) === 'reference')?.x
+  // Selon la mise en page UBPHAR, « Référence Désignation » peut être
+  // extrait comme un seul fragment PDF. Dans ce cas, la colonne Désignation
+  // commence après la largeur habituelle de « Référence » (environ 56 pt).
+  const headerReference = entete.find((it) => normaliser(it.str) === 'reference')
+  const headerReferenceDesignation = entete.find((it) => /^reference\\s+designation$/.test(normaliser(it.str)))
+  const xReference = headerReference?.x ?? headerReferenceDesignation?.x
   const xDesignation = entete.find((it) => normaliser(it.str) === 'designation')?.x
+    ?? (headerReferenceDesignation ? headerReferenceDesignation.x + 55 : undefined)
   const xStock = entete.find((it) => normaliser(it.str).startsWith('stock'))?.x
 
   // UBPHAR place une date sous « Ventes depuis le » : elle identifie sans ambiguïté
@@ -78,7 +84,7 @@ function parsePage(items: ItemTexte[]): {
 
   for (const it of items) {
     const bucket = buckets[indexAncre(it.y)]
-    if (it.x > xDesignation + 5 && it.x < xStock - 5) {
+    if (it.x >= xDesignation - 5 && it.x < xStock - 5) {
       bucket.designation.push(it)
     } else if (Math.abs(it.x - xStock) <= 12) {
       bucket.stock.push(it)
