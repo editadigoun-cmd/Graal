@@ -26,7 +26,7 @@ function parsePage(items: ItemTexte[]): {
   const entete = items.filter((it) => it.y > 0)
   const xReference = entete.find((it) => normaliser(it.str) === 'reference')?.x
   const xDesignation = entete.find((it) => normaliser(it.str) === 'designation')?.x
-  const xStock = entete.find((it) => normaliser(it.str) === 'stock')?.x
+  const xStock = entete.find((it) => normaliser(it.str).startsWith('stock'))?.x
 
   // UBPHAR place une date sous « Ventes depuis le » : elle identifie sans ambiguïté
   // la colonne cumulative, même lorsque les noms des mois historiques changent.
