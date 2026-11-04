@@ -7,6 +7,7 @@ import { IconDownload, IconChevronLeft, IconAlert, IconSearch, IconPlus } from '
 import { supabase } from '@/lib/supabase'
 import { parseCsvPromo } from '@/lib/importGrossistes/parseCsvPromo'
 import { parseCsvUbiPharm } from '@/lib/importGrossistes/parseCsvUbiPharm'
+import { parsePdfUbphar } from '@/lib/importGrossistes/parsePdfUbphar'
 import type { LigneImportGrossiste } from '@/lib/importGrossistes/types'
 import type { Database } from '@/types/database'
 
@@ -189,7 +190,7 @@ export default function ImportReleveGrossiste({ grossisteId, grossisteNom, forma
       if (format === 'csv-promo') parsed = parseCsvPromo(await lireTexteFichier(file), new Date().toISOString().slice(0, 7) + '-01')
       else if (format === 'csv-ubi') parsed = parseCsvUbiPharm(await lireTexteFichier(file), new Date().toISOString().slice(0, 7) + '-01')
       else if (format === 'pdf-gapob') { const { parsePdfGapob } = await import('@/lib/importGrossistes/parsePdfGapob'); parsed = await parsePdfGapob(file) }
-      else { const { parsePdfUbphar } = await import('@/lib/importGrossistes/parsePdfUbphar'); parsed = await parsePdfUbphar(file) }
+      else { parsed = await parsePdfUbphar(file) }
       if (parsed.lignes.length === 0) { setErreur(parsed.avertissements[0] ?? 'Aucune donnée détectée dans ce fichier.'); setChargement(false); return }
       const { data: mappingsExistants } = await supabase.from('mappings_produits_grossistes').select('code_externe, produit_id').eq('grossiste_id', grossisteId)
       const mapParCode = new Map((mappingsExistants ?? []).map((m) => [m.code_externe, m.produit_id]))
