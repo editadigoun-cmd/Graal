@@ -1,103 +1,144 @@
 // Lecture stricte du relevé PDF UBPHAR.
-// Les positions sont détectées dans chaque page : aucune coordonnée de colonne n'est devinée.
-// Une cellule de ventes ou de stock vide signifie 0.
+// Le relevé change les mois historiques selon la date d'édition : seules les colonnes
+// stables (Référence, Désignation, Stock et Ventes depuis le) servent au calcul.
+// Les colonnes septembre/août/juillet/... ne sont jamais utilisées pour les ventes importées.
 import { extraireTextePdf, type ItemTexte } from './pdfText'
-import { dateFrVersMois, type ResultatImportGrossiste } from './types'
-import { parseNumFr } from './types'
+import { dateFrVersMois, parseNumFr, type ResultatImportGrossiste } from './types'
 
 const REF_REGEX = /^[A-Z]{3,6}\d{2,4}$/
-const COL_NOMS = ['ref', 'designation', 'stock', 'depuis1er', 'juillet', 'juin', 'mai', 'avril', 'mars', 'cmde'] as const
-type ColNom = typeof COL_NOMS[number]
-const ENTETES: Record<ColNom, string[]> = {
-  ref: ['référence', 'reference'], designation: ['désignation', 'designation'],
-  stock: ['stock au', 'stock'], depuis1er: ['depuis le', 'ventes depuis le'],
-  juillet: ['juillet'], juin: ['juin'], mai: ['mai'], avril: ['avril'], mars: ['mars'],
-  cmde: ['commande', 'command']
-}
+
 function normaliser(s: string) {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
 }
-function trouverXEntete(items: ItemTexte[], motifs: string[]): number | null {
-  for (const it of items) {
-    const texte = normaliser(it.str)
-    if (motifs.some((m) => texte === normaliser(m) || texte.includes(normaliser(m)))) return it.x
-  }
-  return null
+
+type LignePage = {
+  codeExterne: string
+  designation: string
+  stock: number | null
+  ventesPeriode: number | null
 }
-function parsePage(items: ItemTexte[]): { fournisseur: string; moisReference: string | null; lignes: { codeExterne: string; designation: string; stock: number | null; ventesPeriode: number | null }[] } {
-  const fournisseur = items[0]?.str ?? ''
-  const positions = {} as Record<ColNom, number>
-  const manquantes: string[] = []
-  for (const nom of COL_NOMS) {
-    const x = trouverXEntete(items, ENTETES[nom])
-    if (x === null) manquantes.push(nom)
-    else positions[nom] = x
+
+function parsePage(items: ItemTexte[]): {
+  moisReference: string | null
+  lignes: LignePage[]
+  enteteReconnu: boolean
+} {
+  const entete = items.filter((it) => it.y > 0)
+  const xReference = entete.find((it) => normaliser(it.str) === 'reference')?.x
+  const xDesignation = entete.find((it) => normaliser(it.str) === 'designation')?.x
+  const xStock = entete.find((it) => normaliser(it.str) === 'stock')?.x
+
+  // UBPHAR place une date sous « Ventes depuis le » : elle identifie sans ambiguïté
+  // la colonne cumulative, même lorsque les noms des mois historiques changent.
+  const dateVentes = entete
+    .filter((it) => /^\d{2}\/\d{2}\/\d{4}$/.test(it.str.trim()))
+    .filter((it) => xStock !== undefined && it.x > xStock + 20)
+    .sort((a, b) => a.y - b.y)[0]
+
+  if (xReference === undefined || xDesignation === undefined || xStock === undefined || !dateVentes) {
+    return { moisReference: null, lignes: [], enteteReconnu: false }
   }
-  // En-tête incomplet = page ignorée, plutôt que d'importer des chiffres d'une colonne voisine.
-  if (manquantes.length) return { fournisseur, moisReference: null, lignes: [] }
-  const centres = COL_NOMS.map((nom) => positions[nom])
-  const limites = [centres[0] - (centres[1] - centres[0]) / 2]
-  for (let i = 0; i < centres.length - 1; i++) limites.push((centres[i] + centres[i + 1]) / 2)
-  limites.push(centres[centres.length - 1] + (centres[centres.length - 1] - centres[centres.length - 2]) / 2)
-  const cols = {} as Record<ColNom, [number, number]>
-  for (let i = 0; i < COL_NOMS.length; i++) cols[COL_NOMS[i]] = [limites[i], limites[i + 1]]
-  function inRange(x: number, [lo, hi]: [number, number]) { return x >= lo && x < hi }
-  function colDe(x: number): ColNom | null {
-    for (const nom of COL_NOMS) if (inRange(x, cols[nom])) return nom
-    return null
-  }
-  const dateItem = items.find((it) => /^\d{2}\/\d{2}\/\d{4}$/.test(it.str.trim()) && inRange(it.x, cols.depuis1er))
-  const moisReference = dateItem ? dateFrVersMois(dateItem.str.trim()) : null
-  const realAnchors = items.filter((it) => inRange(it.x, cols.ref) && REF_REGEX.test(it.str.trim())).sort((a, b) => b.y - a.y)
-  if (realAnchors.length === 0) return { fournisseur, moisReference, lignes: [] }
-  const rowSpacing = realAnchors.length > 1 ? realAnchors[0].y - realAnchors[1].y : 20
-  const anchors = [{ str: '__HEADER__', x: 0, right: 0, y: realAnchors[0].y + rowSpacing }, ...realAnchors]
-  function ancrePlusProche(y: number): number {
-    let best = 0, bestDist = Infinity
-    for (let i = 0; i < anchors.length; i++) {
-      const d = Math.abs(anchors[i].y - y)
-      if (d < bestDist) { bestDist = d; best = i }
+
+  const xVentes = dateVentes.x
+  const moisReference = dateFrVersMois(dateVentes.str.trim())
+  if (!moisReference) return { moisReference: null, lignes: [], enteteReconnu: false }
+
+  // On ancre chaque ligne sur son code produit, puis on lit les valeurs uniquement
+  // dans les deux colonnes dont les positions ont été identifiées dans l'en-tête.
+  const ancres = items
+    .filter((it) => Math.abs(it.x - xReference) <= 18 && REF_REGEX.test(it.str.trim()))
+    .sort((a, b) => b.y - a.y)
+
+  if (ancres.length === 0) return { moisReference, lignes: [], enteteReconnu: true }
+
+  const ecartLigne = ancres.length > 1 ? ancres[0].y - ancres[1].y : 20
+  const ancresAvecEntete = [
+    { str: '__HEADER__', x: xReference, right: xReference, y: ancres[0].y + ecartLigne },
+    ...ancres
+  ]
+
+  function indexAncre(y: number): number {
+    let meilleur = 0
+    let distance = Infinity
+    for (let i = 0; i < ancresAvecEntete.length; i++) {
+      const d = Math.abs(ancresAvecEntete[i].y - y)
+      if (d < distance) {
+        distance = d
+        meilleur = i
+      }
     }
-    return best
+    return meilleur
   }
-  const buckets: Record<ColNom, ItemTexte[]>[] = anchors.map(() => {
-    const b = {} as Record<ColNom, ItemTexte[]>
-    for (const n of COL_NOMS) b[n] = []
-    return b
-  })
+
+  const buckets = ancresAvecEntete.map(() => ({
+    designation: [] as ItemTexte[],
+    stock: [] as ItemTexte[],
+    ventes: [] as ItemTexte[]
+  }))
+
   for (const it of items) {
-    const c = colDe(it.x)
-    if (c) buckets[ancrePlusProche(it.y)][c].push(it)
+    const bucket = buckets[indexAncre(it.y)]
+    if (it.x > xDesignation + 5 && it.x < xStock - 5) {
+      bucket.designation.push(it)
+    } else if (Math.abs(it.x - xStock) <= 12) {
+      bucket.stock.push(it)
+    } else if (Math.abs(it.x - xVentes) <= 12) {
+      bucket.ventes.push(it)
+    }
   }
-  function joinCol(bucket: Record<ColNom, ItemTexte[]>, key: ColNom): string {
-    return bucket[key].sort((a, b) => b.y - a.y || a.x - b.x).map((it) => it.str).join(' ').replace(/\s+/g, ' ').trim()
+
+  function joindre(valeurs: ItemTexte[]): string {
+    return valeurs
+      .sort((a, b) => b.y - a.y || a.x - b.x)
+      .map((it) => it.str)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim()
   }
-  const lignes = anchors.slice(1).map((a, i) => {
-    const bucket = buckets[i + 1]
+
+  const lignes = ancres.map((ancre, index) => {
+    const bucket = buckets[index + 1]
     return {
-      codeExterne: a.str, designation: joinCol(bucket, 'designation'),
-      stock: parseNumFr(joinCol(bucket, 'stock')) ?? 0,
-      ventesPeriode: parseNumFr(joinCol(bucket, 'depuis1er')) ?? 0
+      codeExterne: ancre.str.trim(),
+      designation: joindre(bucket.designation),
+      stock: parseNumFr(joindre(bucket.stock)) ?? 0,
+      ventesPeriode: parseNumFr(joindre(bucket.ventes)) ?? 0
     }
-  })
-  return { fournisseur, moisReference, lignes }
+  }).filter((ligne) => ligne.designation.length > 0)
+
+  return { moisReference, lignes, enteteReconnu: true }
 }
+
 export async function parsePdfUbphar(fichier: File): Promise<ResultatImportGrossiste> {
   const avertissements: string[] = []
   const pages = await extraireTextePdf(fichier)
-  if (pages.length === 0) return { moisReference: '', lignes: [], avertissements: ['PDF vide ou illisible'] }
+  if (pages.length === 0) {
+    return { moisReference: '', lignes: [], avertissements: ['PDF vide ou illisible'] }
+  }
+
   let moisReference: string | null = null
   const toutesLignes: ResultatImportGrossiste['lignes'] = []
+
   for (const page of pages) {
     const parsed = parsePage(page.items)
-    if (parsed.lignes.length === 0) {
-      avertissements.push('Une page UBPHAR a été ignorée : en-têtes incomplets ou mise en page non reconnue. Aucun chiffre estimé n’a été importé pour cette page.')
-      continue
-    }
+    // Les pages de garde et pages de continuation vides sont normales dans les relevés.
+    if (!parsed.enteteReconnu) continue
     if (parsed.moisReference && !moisReference) moisReference = parsed.moisReference
-    for (const l of parsed.lignes) toutesLignes.push({ ...l, moisReference: parsed.moisReference ?? moisReference ?? '' })
+    for (const ligne of parsed.lignes) {
+      toutesLignes.push({ ...ligne, moisReference: parsed.moisReference ?? moisReference ?? '' })
+    }
   }
-  if (!moisReference) avertissements.push('Date de référence (« Ventes depuis le ») introuvable — vérifiez le relevé UBPHAR.')
-  if (toutesLignes.length === 0) avertissements.push('Aucune ligne produit détectée — vérifiez que le PDF est un export UBPHAR standard.')
-  return { moisReference: moisReference ?? '', lignes: toutesLignes, avertissements }
+
+  if (!moisReference) {
+    avertissements.push('Date de référence (« Ventes depuis le ») introuvable — vérifiez le relevé UBPHAR.')
+  }
+  if (toutesLignes.length === 0) {
+    avertissements.push('Aucune ligne produit détectée — vérifiez que le PDF est un export UBPHAR standard.')
+  }
+
+  return {
+    moisReference: moisReference ?? '',
+    lignes: toutesLignes,
+    avertissements
+  }
 }
