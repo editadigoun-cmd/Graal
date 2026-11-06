@@ -186,19 +186,21 @@ export default function ManagementParametres() {
 
   async function sauvegarderGroupe(group: Group) {
     setSaving(group.title); setSaveError(null)
-    let resultats: Awaited<ReturnType<typeof supabase.from<'parametres'>>>[]
+    let updates: { key: string; value: Parametre['value'] }[]
     try {
-      resultats = await Promise.all(group.fields.map(({ key }) => {
-      const raw = (valeurs[key] ?? '').trim()
-      const field = group.fields.find(item => item.key === key)
-      const value = field?.type === 'json' ? JSON.parse(raw) : field?.type === 'boolean' ? raw === 'true' : field?.type === 'number' || field?.type === 'percentage' ? Number(raw) : raw
-      return supabase.from('parametres').update({ value }).eq('key', key).select('key')
-      }))
+      updates = group.fields.map(({ key, type }) => {
+        const raw = (valeurs[key] ?? '').trim()
+        const value = type === 'json' ? JSON.parse(raw) : type === 'boolean' ? raw === 'true' : type === 'number' || type === 'percentage' ? Number(raw) : raw
+        return { key, value: value as Parametre['value'] }
+      })
     } catch (error) {
       setSaving(null)
       setSaveError(error instanceof Error ? error.message : 'Valeur JSON invalide.')
       return
     }
+    const resultats = await Promise.all(updates.map(({ key, value }) =>
+      supabase.from('parametres').update({ value }).eq('key', key).select('key')
+    ))
     setSaving(null)
     const erreur = resultats.find(r => r.error)?.error
     if (erreur) { setSaveError(erreur.message); return }
