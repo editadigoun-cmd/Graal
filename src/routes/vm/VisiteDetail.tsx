@@ -126,7 +126,15 @@ function HorsProgrammeForm() {
   const SAISIE_MANUELLE = '__hors_portefeuille__'
 
   useEffect(() => {
-    supabase.from('clients').select('*').order('nom').then(({ data }) => setClients(data ?? []))
+    if (!session) { setClients([]); return }
+    // Une visite hors programme ne doit proposer que les clients affectés au VM connecté.
+    // On part de portefeuille (filtré par vm_id) au lieu de charger toute la table clients.
+    supabase.from('portefeuille').select('clients(*)').eq('vm_id', session.user.id)
+      .then(({ data, error }) => {
+        if (error) { setError('Impossible de charger votre portefeuille.'); setClients([]); return }
+        const propres = (data ?? []).map((row: any) => row.clients).filter(Boolean) as ClientRow[]
+        setClients(propres.filter((client) => client.actif).sort((a, b) => a.nom.localeCompare(b.nom, 'fr')))
+      })
 
     if (!session) return
     const today = todayBenin().format('YYYY-MM-DD')
