@@ -184,14 +184,17 @@ export default function ManagementParametres() {
   async function sauvegarderGroupe(group: Group) {
     setSaving(group.title); setSaveError(null)
     const resultats = await Promise.all(group.fields.map(({ key }) => {
-      const raw = valeurs[key] ?? ''
-      const isNumeric = !Number.isNaN(Number(raw)) && raw.trim() !== ''
-      const value = isNumeric ? Number(raw) : `"${raw}"`
-      return supabase.from('parametres').update({ value }).eq('key', key)
+      const raw = (valeurs[key] ?? '').trim()
+      const isTime = key.startsWith('heure_')
+      const isNumeric = !isTime && raw !== '' && Number.isFinite(Number(raw))
+      const value = isNumeric ? Number(raw) : raw
+      return supabase.from('parametres').update({ value }).eq('key', key).select('key')
     }))
     setSaving(null)
     const erreur = resultats.find(r => r.error)?.error
     if (erreur) { setSaveError(erreur.message); return }
+    const missing = resultats.find(r => !r.data?.length)
+    if (missing) { setSaveError('Un paramètre n’existe pas en base. Rechargez la page ou contactez l’administrateur technique.'); return }
     setSaved(group.title); setTimeout(() => setSaved(null), 2000)
   }
 
