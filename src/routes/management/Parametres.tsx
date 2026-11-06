@@ -34,7 +34,14 @@ const GROUPS: Group[] = [
       { key: 'heure_limite_soumission_programme', label: 'Heure limite de soumission (samedi)', type: 'time' },
       { key: 'seuil_faible_jeudi_pourcentage_max', label: 'Part max. de clients FAIBLE potentiel le jeudi', type: 'percentage' },
       { key: 'visites_minimum_medical_jour', label: 'Visites médicales minimum / jour', type: 'number' },
-      { key: 'visites_minimum_pharmacie_jour', label: 'Visites pharmacie minimum / jour', type: 'number' }
+      { key: 'visites_minimum_pharmacie_jour', label: 'Visites pharmacie minimum / jour', type: 'number' },
+      { key: 'max_visites_jour', label: 'Maximum total de visites / jour', type: 'number' },
+      { key: 'nb_max_moyen_lun_mar_mer_jour', label: 'Maximum MOYEN lundi à mercredi', type: 'number' },
+      { key: 'max_gros_jeudi', label: 'Maximum GROS le jeudi', type: 'number' },
+      { key: 'max_gros_vendredi', label: 'Maximum GROS le vendredi', type: 'number' },
+      { key: 'max_faible_jeudi', label: 'Maximum FAIBLE le jeudi', type: 'number' },
+      { key: 'max_faible_vendredi', label: 'Maximum FAIBLE le vendredi', type: 'number' },
+      { key: 'poids_visite_moyen_reduit_pourcentage', label: 'Poids d’une visite MOYEN (lundi à mercredi)', type: 'percentage' }
     ]
   },
   {
@@ -54,7 +61,10 @@ const GROUPS: Group[] = [
     tone: 'emerald',
     fields: [
       { key: 'score_mensuel_minimal', label: 'Score mensuel global minimal exigé', type: 'percentage' },
-      { key: 'seuil_conformite_journaliere_pourcentage', label: 'Taux minimal déclaré / programmé par jour', type: 'percentage' }
+      { key: 'seuil_conformite_journaliere_pourcentage', label: 'Taux minimal déclaré / programmé par jour', type: 'percentage' },
+      { key: 'objectif_visites_superviseur_journalier', label: 'Objectif de visites superviseur / jour', type: 'number' },
+      { key: 'penalite_desequilibre_pourcentage', label: 'Pénalité de déséquilibre', type: 'percentage' },
+      { key: 'ratio_gros_minimum', label: 'Ratio minimum de clients GROS', type: 'percentage' }
     ]
   },
   {
