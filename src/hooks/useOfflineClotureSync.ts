@@ -32,11 +32,18 @@ export function useOfflineClotureSync() {
       if (!uid) return
 
       for (const m of pending.motifsLocaux) {
-        await supabase.from('visite_manquante_motifs').insert({
-          programme_ligne_id: m.programmeLigneId, motif_id: m.motifId, commentaire: m.commentaire, cree_par: uid
-        })
-        // best-effort : une ligne déjà traitée entre-temps (ou déjà en motif) échoue silencieusement,
-        // le RPC cloturer_journee ci-dessous revalidera de toute façon qu'il ne reste rien en attente.
+        // La contrainte UNIQUE(programme_ligne_id) rend cette reprise idempotente.
+        // En cas d'erreur, on conserve toute la clôture locale pour réessayer sans perte.
+        const { error: motifError } = await supabase.from('visite_manquante_motifs').upsert({
+          programme_ligne_id: m.programmeLigneId,
+          motif_id: m.motifId,
+          commentaire: m.commentaire,
+          cree_par: uid
+        }, { onConflict: 'programme_ligne_id' })
+        if (motifError) {
+          console.error('Échec de synchronisation d’un motif de visite manquante :', motifError)
+          return
+        }
       }
 
       const paths: string[] = []
