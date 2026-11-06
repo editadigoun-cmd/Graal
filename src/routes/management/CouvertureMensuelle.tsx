@@ -102,10 +102,10 @@ export default function CouvertureMensuelle() {
     {error && <Card><p className="text-sm text-red-600">Impossible de charger le bilan : {error}</p></Card>}
     {loading ? <div className="grid grid-cols-2 lg:grid-cols-4 gap-3"><Skeleton className="h-28"/><Skeleton className="h-28"/><Skeleton className="h-28"/><Skeleton className="h-28"/></div> : <>
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <StatCard label="Taux de réalisation" value={pct(totals.done, totals.planned) + '%'} hint={totals.done + ' / ' + totals.planned + ' visites validées'} tone="royal" />
-        <StatCard label="Couverture portefeuille" value={pct(totals.covered, totals.portfolio) + '%'} hint={totals.covered + ' clients visités / ' + totals.portfolio + ' attribués'} tone="emerald" />
-        <StatCard label="Visites réalisées" value={totals.done} hint="Sur programmes validés" tone="blue" />
-        <StatCard label="Clients distincts couverts" value={totals.covered} hint={totals.medical + ' médicaux · ' + totals.pharmacy + ' pharmacies'} tone="amber" />
+        <StatCard label="Taux de réalisation" value={pct(totals.done, totals.planned)} suffix="%" sub={totals.done + ' / ' + totals.planned + ' visites validées'} tone="royal" />
+        <StatCard label="Couverture portefeuille" value={pct(totals.covered, totals.portfolio)} suffix="%" sub={totals.covered + ' clients visités / ' + totals.portfolio + ' attribués'} tone="emerald" />
+        <StatCard label="Visites réalisées" value={totals.done} sub="Sur programmes validés" tone="flame" />
+        <StatCard label="Clients distincts couverts" value={totals.covered} sub={totals.medical + ' médicaux · ' + totals.pharmacy + ' pharmacies'} tone="ink" />
       </div>
       <Card>
         <div className="mb-4"><h2 className="font-bold text-ink-800">Résultats par VM</h2><p className="text-xs text-ink-400 mt-1">Le taux de réalisation est calculé sur les visites réalisées divisées par les visites prévues dans les journées validées. La couverture compte les clients actifs distincts du portefeuille visités au moins une fois.</p></div>
