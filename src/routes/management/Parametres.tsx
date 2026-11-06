@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
 type Parametre = Database['public']['Tables']['parametres']['Row']
-type FieldType = 'time' | 'percentage' | 'number'
+type FieldType = 'time' | 'percentage' | 'number' | 'boolean' | 'json'
 
 type FieldMeta = { key: string; label: string; type: FieldType }
 type Group = {
@@ -35,6 +35,7 @@ const GROUPS: Group[] = [
       { key: 'seuil_faible_jeudi_pourcentage_max', label: 'Part max. de clients FAIBLE potentiel le jeudi', type: 'percentage' },
       { key: 'visites_minimum_medical_jour', label: 'Visites médicales minimum / jour', type: 'number' },
       { key: 'visites_minimum_pharmacie_jour', label: 'Visites pharmacie minimum / jour', type: 'number' },
+      { key: 'jour_limite_plan_activites', label: 'Jour limite des activités (jour du mois)', type: 'number' },
       { key: 'max_visites_jour', label: 'Maximum total de visites / jour', type: 'number' },
       { key: 'nb_max_moyen_lun_mar_mer_jour', label: 'Maximum MOYEN lundi à mercredi', type: 'number' },
       { key: 'max_gros_jeudi', label: 'Maximum GROS le jeudi', type: 'number' },
@@ -63,6 +64,8 @@ const GROUPS: Group[] = [
       { key: 'score_mensuel_minimal', label: 'Score mensuel global minimal exigé', type: 'percentage' },
       { key: 'seuil_conformite_journaliere_pourcentage', label: 'Taux minimal déclaré / programmé par jour', type: 'percentage' },
       { key: 'objectif_visites_superviseur_journalier', label: 'Objectif de visites superviseur / jour', type: 'number' },
+      { key: 'evaluation_superviseurs_poids', label: 'Pondérations de l’évaluation des superviseurs (JSON)', type: 'json' },
+      { key: 'notifications_email_actives', label: 'Activer les notifications par e-mail', type: 'boolean' },
       { key: 'penalite_desequilibre_pourcentage', label: 'Pénalité de déséquilibre', type: 'percentage' },
       { key: 'ratio_gros_minimum', label: 'Ratio minimum de clients GROS', type: 'percentage' }
     ]
@@ -183,13 +186,19 @@ export default function ManagementParametres() {
 
   async function sauvegarderGroupe(group: Group) {
     setSaving(group.title); setSaveError(null)
-    const resultats = await Promise.all(group.fields.map(({ key }) => {
+    let resultats: Awaited<ReturnType<typeof supabase.from<'parametres'>>>[]
+    try {
+      resultats = await Promise.all(group.fields.map(({ key }) => {
       const raw = (valeurs[key] ?? '').trim()
-      const isTime = key.startsWith('heure_')
-      const isNumeric = !isTime && raw !== '' && Number.isFinite(Number(raw))
-      const value = isNumeric ? Number(raw) : raw
+      const field = group.fields.find(item => item.key === key)
+      const value = field?.type === 'json' ? JSON.parse(raw) : field?.type === 'boolean' ? raw === 'true' : field?.type === 'number' || field?.type === 'percentage' ? Number(raw) : raw
       return supabase.from('parametres').update({ value }).eq('key', key).select('key')
-    }))
+      }))
+    } catch (error) {
+      setSaving(null)
+      setSaveError(error instanceof Error ? error.message : 'Valeur JSON invalide.')
+      return
+    }
     setSaving(null)
     const erreur = resultats.find(r => r.error)?.error
     if (erreur) { setSaveError(erreur.message); return }
@@ -213,7 +222,7 @@ export default function ManagementParametres() {
         </nav>
         {group.custom ? <div><div className="mb-5 flex items-start gap-3"><div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${TONE_BG[group.tone]}`}><group.icon className="h-5 w-5" /></div><div><p className="text-sm font-bold text-ink-800">{group.title}</p><p className="mt-0.5 text-xs text-ink-400">{group.description}</p></div></div><CiblesPonderationsPanel /></div> : <Card>
           <div className="mb-5 flex items-start gap-3"><div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${TONE_BG[group.tone]}`}><group.icon className="h-5 w-5" /></div><div><p className="text-sm font-bold text-ink-800">{group.title}</p><p className="mt-0.5 text-xs text-ink-400">{group.description}</p></div></div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{group.fields.map(field => <div key={field.key}><label className="mb-1.5 block text-xs font-semibold text-ink-500">{field.label}</label><div className="relative"><input type={field.type === 'time' ? 'time' : 'number'} value={valeurs[field.key] ?? ''} onChange={e => setValeurs(v => ({ ...v, [field.key]: e.target.value }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm" />{field.type === 'percentage' && <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-ink-400">%</span>}</div></div>)}</div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{group.fields.map(field => <div key={field.key}><label className="mb-1.5 block text-xs font-semibold text-ink-500">{field.label}</label>{field.type === 'json' ? <textarea rows={7} value={valeurs[field.key] ?? ''} onChange={e => setValeurs(v => ({ ...v, [field.key]: e.target.value }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 font-mono text-xs" /> : field.type === 'boolean' ? <label className="flex items-center gap-2 rounded-xl border border-ink-200 px-3.5 py-3 text-sm"><input type="checkbox" checked={valeurs[field.key] === 'true'} onChange={e => setValeurs(v => ({ ...v, [field.key]: String(e.target.checked) }))} />Activé</label> : <div className="relative"><input type={field.type === 'time' ? 'time' : 'number'} value={valeurs[field.key] ?? ''} onChange={e => setValeurs(v => ({ ...v, [field.key]: e.target.value }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm" />{field.type === 'percentage' && <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-ink-400">%</span>}</div>}</div>)}</div>
           <div className="mt-5 flex items-center gap-3 border-t border-ink-100 pt-4"><Button size="sm" loading={saving === group.title} variant={saved === group.title ? 'success' : 'secondary'} icon={<IconCheck className="h-4 w-4" />} onClick={() => sauvegarderGroupe(group)}>{saved === group.title ? 'Enregistré' : 'Enregistrer cette section'}</Button>{saveError && <p className="text-xs font-semibold text-red-600">{saveError}</p>}</div>
         </Card>}
       </div>
