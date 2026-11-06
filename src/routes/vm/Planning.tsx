@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { IconPlus, IconX, IconClock, IconCheckCircle, IconAlert, IconSearch, IconCheck } from '@/components/ui/icons'
 import { usePlanning, targetSemaineDebut } from '@/features/data/usePlanning'
 import { supabase } from '@/lib/supabase'
-import { JOURS, JOURS_DEROGATION_MOYEN, MAX_GROS_JEUDI, MAX_GROS_VENDREDI, MAX_VISITES_JOUR, MAX_MOYEN_LUN_MAR_MER, MAX_FAIBLE_JEUDI, MAX_FAIBLE_VENDREDI, potentielAutorise } from '@/lib/rules'
+import { JOURS, JOURS_DEROGATION_MOYEN, potentielAutorise } from '@/lib/rules'
 import { JOUR_LABEL } from '@/lib/theme'
 import { deadlineSoumission, formatCountdown, nowBenin } from '@/lib/time'
 import { normalizeText } from '@/lib/text'
@@ -39,9 +39,15 @@ interface Seuils {
   maxFaibleJeudiPct: number
   maxMoyenLunMarMer: number
   poidsMoyenReduit: number
+  maxVisitesJour: number
+  maxMoyenLunMarMer: number
+  maxGrosJeudi: number
+  maxGrosVendredi: number
+  maxFaibleJeudi: number
+  maxFaibleVendredi: number
 }
 
-const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50, maxMoyenLunMarMer: 5, poidsMoyenReduit: 2.5 }
+const SEUILS_DEFAUT: Seuils = { minMedical: 15, minPharmacie: 3, maxFaibleJeudiPct: 50, maxMoyenLunMarMer: 5, poidsMoyenReduit: 2.5, maxVisitesJour: 22, maxGrosJeudi: 8, maxGrosVendredi: 5, maxFaibleJeudi: 2, maxFaibleVendredi: 3 }
 
 function selectionGrosCountSafe(selection: Set<string>, portefeuille: Database['public']['Tables']['clients']['Row'][]) {
   return Array.from(selection).filter((id) => portefeuille.find((client) => client.id === id)?.potentiel === 'GROS').length
@@ -57,6 +63,7 @@ export default function Planning() {
   const [submitting, setSubmitting] = useState(false)
   const [resultat, setResultat] = useState<{ statut: string; message?: string; conformite?: unknown[] } | null>(null)
   const [seuils, setSeuils] = useState<Seuils>(SEUILS_DEFAUT)
+  const [heureLimiteSoumission, setHeureLimiteSoumission] = useState('14:00')
   const [jourStatuts, setJourStatuts] = useState<Record<string, { statut: string; date_limite: string | null; soumis_at?: string | null }>>({})
   const [, forceTick] = useState(0)
 
@@ -64,7 +71,7 @@ export default function Planning() {
   // L'échéance de soumission hebdomadaire est indépendante des échéances de clôture
   // des journées : chaque VM doit pouvoir soumettre jusqu'au samedi à 14 h (Bénin).
   // Seul un délai supplémentaire explicitement accordé par l'administration peut la prolonger.
-  const deadline = deadlineSoumission(semaineDebut, programme?.delai_supplementaire_jusqu_a)
+  const deadline = deadlineSoumission(semaineDebut, programme?.delai_supplementaire_jusqu_a, heureLimiteSoumission)
   const countdown = formatCountdown(deadline)
 
   useEffect(() => {
@@ -76,18 +83,26 @@ export default function Planning() {
     supabase.from('parametres').select('key, value')
       .in('key', [
         'visites_minimum_medical_jour', 'visites_minimum_pharmacie_jour', 'seuil_faible_jeudi_pourcentage_max',
-        'nb_max_moyen_lun_mar_mer_jour', 'poids_visite_moyen_reduit_pourcentage'
+        'nb_max_moyen_lun_mar_mer_jour', 'poids_visite_moyen_reduit_pourcentage', 'max_visites_jour', 'max_gros_jeudi', 'max_gros_vendredi', 'max_faible_jeudi', 'max_faible_vendredi', 'heure_limite_soumission_programme'
       ])
       .then(({ data }) => {
         if (!data) return
         const val = (k: string) => Number(data.find((p) => p.key === k)?.value)
+        const valeur = (k: string, fallback: number) => { const n = val(k); return Number.isFinite(n) ? n : fallback }
         setSeuils({
-          minMedical: val('visites_minimum_medical_jour') || SEUILS_DEFAUT.minMedical,
-          minPharmacie: val('visites_minimum_pharmacie_jour') || SEUILS_DEFAUT.minPharmacie,
-          maxFaibleJeudiPct: val('seuil_faible_jeudi_pourcentage_max') || SEUILS_DEFAUT.maxFaibleJeudiPct,
-          maxMoyenLunMarMer: val('nb_max_moyen_lun_mar_mer_jour') || SEUILS_DEFAUT.maxMoyenLunMarMer,
-          poidsMoyenReduit: val('poids_visite_moyen_reduit_pourcentage') || SEUILS_DEFAUT.poidsMoyenReduit
+          minMedical: valeur('visites_minimum_medical_jour', SEUILS_DEFAUT.minMedical),
+          minPharmacie: valeur('visites_minimum_pharmacie_jour', SEUILS_DEFAUT.minPharmacie),
+          maxFaibleJeudiPct: valeur('seuil_faible_jeudi_pourcentage_max', SEUILS_DEFAUT.maxFaibleJeudiPct),
+          maxMoyenLunMarMer: valeur('nb_max_moyen_lun_mar_mer_jour', SEUILS_DEFAUT.maxMoyenLunMarMer),
+          poidsMoyenReduit: valeur('poids_visite_moyen_reduit_pourcentage', SEUILS_DEFAUT.poidsMoyenReduit),
+          maxVisitesJour: valeur('max_visites_jour', SEUILS_DEFAUT.maxVisitesJour),
+          maxGrosJeudi: valeur('max_gros_jeudi', SEUILS_DEFAUT.maxGrosJeudi),
+          maxGrosVendredi: valeur('max_gros_vendredi', SEUILS_DEFAUT.maxGrosVendredi),
+          maxFaibleJeudi: valeur('max_faible_jeudi', SEUILS_DEFAUT.maxFaibleJeudi),
+          maxFaibleVendredi: valeur('max_faible_vendredi', SEUILS_DEFAUT.maxFaibleVendredi)
         })
+        const heure = data.find((p) => p.key === 'heure_limite_soumission_programme')?.value
+        if (typeof heure === 'string' && /^([01]\\d|2[0-3]):[0-5]\\d$/.test(heure)) setHeureLimiteSoumission(heure)
       })
   }, [])
 
@@ -150,15 +165,15 @@ export default function Planning() {
 
   function quotaPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId)) return false
-    if (totalJourProjete >= MAX_VISITES_JOUR) return true
+    if (totalJourProjete >= seuils.maxVisitesJour) return true
     if (derogationPotentielActive || estFawaz || estFagbede) return false
     if (JOURS_DEROGATION_MOYEN.includes(jourActif)) {
       if (potentiel === 'FAIBLE') return true
-      if (potentiel === 'MOYEN' && moyenJourProjete >= MAX_MOYEN_LUN_MAR_MER) return true
+      if (potentiel === 'MOYEN' && moyenJourProjete >= seuils.maxMoyenLunMarMer) return true
     }
     if (jourActif === 'JEUDI' || jourActif === 'VENDREDI') {
-      const maxGros = jourActif === 'JEUDI' ? MAX_GROS_JEUDI : MAX_GROS_VENDREDI
-      const maxFaible = jourActif === 'JEUDI' ? MAX_FAIBLE_JEUDI : MAX_FAIBLE_VENDREDI
+      const maxGros = jourActif === 'JEUDI' ? seuils.maxGrosJeudi : seuils.maxGrosVendredi
+      const maxFaible = jourActif === 'JEUDI' ? seuils.maxFaibleJeudi : seuils.maxFaibleVendredi
       if (potentiel === 'GROS' && grosJourProjete >= maxGros) return true
       if (potentiel === 'FAIBLE' && faibleJourProjete >= maxFaible && grosMoyenRestant) return true
     }
@@ -560,10 +575,10 @@ export default function Planning() {
                           <p className="text-sm font-semibold text-ink-800 truncate">{c.nom}</p>
                           <p className="text-[11px] text-ink-400 truncate">
                             {bloqueQuota
-                              ? totalJourProjete >= MAX_VISITES_JOUR ? `Maximum de ${MAX_VISITES_JOUR} visites par jour atteint` :
-                                JOURS_DEROGATION_MOYEN.includes(jourActif) && c.potentiel === 'MOYEN' ? `Maximum de ${MAX_MOYEN_LUN_MAR_MER} MOYENS par jour (médical + pharmacie)` :
+                              ? totalJourProjete >= seuils.maxVisitesJour ? `Maximum de ${seuils.maxVisitesJour} visites par jour atteint` :
+                                JOURS_DEROGATION_MOYEN.includes(jourActif) && c.potentiel === 'MOYEN' ? `Maximum de ${seuils.maxMoyenLunMarMer} MOYENS par jour (médical + pharmacie)` :
                                 JOURS_DEROGATION_MOYEN.includes(jourActif) ? 'Seuls les potentiels GROS et MOYEN sont autorisés du lundi au mercredi' :
-                                c.potentiel === 'GROS' ? `Maximum de ${jourActif === 'JEUDI' ? MAX_GROS_JEUDI : MAX_GROS_VENDREDI} GROS` :
+                                c.potentiel === 'GROS' ? `Maximum de ${jourActif === 'JEUDI' ? seuils.maxGrosJeudi : seuils.maxGrosVendredi} GROS` :
                                 'Quota FAIBLE atteint : programmez d’abord les GROS et MOYENS disponibles'
                               : potentielIndisponible
                               ? (c.potentiel
