@@ -67,6 +67,8 @@ export default function Planning() {
   const [, forceTick] = useState(0)
 
   const semaineDebut = programme?.semaine_debut ?? targetSemaineDebut()
+  const demoSamediChadrac = programme?.vm_id === 'd0be68dd-eba0-4b9e-8215-df216d6a7963' && semaineDebut === '2026-11-02'
+  const joursAffiches = demoSamediChadrac ? [...JOURS, 'SAMEDI' as Jour] : JOURS
   // L'échéance de soumission hebdomadaire est indépendante des échéances de clôture
   // des journées : chaque VM doit pouvoir soumettre jusqu'au samedi à 14 h (Bénin).
   // Seul un délai supplémentaire explicitement accordé par l'administration peut la prolonger.
@@ -165,6 +167,7 @@ export default function Planning() {
   function quotaPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId)) return false
     if (totalJourProjete >= seuils.maxVisitesJour) return true
+    if (jourActif === 'SAMEDI') return false
     if (derogationPotentielActive || estFawaz || estFagbede) return false
     if (JOURS_DEROGATION_MOYEN.includes(jourActif)) {
       if (potentiel === 'FAIBLE') return true
@@ -189,7 +192,7 @@ export default function Planning() {
     if (p) potentielCounts[p] += 1
   }
 
-  const parJour = Object.fromEntries(JOURS.map((j) => {
+  const parJour = Object.fromEntries(joursAffiches.map((j) => {
     const ljour = lignes.filter((l) => l.jour === j)
     const medical = ljour.filter((l) => l.type_visite === 'MEDICAL')
     const medicalMoyenReduit = JOURS_DEROGATION_MOYEN.includes(j)
@@ -339,7 +342,7 @@ export default function Planning() {
       </Card>
 
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-        {JOURS.map((j) => {
+        {joursAffiches.map((j) => {
           const count = lignes.filter((l) => l.jour === j).length
           const ok = pharmacieUniquement ? count > 0 : jourOk(j)
           return (
@@ -511,7 +514,7 @@ export default function Planning() {
             </Card>
           )}
           <Button fullWidth loading={submitting} onClick={soumettreJourActif}
-            disabled={!countdown || !programme || jourVerrouille || (jourStatuts[jourActif]?.statut === 'SOUMIS') || !(pharmacieUniquement ? lignesJour.length > 0 : jourOk(jourActif))}>
+            disabled={!countdown || !programme || jourVerrouille || (jourStatuts[jourActif]?.statut === 'SOUMIS') || (jourActif === 'SAMEDI' ? lignesJour.length === 0 : !(pharmacieUniquement ? lignesJour.length > 0 : jourOk(jourActif)))}>
             {jourStatuts[jourActif]?.statut === 'SOUMIS' ? `${JOUR_LABEL[jourActif]} déjà soumis` : `Soumettre ${JOUR_LABEL[jourActif]}`}
           </Button>
           <Button fullWidth variant="secondary" loading={submitting} onClick={soumettre} disabled={!countdown || !prêtPourSoumission}>
