@@ -20,24 +20,37 @@ export function useOfflineSync() {
   }, [refresh])
 
   const flush = useCallback(async () => {
-    if (syncing) return
+    if (syncing || !online) return
     const items = peekQueue()
     if (items.length === 0) return
     setSyncing(true)
-    for (const item of items) {
-      const { data: visite, error } = await supabase.from('visites').insert(item.payload as VisiteInsert).select('id').single()
-      if (!error) {
-        if (item.produits.length && visite) {
-          await supabase.from('visite_produits').insert(item.produits.map((pid) => ({ visite_id: visite.id, produit_id: pid })))
+    try {
+      for (const item of items) {
+        // L'identifiant local stable rend la reprise idempotente après une coupure réseau
+        // survenue après l'insertion serveur mais avant la confirmation locale.
+        const payload = { ...item.payload, id: item.localId } as VisiteInsert
+        const { error: insertError } = await supabase.from('visites').insert(payload)
+        if (insertError) {
+          const { data: existing, error: lookupError } = await supabase
+            .from('visites').select('id').eq('id', item.localId).maybeSingle()
+          if (lookupError || !existing) continue
+        }
+
+        if (item.produits.length > 0) {
+          const rows = item.produits.map((pid) => ({ visite_id: item.localId, produit_id: pid }))
+          const { error: productsError } = await supabase
+            .from('visite_produits').upsert(rows, { onConflict: 'visite_id,produit_id', ignoreDuplicates: true })
+          if (productsError) continue
         }
         removeFromQueue(item.localId)
       }
-      // en cas d'erreur (ex: journée déjà clôturée entre-temps), l'entrée reste en file
-      // pour inspection manuelle plutôt que d'être perdue silencieusement.
+    } catch (error) {
+      console.error('Échec de synchronisation des visites hors ligne :', error)
+    } finally {
+      setSyncing(false)
+      refresh()
     }
-    setSyncing(false)
-    refresh()
-  }, [syncing, refresh])
+  }, [syncing, online, refresh])
 
   useEffect(() => {
     if (online) flush()
