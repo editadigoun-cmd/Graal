@@ -89,10 +89,11 @@ export default function CouvertureMensuelle() {
         const ownPortfolio = portfolios.filter(p => p.vm_id === vm.id)
         const portfolioIds = new Set(ownPortfolio.map(p => p.client_id))
         const ownVisits = visits.filter(v => v.vm_id === vm.id)
-        const ownPortfolioVisits = ownVisits.filter(v => v.statut === 'REALISEE' && !!v.client_id && portfolioIds.has(v.client_id))
+        const completedVisits = ownVisits.filter(v => v.statut === 'REALISEE' || v.statut === 'HORS_PROGRAMME')
+        const ownPortfolioVisits = completedVisits.filter(v => !!v.client_id && portfolioIds.has(v.client_id))
         const coveredIds = new Set(ownPortfolioVisits.map(v => v.client_id as string))
         const ownGuards = guards.filter(g => g.vm_id === vm.id).length
-        const ownOutOfProgram = ownVisits.filter(v => v.hors_programme === true || v.statut === 'HORS_PROGRAMME').length
+        const ownOutOfProgram = completedVisits.filter(v => v.hors_programme === true || v.statut === 'HORS_PROGRAMME').length
         return {
           id: vm.id, name: vm.full_name, team: vm.equipe_id ? (teamNames.get(vm.equipe_id) ?? '—') : 'Sans équipe',
           planned, done, rate: isFawaz && ownDaily.length
