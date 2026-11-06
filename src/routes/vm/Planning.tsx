@@ -102,7 +102,7 @@ export default function Planning() {
           maxFaibleVendredi: valeur('max_faible_vendredi', SEUILS_DEFAUT.maxFaibleVendredi)
         })
         const heure = data.find((p) => p.key === 'heure_limite_soumission_programme')?.value
-        if (typeof heure === 'string' && /^([01]\\d|2[0-3]):[0-5]\\d$/.test(heure)) setHeureLimiteSoumission(heure)
+        if (typeof heure === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(heure)) setHeureLimiteSoumission(heure)
       })
   }, [])
 
