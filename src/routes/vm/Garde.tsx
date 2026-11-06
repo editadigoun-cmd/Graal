@@ -242,9 +242,20 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+  }, [photoPreview])
+
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
+    const input = e.currentTarget
+    const f = input.files?.[0]
     if (!f) return
+    if (!f.type.startsWith('image/')) {
+      setError('Le fichier sélectionné n’est pas une image. Réessayez avec une photo.')
+      input.value = ''
+      return
+    }
+    setError(null)
     setPhoto(f)
     setPhotoPreview(URL.createObjectURL(f))
   }
@@ -287,20 +298,20 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
 
       <Card>
         <p className="text-sm font-bold text-ink-800 mb-3">Photo de fin de garde</p>
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
         {photoPreview ? (
           <div className="relative">
-            <img src={photoPreview} alt="Fin de garde" className="w-full rounded-2xl object-cover max-h-64" />
-            <button onClick={() => fileRef.current?.click()} className="absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold shadow">Reprendre</button>
+            <img src={photoPreview} alt="Aperçu de la fiche de garde" className="w-full rounded-2xl object-cover max-h-64" />
+            <label className="absolute bottom-3 right-3 cursor-pointer rounded-full bg-white/95 px-3 py-2 text-xs font-semibold shadow">
+              Reprendre la photo
+              <input ref={fileRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={handlePhoto} />
+            </label>
           </div>
         ) : (
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-10 text-royal-600"
-          >
+          <label className="relative flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-10 text-royal-600">
             <IconCamera className="h-8 w-8" />
             <span className="text-sm font-semibold">Prendre en photo la fiche de garde</span>
-          </button>
+            <input ref={fileRef} type="file" accept="image/*" capture="environment" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={handlePhoto} />
+          </label>
         )}
       </Card>
 
