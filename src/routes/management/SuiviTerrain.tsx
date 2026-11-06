@@ -63,6 +63,7 @@ export default function SuiviTerrain() {
   const [loading, setLoading] = useState(true)
   const [loadingJour, setLoadingJour] = useState(false)
   const [photoBusy, setPhotoBusy] = useState(false)
+  const [photosCloture, setPhotosCloture] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState<'semaine' | 'LUNDI' | 'MARDI' | 'MERCREDI' | 'JEUDI' | 'VENDREDI' | 'visites'>('semaine')
 
   const isAdmin = profile?.role === 'admin'
@@ -221,12 +222,22 @@ export default function SuiviTerrain() {
     return `https://www.google.com/maps?q=${lat},${lng}`
   }
 
-  async function voirPhotoCloture() {
-    if (!cloture?.photo_path) return
+  async function voirPhotosCloture() {
+    if (!cloture) return
+    const chemins = Array.from(new Set([
+      ...((cloture as ClotureRow & { photo_paths?: string[] | null }).photo_paths ?? []),
+      ...(cloture.photo_path ? [cloture.photo_path] : [])
+    ].filter(Boolean)))
+    if (chemins.length === 0) return
     setPhotoBusy(true)
-    const { data, error } = await supabase.storage.from('fiches-papier').createSignedUrl(cloture.photo_path, 3600)
+    const resultats = await Promise.all(
+      chemins.map(async (path) => {
+        const { data, error } = await supabase.storage.from('fiches-papier').createSignedUrl(path, 3600)
+        return !error && data?.signedUrl ? data.signedUrl : null
+      })
+    )
+    setPhotosCloture(resultats.filter((url): url is string => !!url))
     setPhotoBusy(false)
-    if (!error && data) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
   async function voirPreuveCommande(path: string) {
@@ -410,21 +421,36 @@ export default function SuiviTerrain() {
               {activeTab === 'visites' && (
               <div className="space-y-3">
               {cloture && (
-                <Card className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-ink-800">Fiche de clôture</p>
-                    <p className="text-xs text-ink-400">
-                      {cloture.heure_cloture ? `Clôturée à ${dayjs(cloture.heure_cloture).format('HH:mm')}` : 'Clôture enregistrée'}
-                      {cloture.en_retard && ' · en retard'}
-                      {cloture.statut === 'CLOTUREE_FORCEE' && ' · clôture forcée'}
-                    </p>
+                <Card className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-ink-800">Fiche de clôture</p>
+                      <p className="text-xs text-ink-400">
+                        {cloture.heure_cloture ? `Clôturée à ${dayjs(cloture.heure_cloture).format('HH:mm')}` : 'Clôture enregistrée'}
+                        {cloture.en_retard && ' · en retard'}
+                        {cloture.statut === 'CLOTUREE_FORCEE' && ' · clôture forcée'}
+                      </p>
+                    </div>
+                    {((cloture as ClotureRow & { photo_paths?: string[] | null }).photo_paths?.length ?? (cloture.photo_path ? 1 : 0)) > 0 ? (
+                      <Button size="sm" variant="secondary" loading={photoBusy} icon={<IconCamera className="h-3.5 w-3.5" />} onClick={voirPhotosCloture}>
+                        Voir les {Math.max((cloture as ClotureRow & { photo_paths?: string[] | null }).photo_paths?.length ?? 0, cloture.photo_path ? 1 : 0)} photos
+                      </Button>
+                    ) : (
+                      <span className="text-[10px] text-ink-400 shrink-0">Sans photo</span>
+                    )}
                   </div>
-                  {cloture.photo_path ? (
-                    <Button size="sm" variant="secondary" loading={photoBusy} icon={<IconCamera className="h-3.5 w-3.5" />} onClick={voirPhotoCloture}>
-                      Voir la photo
-                    </Button>
-                  ) : (
-                    <span className="text-[10px] text-ink-400 shrink-0">Sans photo</span>
+                  {photosCloture.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {photosCloture.map((url, index) => (
+                        <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="group block overflow-hidden rounded-xl border border-ink-100">
+                          <img src={url} alt={`Photo de clôture ${index + 1}`} className="h-36 w-full object-cover transition group-hover:scale-[1.02]" />
+                          <span className="block px-2 py-1.5 text-center text-[11px] font-semibold text-royal-700">Photo {index + 1} · Agrandir</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {photosCloture.length === 0 && ((cloture as ClotureRow & { photo_paths?: string[] | null }).photo_paths?.length ?? (cloture.photo_path ? 1 : 0)) > 0 && (
+                    <p className="text-xs text-ink-400">Appuyez sur « Voir les photos » pour afficher toutes les images.</p>
                   )}
                 </Card>
               )}
