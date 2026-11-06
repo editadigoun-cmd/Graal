@@ -210,7 +210,7 @@ export default function ManagementProgrammes() {
     const resultat = data as { programme_valide?: boolean } | null
     setForceMsg({
       type: 'success',
-      text: resultat?.programme_valide ? 'Les cinq journées sont validées : programme validé.' : 'Journée validée.'
+      text: resultat?.programme_valide ? 'Les cinq journées ouvrables sont validées : programme validé.' : 'Journée validée.'
     })
     await load()
   }
@@ -378,6 +378,8 @@ export default function ManagementProgrammes() {
     if (specialite) acc[specialite.replace(/[_-]+/g, ' ')] = (acc[specialite.replace(/[_-]+/g, ' ')] ?? 0) + 1
     return acc
   }, {})).sort((a, b) => b[1] - a[1])
+  const demoSamediChadrac = detail?.vm_id === 'd0be68dd-eba0-4b9e-8215-df216d6a7963' && detail.semaine_debut === '2026-11-02'
+  const joursDetail = demoSamediChadrac ? [...JOURS, 'SAMEDI'] : JOURS
   const lignesJourActif = detailLignes.filter((l) => l.jour === detailJourActif)
   const potentielsJourActif = POTENTIELS.map((potentiel) => ({
     potentiel,
@@ -429,7 +431,7 @@ export default function ManagementProgrammes() {
       <div>
         <p className="mb-2 text-sm font-bold text-ink-700">Détail par journée</p>
         <div className="flex gap-2 overflow-x-auto pb-2">
-          {JOURS.map((j) => {
+          {joursDetail.map((j) => {
             const count = detailLignes.filter((l) => l.jour === j).length
             const statut = detailJours[j]?.statut ?? 'EN_COURS'
             return <button key={j} onClick={() => setDetailJourActif(j)} className={`min-w-[108px] shrink-0 rounded-xl border px-3 py-2.5 text-left transition ${detailJourActif === j ? 'border-royal-500 bg-royal-50 text-royal-700 ring-2 ring-royal-100' : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50'}`}>
