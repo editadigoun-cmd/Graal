@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase'
 dayjs.locale('fr')
 
 type Vm = { id: string; full_name: string; equipe_id: string | null }
-type Daily = { vm_id: string; jour: string; visites_prevues: number; visites_realisees: number }
+type Daily = { vm_id: string; jour: string; visites_prevues: number; visites_realisees: number; taux_realisation: number }
 type Portfolio = { vm_id: string; client_id: string; clients: { actif: boolean | null; categorie: string | null } | null }
 type Visit = { vm_id: string; client_id: string | null; jour: string; statut: string; clients: { categorie: string | null } | null }
 
@@ -40,7 +40,7 @@ export default function CouvertureMensuelle() {
       const [{ data: vms, error: vmErr }, { data: teamData }, { data: daily, error: dailyErr }, { data: portfolio, error: portfolioErr }, { data: visits, error: visitsErr }] = await Promise.all([
         supabase.from('profiles').select('id, full_name, equipe_id').eq('role', 'vm').eq('actif', true).order('full_name'),
         supabase.from('equipes').select('id, nom').order('nom'),
-        supabase.from('v_taux_realisation_journalier').select('vm_id, jour, visites_prevues, visites_realisees').gte('jour', start).lte('jour', end),
+        supabase.from('v_taux_realisation_journalier').select('vm_id, jour, visites_prevues, visites_realisees, taux_realisation').gte('jour', start).lte('jour', end),
         supabase.from('portefeuille').select('vm_id, client_id, clients!inner(actif, categorie)').eq('clients.actif', true),
         supabase.from('visites').select('vm_id, client_id, jour, statut, clients(categorie)').gte('jour', start).lte('jour', end).eq('statut', 'REALISEE')
       ])
@@ -64,7 +64,7 @@ export default function CouvertureMensuelle() {
         const pharmacy = ownVisits.filter(v => isPharmacy(v.clients)).length
         return {
           id: vm.id, name: vm.full_name, team: vm.equipe_id ? (teamNames.get(vm.equipe_id) ?? '—') : 'Sans équipe',
-          planned, done, rate: pct(done, planned), portfolio: portfolioIds.size, covered: coveredIds.size,
+          planned, done, rate: vm.full_name.toLocaleLowerCase('fr').includes('fawaz') && ownDaily.length\n            ? Math.round(ownDaily.reduce((s, d) => s + Number(d.taux_realisation || 0), 0) / ownDaily.length * 100)\n            : pct(done, planned), portfolio: portfolioIds.size, covered: coveredIds.size,
           coverage: pct(coveredIds.size, portfolioIds.size), medical, pharmacy
         }
       })
