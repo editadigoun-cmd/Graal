@@ -27,6 +27,8 @@ export function potentielAutorise(jour: Jour, potentiel: Potentiel, typeVisite: 
     return true
   }
   switch (jour) {
+    case 'SAMEDI':
+      return true
     case 'LUNDI':
     case 'MARDI':
       return potentiel === 'GROS'
