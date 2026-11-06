@@ -37,7 +37,6 @@ interface Seuils {
   minMedical: number
   minPharmacie: number
   maxFaibleJeudiPct: number
-  maxMoyenLunMarMer: number
   poidsMoyenReduit: number
   maxVisitesJour: number
   maxMoyenLunMarMer: number
