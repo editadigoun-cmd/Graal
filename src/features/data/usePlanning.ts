@@ -16,6 +16,7 @@ export function targetSemaineDebut() {
 
 export function usePlanning() {
   const { session, profile } = useAuth()
+  const estChadrac = profile?.id === 'd0be68dd-eba0-4b9e-8215-df216d6a7963'
   const estFawaz = profile?.id === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30'
   // Fagbede est autorisé à programmer des clients de tous les secteurs.
   const estFagbede = profile?.id === '96388406-e88e-4146-a372-1df07481c8e4'
@@ -50,7 +51,8 @@ export function usePlanning() {
     const statutTermine = programmeActuel?.statut === 'VALIDE' || programmeActuel?.statut === 'VERROUILLE'
     const delaiActif = !!programmeActuel?.delai_supplementaire_jusqu_a &&
       new Date(programmeActuel.delai_supplementaire_jusqu_a).getTime() > Date.now()
-    const semaineDebut = programmeActuel && delaiActif && !statutTermine
+    const demoSamediChadrac = estChadrac && isoWeekMonday().format('YYYY-MM-DD') === '2026-11-02'
+    const semaineDebut = demoSamediChadrac || (programmeActuel && delaiActif && !statutTermine)
       ? semaineActuelle
       : semaineSuivante
     // Alterner le secteur uniquement lors de la préparation de la semaine suivante.
