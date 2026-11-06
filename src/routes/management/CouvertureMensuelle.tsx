@@ -17,11 +17,11 @@ type DayApproval = { programme_id: string; jour: string; statut: string }
 type Guard = { vm_id: string; jour: string; statut: string }
 
 type Row = {
-  id: string; name: string; team: string; planned: number; done: number; rate: number
+  id: string; name: string; team: string; planned: number; done: number; rate: number; rateNumerator: number; rateDenominator: number
   portfolio: number; covered: number; coverage: number; medical: number; pharmacy: number
   guards: number; outOfProgram: number; points: number
 }
-type SpecialtyStat = { name: string; planned: number; done: number }
+type SpecialtyStat = { vm_id: string; name: string; planned: number; done: number }
 
 const pct = (n: number, d: number) => d ? Math.round(n / d * 100) : 0
 const pharmacy = (v: { specialite?: string | null; categorie?: string | null } | null | undefined) =>
@@ -56,7 +56,7 @@ export default function CouvertureMensuelle() {
         supabase.from('equipes').select('id, nom').order('nom'),
         supabase.from('v_taux_realisation_journalier').select('vm_id, jour, visites_prevues, visites_realisees, taux_realisation').gte('jour', start).lte('jour', end),
         supabase.from('portefeuille').select('vm_id, client_id, clients!inner(actif, specialite, categorie)').eq('clients.actif', true),
-        supabase.from('visites').select('id, vm_id, client_id, jour, statut, hors_programme, programme_ligne_id, clients(specialite, categorie)').gte('jour', start).lte('jour', end).eq('statut', 'REALISEE'),
+        supabase.from('visites').select('id, vm_id, client_id, jour, statut, hors_programme, programme_ligne_id, clients(specialite, categorie)').gte('jour', start).lte('jour', end),
         supabase.from('v_lignes_avec_statut').select('vm_id, programme_id, jour, date_visite, specialite, programme_statut, statut_reel').gte('date_visite', start).lte('date_visite', end),
         supabase.from('programme_jours_validation').select('programme_id, jour, statut').eq('statut', 'VALIDE'),
         supabase.from('gardes').select('vm_id, jour, statut').gte('jour', start).lte('jour', end).eq('statut', 'TERMINEE')
@@ -75,8 +75,8 @@ export default function CouvertureMensuelle() {
       const approvedLines = lines.filter(l => ['VALIDE', 'VERROUILLE'].includes(l.programme_statut) || approvedKeys.has(l.programme_id + '|' + l.jour))
       const monthSpecialties = new Map<string, SpecialtyStat>()
       for (const line of approvedLines) {
-        const key = specialtyName(line.specialite)
-        const item = monthSpecialties.get(key) ?? { name: key, planned: 0, done: 0 }
+        const key = line.vm_id + '|' + specialtyName(line.specialite)
+        const item = monthSpecialties.get(key) ?? { vm_id: line.vm_id, name: specialtyName(line.specialite), planned: 0, done: 0 }
         item.planned += 1
         if (line.statut_reel === 'REALISEE') item.done += 1
         monthSpecialties.set(key, item)
@@ -89,7 +89,7 @@ export default function CouvertureMensuelle() {
         const ownPortfolio = portfolios.filter(p => p.vm_id === vm.id)
         const portfolioIds = new Set(ownPortfolio.map(p => p.client_id))
         const ownVisits = visits.filter(v => v.vm_id === vm.id)
-        const ownPortfolioVisits = ownVisits.filter(v => !!v.client_id && portfolioIds.has(v.client_id))
+        const ownPortfolioVisits = ownVisits.filter(v => v.statut === 'REALISEE' && !!v.client_id && portfolioIds.has(v.client_id))
         const coveredIds = new Set(ownPortfolioVisits.map(v => v.client_id as string))
         const ownGuards = guards.filter(g => g.vm_id === vm.id).length
         const ownOutOfProgram = ownVisits.filter(v => v.hors_programme === true || v.statut === 'HORS_PROGRAMME').length
@@ -98,6 +98,8 @@ export default function CouvertureMensuelle() {
           planned, done, rate: isFawaz && ownDaily.length
             ? Math.round(ownDaily.reduce((s, d) => s + Number(d.taux_realisation || 0), 0) / ownDaily.length * 100)
             : pct(done, planned),
+          rateNumerator: isFawaz ? ownDaily.reduce((s, d) => s + Math.min(Number(d.visites_realisees || 0), 12), 0) : done,
+          rateDenominator: isFawaz ? ownDaily.length * 12 : planned,
           portfolio: portfolioIds.size, covered: coveredIds.size, coverage: pct(coveredIds.size, portfolioIds.size),
           medical: ownPortfolioVisits.filter(v => !pharmacy(v.clients)).length,
           pharmacy: ownPortfolioVisits.filter(v => pharmacy(v.clients)).length,
@@ -123,15 +125,14 @@ export default function CouvertureMensuelle() {
   const visible = useMemo(() => teamFilter === 'all' ? rows : rows.filter(r => r.team === teamFilter), [rows, teamFilter])
   const visibleIds = new Set(visible.map(r => r.id))
   const total = visible.reduce((a, r) => ({
-    planned: a.planned + r.planned, done: a.done + r.done, portfolio: a.portfolio + r.portfolio,
+    planned: a.planned + r.planned, done: a.done + r.done, rateNumerator: a.rateNumerator + r.rateNumerator, rateDenominator: a.rateDenominator + r.rateDenominator, portfolio: a.portfolio + r.portfolio,
     covered: a.covered + r.covered, medical: a.medical + r.medical, pharmacy: a.pharmacy + r.pharmacy,
     guards: a.guards + r.guards, outOfProgram: a.outOfProgram + r.outOfProgram, points: a.points + r.points
-  }), { planned: 0, done: 0, portfolio: 0, covered: 0, medical: 0, pharmacy: 0, guards: 0, outOfProgram: 0, points: 0 })
-  const visibleSpecialties = useMemo(() => {
-    if (teamFilter === 'all') return specialties
-    // Les spécialités détaillées sont reconstituées à partir des lignes VM affichées ci-dessous.
-    return specialties
-  }, [specialties, teamFilter])
+  }), { planned: 0, done: 0, rateNumerator: 0, rateDenominator: 0, portfolio: 0, covered: 0, medical: 0, pharmacy: 0, guards: 0, outOfProgram: 0, points: 0 })
+  const visibleSpecialties = [...specialties.filter(s => visibleIds.has(s.vm_id)).reduce((acc, s) => {
+    const item = acc.get(s.name) ?? { name: s.name, planned: 0, done: 0 }
+    item.planned += s.planned; item.done += s.done; acc.set(s.name, item); return acc
+  }, new Map<string, { name: string; planned: number; done: number }>()).values()]
   const teamOptions = [...new Set(rows.map(r => r.team))].sort()
 
   return <div className="space-y-6">
@@ -145,7 +146,7 @@ export default function CouvertureMensuelle() {
     {error && <Card><p className="text-sm text-red-600">Impossible de charger le bilan : {error}</p></Card>}
     {loading ? <div className="grid grid-cols-2 lg:grid-cols-4 gap-3"><Skeleton className="h-28"/><Skeleton className="h-28"/><Skeleton className="h-28"/><Skeleton className="h-28"/></div> : <>
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <StatCard label="Taux de réalisation" value={pct(total.done, total.planned)} suffix="%" sub={total.done + ' / ' + total.planned + ' visites validées'} tone="royal" />
+        <StatCard label="Taux de réalisation" value={pct(total.rateNumerator, total.rateDenominator)} suffix="%" sub={total.done + ' / ' + total.planned + ' visites validées'} tone="royal" />
         <StatCard label="Gardes terminées" value={total.guards} sub={total.guards + ' × 3 points'} tone="emerald" />
         <StatCard label="Visites hors programme" value={total.outOfProgram} sub={total.outOfProgram + ' × 1,5 point'} tone="flame" />
         <StatCard label="Points cumulés du mois" value={total.points} decimals={1} sub="Gardes + visites hors programme" tone="ink" />
