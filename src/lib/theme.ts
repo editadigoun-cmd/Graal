@@ -27,5 +27,6 @@ export const JOUR_LABEL: Record<string, string> = {
   MARDI: 'Mardi',
   MERCREDI: 'Mercredi',
   JEUDI: 'Jeudi',
-  VENDREDI: 'Vendredi'
+  VENDREDI: 'Vendredi',
+  SAMEDI: 'Samedi'
 }
