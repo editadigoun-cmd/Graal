@@ -10,7 +10,9 @@ export function useOfflineClotureSync() {
   const [hasPending, setHasPending] = useState(false)
 
   const refresh = useCallback(() => {
-    getPendingCloture().then((p) => setHasPending(!!p))
+    getPendingCloture().then((p) => setHasPending(!!p)).catch((error) => {
+      console.error('Impossible de lire la clôture hors ligne en attente :', error)
+    })
   }, [])
 
   useEffect(() => {
@@ -49,9 +51,10 @@ export function useOfflineClotureSync() {
         const blob = blobs[i]
         const type = types[i] || blob.type || 'image/jpeg'
         const extension = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg'
-        const path = `${uid}/${pending.jour}-${Date.now()}-${i + 1}.${extension}`
+        const batchId = pending.createdAt.replace(/[^0-9]/g, '').slice(0, 17) || 'pending'
+        const path = `${uid}/${pending.jour}-${batchId}-${i + 1}.${extension}`
         const { error: uploadError } = await supabase.storage.from('fiches-papier')
-          .upload(path, blob, { contentType: type })
+          .upload(path, blob, { contentType: type, upsert: true })
         if (uploadError) return
         paths.push(path)
       }
