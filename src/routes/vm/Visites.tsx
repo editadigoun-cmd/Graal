@@ -47,7 +47,9 @@ export default function Visites() {
 
   async function confirmerTelechargement() {
     const maintenant = nowBenin()
-    const jourFiche = maintenant.hour() >= 19 ? prochainJourOuvrable(todayBenin()) : todayBenin()
+    // Le samedi reste imprimable le jour même, même après 19 h, dès lors que sa validation est acquise.
+    const aujourdHui = todayBenin()
+    const jourFiche = aujourdHui.day() === 6 ? aujourdHui : maintenant.hour() >= 19 ? prochainJourOuvrable(aujourdHui) : aujourdHui
     setExporting(true)
     try {
       await ouvrirFicheJour(jourFiche.format('YYYY-MM-DD'))
@@ -257,5 +259,8 @@ function prochainJourOuvrable(date: dayjs.Dayjs) {
 
 function maintenantJourFiche() {
   const maintenant = nowBenin()
-  return maintenant.hour() >= 19 ? prochainJourOuvrable(todayBenin()) : todayBenin()
+  const aujourdHui = todayBenin()
+  // Le samedi est une journée de terrain : ne pas la remplacer par le lundi à 19 h.
+  if (aujourdHui.day() === 6) return aujourdHui
+  return maintenant.hour() >= 19 ? prochainJourOuvrable(aujourdHui) : aujourdHui
 }
