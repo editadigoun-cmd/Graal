@@ -468,10 +468,10 @@ export default function ManagementProgrammes() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
       <div>
-        <h1 className="provisit-page-title">Validation des programmes</h1>
-        <p className="text-sm text-ink-400">Programmes hebdomadaires soumis par les visiteurs médicaux</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-royal-600">Pilotage opérationnel</p><h1 className="provisit-page-title mt-1">Validation des programmes</h1>
+        <p className="mt-1 text-sm text-ink-400">Examinez les programmes hebdomadaires et validez les journées de vos équipes.</p>
       </div>
 
       {forceMsg && (
@@ -480,8 +480,8 @@ export default function ManagementProgrammes() {
         </p>
       )}
 
-      <Card>
-        <div className="mb-2 flex items-center justify-between gap-3">
+      <Card className="border border-ink-100 bg-white shadow-sm">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold text-ink-800">Navigation par semaine</h2>
             <p className="text-xs text-ink-400">Les brouillons, validations et délais affichés ci-dessous correspondent à la semaine choisie.</p>
@@ -560,7 +560,7 @@ export default function ManagementProgrammes() {
         ) : (
           <div className="grid lg:grid-cols-2 gap-4">
             {soumis.map((p) => (
-              <Card key={p.id}>
+              <Card key={p.id} className="border border-ink-100 bg-white shadow-sm transition-shadow hover:shadow-md">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-bold text-ink-800">{p.profiles?.full_name}</p>
