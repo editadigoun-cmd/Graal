@@ -4,6 +4,13 @@ const config: CapacitorConfig = {
   appId: 'com.provisit.provisit',
   appName: 'Provisit',
   webDir: 'dist',
+  plugins: {
+    CapacitorUpdater: {
+      appId: 'com.provisit.provisit',
+      autoUpdate: 'atBackground',
+      version: '1.1.0'
+    }
+  },
   android: {
     allowMixedContent: false
   },
