@@ -91,7 +91,7 @@ export default function Garde() {
 
   if (garde?.statut === 'TERMINEE') {
     return (
-      <div className="space-y-4 mt-2 pb-4">
+      <div className="space-y-5 mt-2 pb-6">
         <div className="mt-6 flex flex-col items-center text-center px-4">
           <div className="rounded-full bg-emerald-50 p-4"><IconCheckCircle className="h-10 w-10 text-emerald-600" /></div>
           <p className="mt-4 text-lg font-bold text-ink-800 font-display">Garde terminée</p>
@@ -110,10 +110,10 @@ export default function Garde() {
   }
 
   return (
-    <div className="space-y-4 mt-2 pb-4">
+    <div className="space-y-5 mt-2 pb-6">
       <div className="flex items-center gap-2">
         <IconMoon className="h-5 w-5 text-royal-600" />
-        <h1 className="text-lg font-bold text-ink-800 font-display">Visite de garde</h1>
+        <h1 className="provisit-page-title">Visite de garde</h1>
       </div>
 
       <Card className="bg-gradient-to-br from-royal-600 to-royal-700 text-white text-center py-6">
@@ -198,10 +198,10 @@ function NouvelleVisiteGarde({ gardeId, jour, onDone, onCancel }: { gardeId: str
   }
 
   return (
-    <div className="space-y-4 mt-2 pb-4">
+    <div className="space-y-5 mt-2 pb-6">
       <div className="flex items-center gap-2">
         <button onClick={onCancel} className="rounded-full p-1.5 hover:bg-ink-100"><IconChevronLeft className="h-5 w-5" /></button>
-        <h1 className="text-lg font-bold text-ink-800 font-display">Nouvelle visite de garde</h1>
+        <h1 className="provisit-page-title">Nouvelle visite de garde</h1>
       </div>
 
       <GeoHeader />
@@ -280,10 +280,10 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
   }
 
   return (
-    <div className="space-y-4 mt-2 pb-4">
+    <div className="space-y-5 mt-2 pb-6">
       <div className="flex items-center gap-2">
         <button onClick={onCancel} className="rounded-full p-1.5 hover:bg-ink-100"><IconChevronLeft className="h-5 w-5" /></button>
-        <h1 className="text-lg font-bold text-ink-800 font-display">Terminer la garde</h1>
+        <h1 className="provisit-page-title">Terminer la garde</h1>
       </div>
 
       <div className="flex items-center gap-4 rounded-2xl bg-ink-50 px-4 py-2.5 text-[11px] text-ink-500">
