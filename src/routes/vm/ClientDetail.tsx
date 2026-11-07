@@ -63,13 +63,13 @@ export default function ClientDetail() {
   if (!client) return <p className="mt-6 text-center text-sm text-ink-400">Client introuvable.</p>
 
   return (
-    <div className="space-y-4 mt-2 pb-4">
-      <div className="flex items-center gap-2">
-        <Link to="/app/portefeuille" className="rounded-full p-1.5 hover:bg-ink-100"><IconChevronLeft className="h-5 w-5" /></Link>
-        <h1 className="text-lg font-bold text-ink-800 font-display truncate">{client.nom}</h1>
+    <div className="space-y-5 mt-2 pb-6">
+      <div className="flex items-start gap-3">
+        <Link to="/app/portefeuille" aria-label="Retour au portefeuille" className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-ink-100 bg-white text-ink-500 shadow-sm transition-colors hover:bg-royal-50 hover:text-royal-700"><IconChevronLeft className="h-5 w-5" /></Link>
+        <div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-[0.16em] text-royal-600">Fiche client</p><h1 className="provisit-page-title mt-1 truncate">{client.nom}</h1><p className="mt-1 text-xs text-ink-400">{client.centre || "Informations et historique des visites"}</p></div>
       </div>
 
-      <Card>
+      <Card className="border border-ink-100 bg-white shadow-sm">
         <div className="flex items-center justify-between">
           <PotentielBadge potentiel={client.potentiel} />
           <span className="text-xs font-semibold text-ink-500">Secteur {client.secteur}</span>
@@ -85,7 +85,7 @@ export default function ClientDetail() {
         )}
       </Card>
 
-      <Card>
+      <Card className="border border-ink-100 bg-white shadow-sm">
         <p className="text-sm font-bold text-ink-800 mb-3">Respect de la fréquence de visite</p>
         <div className="flex items-center justify-between text-sm">
           <span className="text-ink-500">Ce mois</span>
