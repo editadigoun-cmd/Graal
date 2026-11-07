@@ -4,7 +4,7 @@ import {
   IconUsers, IconBarChart, IconCheckCircle, IconMapPin, IconCalendar,
   IconChevronRight, IconChevronLeft, IconTrendingUp, IconClipboard, IconLock
 } from '@/components/ui/icons'
-import logoMark from '@/assets/logo-mark.png'
+const logoMark = '/provisit-icon.svg'
 
 type Props = { onLogin: () => void }
 
