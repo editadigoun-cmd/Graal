@@ -96,7 +96,7 @@ function ProgrammeForm({ ligneId }: { ligneId: string }) {
   if (!ligne) return <p className="mt-6 text-center text-sm text-ink-400">Ligne de programme introuvable.</p>
 
   return (
-    <div className="space-y-4 mt-2 pb-4">
+    <div className="space-y-5 mt-2 pb-6">
       <Header client={ligne.clients} onBack={() => navigate('/app/visites')} />
       <GeoHeader />
       {error && <ErrorBanner message={error} />}
@@ -214,10 +214,10 @@ function HorsProgrammeForm() {
   }
 
   return (
-    <div className="space-y-4 mt-2 pb-4">
+    <div className="space-y-5 mt-2 pb-6">
       <div className="flex items-center gap-2">
         <Link to="/app/visites" className="rounded-full p-1.5 hover:bg-ink-100"><IconChevronLeft className="h-5 w-5" /></Link>
-        <h1 className="text-lg font-bold text-ink-800 font-display">Visite hors programme</h1>
+        <h1 className="provisit-page-title">Visite hors programme</h1>
       </div>
 
       <div className="flex items-center gap-3 rounded-2xl bg-flame-50 border border-flame-200 p-4">
@@ -300,7 +300,7 @@ export function Header({ client, onBack }: { client: Database['public']['Tables'
     <div className="flex items-center gap-2">
       <button onClick={onBack} className="rounded-full p-1.5 hover:bg-ink-100"><IconChevronLeft className="h-5 w-5" /></button>
       <div className="min-w-0">
-        <h1 className="text-base font-bold text-ink-800 truncate">{client?.nom}</h1>
+        <h1 className="text-base font-extrabold text-[#163E63] truncate">{client?.nom}</h1>
         {client && <PotentielBadge potentiel={client.potentiel} compact />}
       </div>
     </div>
