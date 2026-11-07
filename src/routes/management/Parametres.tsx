@@ -213,10 +213,10 @@ export default function ManagementParametres() {
   const group = GROUPS.find(g => g.title === activeTab) ?? GROUPS[0]
 
   return (
-    <div className="space-y-6">
-      <div><h1 className="font-display text-xl font-bold text-ink-800">Paramètres de la plateforme</h1><p className="text-sm text-ink-400">Seuils, horaires de verrouillage et pondérations, modifiables à tout moment.</p></div>
+    <div className="space-y-5 pb-6">
+      <div><h1 className="provisit-page-title">Paramètres de la plateforme</h1><p className="text-sm text-ink-400">Seuils, horaires de verrouillage et pondérations, modifiables à tout moment.</p></div>
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-        <nav className="flex gap-1.5 overflow-x-auto rounded-2xl bg-ink-100/70 p-1.5 lg:flex-col lg:overflow-visible lg:bg-transparent lg:p-0">
+        <nav className="flex gap-1.5 overflow-x-auto rounded-2xl border border-[#163E63]/[.07] bg-white p-1.5 shadow-sm lg:flex-col lg:overflow-visible lg:bg-transparent lg:p-0">
           {GROUPS.map(g => <button key={g.title} onClick={() => setActiveTab(g.title)} className={`flex flex-shrink-0 items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition lg:w-full ${activeTab === g.title ? 'bg-white text-ink-800 shadow-softer lg:ring-1 lg:ring-ink-100' : 'text-ink-500 hover:text-ink-700 lg:hover:bg-white/70'}`}>
             <span className={`hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl lg:flex ${TONE_BG[g.tone]}`}><g.icon className="h-4 w-4" /></span>
             <g.icon className="h-4 w-4 lg:hidden" /><span className="flex-1 text-left">{g.title}</span>
