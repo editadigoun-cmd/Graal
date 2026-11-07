@@ -345,10 +345,10 @@ export default function Planning() {
 
   if (estValide) {
     return (
-      <div className="space-y-4 mt-2 pb-4">
+      <div className="space-y-5 mt-2 pb-5">
         <div>
-          <h1 className="text-lg font-bold text-ink-800 font-display">Planning de la semaine</h1>
-          <p className="text-xs text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
+          <h1 className="provisit-page-title">Planning de la semaine</h1>
+          <p className="provisit-page-subtitle">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
         </div>
         <div className="mt-10 flex flex-col items-center text-center px-4">
           <div className="rounded-full bg-emerald-50 p-4"><IconCheckCircle className="h-10 w-10 text-emerald-600" /></div>
@@ -362,10 +362,10 @@ export default function Planning() {
   }
 
   return (
-    <div className="space-y-4 mt-2 pb-4">
+    <div className="space-y-5 mt-2 pb-5">
       <div>
-        <h1 className="text-lg font-bold text-ink-800 font-display">Planning de la semaine</h1>
-        <p className="text-xs text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
+        <h1 className="provisit-page-title">Planning de la semaine</h1>
+        <p className="provisit-page-subtitle">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
       </div>
 
       <Card className={countdown ? 'bg-gradient-to-br from-royal-600 to-royal-700 text-white' : undefined}>
