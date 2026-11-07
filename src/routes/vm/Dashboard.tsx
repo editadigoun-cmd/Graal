@@ -13,7 +13,7 @@ export default function VmDashboard() {
 
   if (d.loading) {
     return (
-      <div className="space-y-4 mt-2">
+      <div className="space-y-5 mt-2">
         <div className="grid grid-cols-2 gap-3">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
         </div>
@@ -23,7 +23,7 @@ export default function VmDashboard() {
   }
 
   return (
-    <div className="space-y-4 mt-2 pb-4">
+    <div className="space-y-5 mt-2 pb-5">
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Visites prévues" value={d.visitesPrevues} tone="royal" icon={<IconStethoscope className="h-4 w-4" />} sub="Aujourd'hui" />
         <StatCard label="Visites réalisées" value={d.visitesRealisees} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} sub="Aujourd'hui" />
