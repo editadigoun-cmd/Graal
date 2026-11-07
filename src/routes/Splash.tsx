@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import logoMark from '@/assets/provisit-mark.svg'
+import logoMark from '@/assets/logo-mark.png'
 
 export default function Splash() {
   return (
@@ -24,7 +24,7 @@ export default function Splash() {
         className="mt-5 text-center"
       >
         <p className="text-xl font-extrabold font-display bg-gradient-to-r from-royal-600 to-teal-500 bg-clip-text text-transparent">
-          PROVISIT MEDICAL SOLUTIONS
+          PROVISIT
         </p>
         <p className="text-xs text-ink-400 mt-1">Performance terrain, simplifiée</p>
       </motion.div>
