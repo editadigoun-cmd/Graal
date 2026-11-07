@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.graalmedicalsolutions.app"
+    namespace = "com.provisit.provisit"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.graalmedicalsolutions.app"
+        applicationId "com.provisit.provisit"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
