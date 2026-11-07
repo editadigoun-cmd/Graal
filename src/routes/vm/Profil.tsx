@@ -71,10 +71,10 @@ export default function Profil() {
   if (!profile) return null
 
   return (
-    <div className="space-y-4 mt-2 pb-4">
+    <div className="space-y-5 mt-2 pb-6">
       <Card className="flex flex-col items-center text-center py-7">
         <AvatarUpload size={76} />
-        <p className="mt-3 text-lg font-bold text-ink-800 font-display">{profile.full_name}</p>
+        <p className="mt-3 text-lg font-extrabold text-[#163E63]">{profile.full_name}</p>
         <p className="text-xs text-ink-400 capitalize">{profile.role === 'vm' ? 'Visiteur médical' : profile.role}</p>
         <div className="mt-4"><CircularProgress value={scoreMensuel} label="score mensuel" size={92} tone={scoreMensuel >= 90 ? 'emerald' : 'flame'} /></div>
       </Card>
