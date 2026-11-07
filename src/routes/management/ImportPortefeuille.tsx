@@ -81,15 +81,6 @@ function resoudreSpecialite(valeur: string): string {
   const normalisee = normalizeText(valeur)
   return SPECIALITE_ALIASES[normalisee] ?? ALIASES_METIER[normalisee] ?? valeur.toUpperCase()
 }
-const SPECIALITE_ALIASES: Record<string, string> = Object.fromEntries(
-  SPECIALITES.flatMap((code) => [
-    [normalizeText(code), code],
-    [normalizeText(SPECIALITE_LABELS[code]), code]
-  ])
-)
-function resoudreSpecialite(valeur: string): string {
-  return SPECIALITE_ALIASES[normalizeText(valeur)] ?? valeur.toUpperCase()
-}
 
 const CHAMPS = [
   { key: 'nom', label: 'Nom du client', requis: true },
