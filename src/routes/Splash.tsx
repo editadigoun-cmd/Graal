@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import logoMark from '@/assets/logo-mark.png'
+const logoMark = '/provisit-icon.svg'
 
 export default function Splash() {
   return (
