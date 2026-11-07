@@ -11,7 +11,7 @@ export function Card({ glass, className, children, ...rest }: CardProps) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className={clsx(glass ? 'glass-panel' : 'card-premium', 'rounded-xl3 p-5', className)}
+      className={clsx(glass ? 'glass-panel' : 'card-premium', 'rounded-2xl p-4 sm:p-5', className)}
       {...rest}
     >
       {children}
