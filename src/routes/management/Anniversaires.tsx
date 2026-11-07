@@ -97,8 +97,8 @@ export default function ManagementAnniversaires(){
    setNotice({ok:true,text:'Affiche téléchargée. La diffusion reste manuelle.'})
   }catch(e){setNotice({ok:false,text:e instanceof Error?e.message:'Erreur de création de la carte.'})}
  }
- return <div className="space-y-6">
-  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-xl font-bold text-ink-800 font-display">Anniversaires GRAAL</h1><p className="text-sm text-ink-400">Alerte 48 h avant à l’administration et au superviseur concerné. Aucun message automatique au collaborateur.</p></div><div className="flex items-center gap-2 rounded-2xl bg-royal-50 px-4 py-2.5 text-xs font-semibold text-royal-700"><IconGift className="h-4 w-4"/> J-2 · diffusion manuelle</div></div>
+ return <div className="space-y-5 pb-6">
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="provisit-page-title">Anniversaires de l’équipe</h1><p className="text-sm text-ink-400">Alerte 48 h avant à l’administration et au superviseur concerné. Aucun message automatique au collaborateur.</p></div><div className="flex items-center gap-2 rounded-2xl bg-royal-50 px-4 py-2.5 text-xs font-semibold text-royal-700"><IconGift className="h-4 w-4"/> J-2 · diffusion manuelle</div></div>
   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3"><Card><p className="text-xs text-ink-400">Collaborateurs</p><p className="mt-1 text-2xl font-extrabold">{items.length}</p></Card><Card><p className="text-xs text-ink-400">Anniversaires ce mois</p><p className="mt-1 text-2xl font-extrabold">{items.filter(x=>Number(x.date_anniversaire.slice(5,7))===new Date().getMonth()+1).length}</p></Card><Card><p className="text-xs text-ink-400">Années connues</p><p className="mt-1 text-2xl font-extrabold">{items.filter(x=>x.annee_connue).length}</p></Card></div>
   {notice&&<p className={`rounded-xl px-3.5 py-2.5 text-xs ${notice.ok?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-600'}`}>{notice.text}</p>}
   <div className="grid gap-4 xl:grid-cols-2">
