@@ -15,18 +15,18 @@ export function TopBar({ name, avatarUrl, notificationsCount = 0 }: TopBarProps)
   const firstName = name.split(' ')[0]
 
   return (
-    <div className="flex items-center justify-between px-1 pb-2 pt-1">
+    <div className="mb-4 flex items-center justify-between rounded-2xl border border-[#163E63]/[.07] bg-white/85 px-3 py-3 shadow-[0_8px_24px_rgba(22,62,99,.045)] backdrop-blur-xl sm:px-4">
       <div className="flex items-center gap-3">
         <Link to="/app/profil"><Avatar name={name} url={avatarUrl} /></Link>
         <div>
-          <p className="text-sm font-semibold text-ink-800">{greeting}, {firstName}</p>
-          <p className="text-xs text-ink-400 capitalize">{nowBenin().format('dddd D MMMM')}</p>
+          <p className="text-sm font-extrabold text-[#163E63]">{greeting}, {firstName}</p>
+          <p className="text-[11px] font-medium text-[#8293A1] capitalize">{nowBenin().format('dddd D MMMM')}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">
         <Link
           to="/app/notifications"
-          className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/70 text-ink-500 shadow-softer backdrop-blur active:scale-95 transition"
+          className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-[#F3F7FA] text-[#163E63] shadow-sm backdrop-blur hover:bg-[#EAF5F1] active:scale-95 transition"
         >
           <IconBell className="h-5 w-5" />
           {notificationsCount > 0 && (
