@@ -232,13 +232,14 @@ export default function ManagementClients() {
   const totalGros = clients.filter((c) => c.potentiel === 'GROS' && c.actif).length
 
   return (
-    <div className="space-y-5 pb-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 pb-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="provisit-page-title">Portefeuille clients</h1>
-          <p className="text-sm text-ink-400">Ajout, modification et affectation des clients aux visiteurs médicaux</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-royal-600">Gestion des données</p>
+          <h1 className="provisit-page-title mt-1">Portefeuille clients</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-400">Centralisez les fiches clients, gérez les affectations et suivez la répartition des portefeuilles.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <Button size="sm" variant="secondary" icon={<IconDownload className="h-4 w-4" />} onClick={() => setImportOpen(true)}>Importer</Button>
           <Button size="sm" icon={<IconPlus className="h-4 w-4" />} onClick={ouvrirAjout}>Ajouter un client</Button>
         </div>
@@ -250,13 +251,13 @@ export default function ManagementClients() {
         <StatCard label="Gros potentiel actifs" value={totalGros} tone="flame" icon={<IconUsers className="h-4 w-4" />} />
       </div>
 
-      <Card className="flex flex-col sm:flex-row gap-3 sm:items-center">
+      <Card className="flex flex-col gap-3 border border-ink-100 bg-white/95 shadow-sm sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher un nom ou un centre…"
-            className="w-full rounded-xl border border-ink-200 pl-10 pr-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100"
+            className="w-full rounded-xl border border-ink-200 bg-ink-50/50 pl-10 pr-3.5 py-3 text-sm outline-none transition focus:border-royal-400 focus:bg-white focus:ring-4 focus:ring-royal-100"
           />
         </div>
         <select value={secteurFilter} onChange={(e) => setSecteurFilter(e.target.value)}
@@ -369,7 +370,7 @@ export default function ManagementClients() {
       </div>
 
       {/* Tableau desktop */}
-      <Card className="hidden overflow-hidden p-0 md:block">
+      <Card className="hidden overflow-hidden border border-ink-100 bg-white p-0 shadow-sm md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
