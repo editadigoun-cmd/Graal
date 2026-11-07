@@ -94,9 +94,9 @@ export default function ManagementProfil() {
   if (!profile) return null
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-6">
       <div>
-        <h1 className="text-xl font-bold text-ink-800 font-display">Mon profil</h1>
+        <h1 className="provisit-page-title">Mon profil</h1>
         <p className="text-sm text-ink-400">Vos informations personnelles et vos accès</p>
       </div>
 
