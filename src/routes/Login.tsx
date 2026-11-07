@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { IconStethoscope, IconTrendingUp, IconCheckCircle } from '@/components/ui/icons'
 import logoFull from '@/assets/provisit-brand.svg'
 import logoMark from '@/assets/provisit-mark.svg'
+import WelcomeScreen from '@/routes/WelcomeScreen'
 import { isBiometricAvailable, hasBiometricEnrolled, unlockWithBiometric } from '@/lib/biometric'
 
 const FEATURES = [
@@ -18,6 +19,7 @@ const FEATURES = [
 export default function Login() {
   const { signIn, session } = useAuth()
   const navigate = useNavigate()
+  const [showLogin, setShowLogin] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -164,7 +166,7 @@ export default function Login() {
           <img src={logoMark} alt="" className="h-10 w-10" />
           <div>
             <p className="text-sm font-extrabold tracking-wide text-white font-display leading-none">PROVISIT</p>
-            <p className="text-[10px] font-semibold tracking-wide text-white/50">MEDICAL SOLUTIONS</p>
+            <p className="text-[10px] font-semibold tracking-wide text-white/60">L’EXCELLENCE AU CŒUR DE CHAQUE VISITE</p>
           </div>
         </motion.div>
 
@@ -196,7 +198,7 @@ export default function Login() {
         </motion.div>
 
         <p className="relative text-[11px] text-white/35">
-          Document confidentiel — usage réservé aux collaborateurs PROVISIT MEDICAL SOLUTIONS
+          Accès sécurisé · PROVISIT
         </p>
       </div>
 
