@@ -20,8 +20,9 @@ export default function Visites() {
   const [confirmationOuverte, setConfirmationOuverte] = useState(false)
   const [, setHorloge] = useState(0)
   const [cloture, setCloture] = useState<{ statut: string; heure_cloture: string | null } | null | undefined>(undefined)
-  const restantes = lignes.filter((l) => l.statut_reel === 'EN_ATTENTE')
-  const faites = lignes.filter((l) => l.statut_reel !== 'EN_ATTENTE')
+  // NON_FAITE signifie que la visite reste à effectuer : elle ne doit pas apparaître dans « Traitées ».
+  const restantes = lignes.filter((l) => l.statut_reel === 'EN_ATTENTE' || l.statut_reel === 'NON_FAITE')
+  const faites = lignes.filter((l) => l.statut_reel === 'REALISEE' || l.statut_reel === 'HORS_PROGRAMME')
   const estReportee = (l: typeof lignes[number]) => Boolean((l as typeof l & { reportee?: boolean }).reportee)
   const restantesNormales = restantes.filter((l) => !estReportee(l))
   const restantesReportees = restantes.filter(estReportee)
