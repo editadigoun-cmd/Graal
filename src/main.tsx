@@ -1,7 +1,16 @@
 import React, { lazy, Suspense } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { CapacitorUpdater } from '@capgo/capacitor-updater'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
+
+// Confirm the embedded bundle loaded correctly so Capgo never promotes a broken update.
+if (Capacitor.isNativePlatform()) {
+  void CapacitorUpdater.notifyAppReady().catch((error) => {
+    console.warn('[Provisit] Capgo readiness notification failed:', error)
+  })
+}
 
 const hasSupabaseConfig = Boolean(
   import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
