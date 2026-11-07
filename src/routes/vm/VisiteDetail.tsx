@@ -63,29 +63,65 @@ function ProgrammeForm({ ligneId }: { ligneId: string }) {
     const payload = {
       programme_ligne_id: ligne.id, client_id: ligne.client_id, vm_id: session.user.id,
       jour: todayBenin().format('YYYY-MM-DD'), type_visite: ligne.type_visite,
+      statut: 'REALISEE' as const,
       latitude: geo.latitude, longitude: geo.longitude,
       ...fields
     }
 
     if (!navigator.onLine) {
+      // Une visite NON_FAITE possède déjà une ligne en base : sa reprise nécessite une mise à jour en ligne.
+      const { data: existante } = await supabase.from('visites').select('id')
+        .eq('programme_ligne_id', ligne.id).eq('vm_id', session.user.id).maybeSingle()
+      if (existante) {
+        setError('Connexion Internet requise pour reprendre cette visite. Aucune donnée n’a été modifiée.')
+        setSaving(false)
+        return
+      }
       enqueueVisite(payload, produitsIds)
       setSaving(false)
       navigate('/app/visites', { replace: true })
       return
     }
 
-    const { data: visite, error: insertError } = await supabase.from('visites').insert(payload).select('id').single()
+    // Si la visite avait été marquée NON_FAITE, on réutilise son enregistrement au lieu
+    // d'en créer un second pour la même ligne de programme.
+    const { data: existante, error: rechercheErreur } = await supabase.from('visites').select('id')
+      .eq('programme_ligne_id', ligne.id).eq('vm_id', session.user.id).maybeSingle()
 
-    if (insertError) {
-      // Hors ligne détecté tardivement (bascule pendant la requête) : on met en file plutôt que de perdre la saisie.
-      if (!navigator.onLine) { enqueueVisite(payload, produitsIds); setSaving(false); navigate('/app/visites', { replace: true }); return }
-      setError(insertError.message)
+    if (rechercheErreur) {
+      setError(rechercheErreur.message)
       setSaving(false)
       return
     }
 
-    if (produitsIds.length && visite) {
-      await supabase.from('visite_produits').insert(produitsIds.map((pid) => ({ visite_id: visite.id, produit_id: pid })))
+    const resultat = existante
+      ? await supabase.from('visites').update(payload).eq('id', existante.id).select('id').single()
+      : await supabase.from('visites').insert(payload).select('id').single()
+
+    if (resultat.error || !resultat.data) {
+      // Bascule réseau pendant l'enregistrement : ne pas perdre une nouvelle visite.
+      if (!existante && !navigator.onLine) { enqueueVisite(payload, produitsIds); setSaving(false); navigate('/app/visites', { replace: true }); return }
+      setError(resultat.error?.message ?? 'Impossible d’enregistrer la visite.')
+      setSaving(false)
+      return
+    }
+
+    const visite = resultat.data
+    if (existante) {
+      const { error: suppressionErreur } = await supabase.from('visite_produits').delete().eq('visite_id', visite.id)
+      if (suppressionErreur) {
+        setError(suppressionErreur.message)
+        setSaving(false)
+        return
+      }
+    }
+    if (produitsIds.length) {
+      const { error: produitsErreur } = await supabase.from('visite_produits').insert(produitsIds.map((pid) => ({ visite_id: visite.id, produit_id: pid })))
+      if (produitsErreur) {
+        setError(produitsErreur.message)
+        setSaving(false)
+        return
+      }
     }
 
     setSaving(false)
