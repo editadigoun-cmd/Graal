@@ -14,7 +14,7 @@ const items = [
 export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2">
-      <div className="glass-nav flex items-center gap-1 rounded-xl4 px-2 py-2 max-w-md w-full justify-between">
+      <div className="glass-nav flex items-center gap-1 rounded-2xl border border-[#163E63]/10 bg-white/95 px-2 py-2 max-w-md w-full justify-between shadow-[0_12px_36px_rgba(22,62,99,.16)]">
         {items.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className="relative flex-1">
             {({ isActive }) => (
@@ -22,13 +22,13 @@ export function BottomNav() {
                 whileTap={{ scale: 0.92 }}
                 className={clsx(
                   'relative flex flex-col items-center justify-center gap-0.5 rounded-2xl py-2 transition-colors',
-                  isActive ? 'text-royal-600' : 'text-ink-400'
+                  isActive ? 'text-[#163E63]' : 'text-[#93A1AE]'
                 )}
               >
                 {isActive && (
                   <motion.div
                     layoutId="nav-pill"
-                    className="absolute inset-0 rounded-2xl bg-royal-50"
+                    className="absolute inset-0 rounded-2xl bg-[#EAF5F1]"
                     transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                   />
                 )}
