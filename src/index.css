@@ -18,7 +18,8 @@ html.dark {
     height: 100%;
   }
   body {
-    @apply font-body text-ink-800 bg-ink-50 antialiased;
+    @apply font-body text-ink-800 antialiased;
+    background: linear-gradient(180deg, #F8FAFC 0%, #F2F6F9 100%);
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
   }
@@ -37,7 +38,7 @@ html.dark {
   /* GRAAL exclusive watermark background — replaces empty space app-wide */
   .graal-surface {
     background-color: theme('colors.ink.50');
-    background-image: url('/patterns/graal-watermark-light.svg');
+    background-image: radial-gradient(circle at 8% 4%, rgba(31,163,122,.055), transparent 28%), radial-gradient(circle at 92% 20%, rgba(22,62,99,.055), transparent 30%);
     background-repeat: repeat;
     background-size: 260px 260px;
   }
@@ -67,7 +68,7 @@ html.dark {
     @apply bg-ink-800 border-white/5;
   }
 
-  .skeleton {
+  .provisit-page-title { @apply text-xl sm:text-2xl font-extrabold tracking-tight text-[#163E63]; }\n  .provisit-page-subtitle { @apply mt-1 text-sm leading-6 text-[#647789]; }\n  .provisit-section { @apply rounded-2xl border border-[#163E63]/[.07] bg-white p-4 shadow-[0_8px_26px_rgba(22,62,99,.045)] sm:p-5; }\n  .provisit-chip { @apply inline-flex items-center gap-1.5 rounded-full border border-[#1FA37A]/20 bg-[#1FA37A]/[.08] px-3 py-1 text-xs font-semibold text-[#147A5C]; }\n  .skeleton {
     @apply relative overflow-hidden bg-ink-100 rounded-xl2;
     background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
     background-size: 200% 100%;
