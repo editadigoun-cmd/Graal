@@ -80,7 +80,7 @@ export default function Visites() {
   if (estCloturee) {
     return (
       <>
-      <div className="space-y-4 mt-2 pb-4">
+      <div className="space-y-5 mt-2 pb-6">
         <div className="mt-6 flex flex-col items-center text-center px-4">
           <div className="rounded-full bg-emerald-50 p-4"><IconCheckCircle className="h-10 w-10 text-emerald-600" /></div>
           <p className="mt-4 text-lg font-bold text-ink-800 font-display">Journée déjà clôturée</p>
@@ -110,10 +110,10 @@ export default function Visites() {
   }
 
   return (
-    <div className="space-y-4 mt-2 pb-4">
+    <div className="space-y-5 mt-2 pb-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-ink-800 font-display">Visites du jour</h1>
+          <h1 className="provisit-page-title">Visites du jour</h1>
           <p className="text-xs text-ink-400 capitalize">{nowBenin().format('dddd D MMMM')}</p>
         </div>
         <div className="flex gap-2">
