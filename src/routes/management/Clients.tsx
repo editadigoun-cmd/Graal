@@ -232,10 +232,10 @@ export default function ManagementClients() {
   const totalGros = clients.filter((c) => c.potentiel === 'GROS' && c.actif).length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-ink-800 font-display">Portefeuille clients</h1>
+          <h1 className="provisit-page-title">Portefeuille clients</h1>
           <p className="text-sm text-ink-400">Ajout, modification et affectation des clients aux visiteurs médicaux</p>
         </div>
         <div className="flex items-center gap-2">
