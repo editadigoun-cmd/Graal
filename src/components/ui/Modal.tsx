@@ -36,19 +36,19 @@ export function Modal({ open, onClose, title, description, children, maxWidth = 
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className={`w-full ${maxWidth} max-h-[88vh] overflow-y-auto rounded-xl3 bg-white shadow-2xl`}
+            className={`w-full ${maxWidth} max-h-[88vh] overflow-y-auto rounded-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(13,35,57,.24)]`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between border-b border-ink-100 px-6 py-5">
+            <div className="flex items-start justify-between border-b border-[#163E63]/10 bg-[#F8FAFC] px-5 py-4 sm:px-6 sm:py-5">
               <div>
-                <h2 className="text-base font-bold text-ink-800 font-display">{title}</h2>
-                {description && <p className="mt-1 text-sm text-ink-400">{description}</p>}
+                <h2 className="text-base font-extrabold text-[#163E63] font-display">{title}</h2>
+                {description && <p className="mt-1 text-sm leading-6 text-[#718295]">{description}</p>}
               </div>
               <button onClick={onClose} className="rounded-full p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-600 transition">
                 <IconX className="h-5 w-5" />
               </button>
             </div>
-            <div className="px-6 py-5">{children}</div>
+            <div className="px-5 py-5 sm:px-6">{children}</div>
           </motion.div>
         </motion.div>
       )}
