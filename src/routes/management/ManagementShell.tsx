@@ -109,6 +109,8 @@ export function ManagementShell() {
   const visibleGroups = useMemo(() => {
     if (profile?.role === 'admin') {
       return groups
+        .map((g) => ({ ...g, children: g.children.filter((item) => item.to !== '/admin/portefeuille') }))
+        .filter((g) => g.children.length > 0)
     }
     if (profile?.role === 'superviseur') {
       return groups
