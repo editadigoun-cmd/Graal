@@ -18,9 +18,9 @@ export function VmShell() {
   const enCours = syncing || clotureSyncing
 
   return (
-    <div className="graal-surface min-h-screen">
+    <div className="graal-surface min-h-screen bg-[#F5F8FA]">
       <Watermark nom={profile?.full_name ?? ''} />
-      <div className="mx-auto max-w-md px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-28">
+      <div className="mx-auto w-full max-w-2xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-28 sm:px-6">
         <TopBar name={profile?.full_name ?? ''} avatarUrl={profile?.avatar_url} notificationsCount={unread} />
         {(!online || enAttente > 0) && (
           <div className={`mb-3 flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold ${!online ? 'bg-ink-800 text-white' : 'bg-flame-50 text-flame-700'}`}>
