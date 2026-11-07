@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
-const markSvg = readFileSync(path.join(root, 'src/assets/logo-mark.svg'), 'utf-8')
+const markSvg = readFileSync(path.join(root, 'src/assets/provisit-mark.svg'), 'utf-8')
 
 const targets = [
   { file: 'public/icons/icon-192.png', size: 192, bg: '#FFFFFF', pad: 0.14 },
