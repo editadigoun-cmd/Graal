@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  IconUsers, IconBarChart, IconTarget, IconMapPin, IconCalendar,
-  IconArrowRight, IconChevronLeft, IconChevronRight, IconTrendingUp,
-  IconClipboard, IconShieldCheck
+  IconUsers, IconBarChart, IconCheckCircle, IconMapPin, IconCalendar,
+  IconChevronRight, IconChevronLeft, IconTrendingUp, IconClipboard, IconLock
 } from '@/components/ui/icons'
 import logoFull from '@/assets/provisit-brand.svg'
 
@@ -17,7 +16,7 @@ const slides = [
     points: [
       { icon: IconUsers, title: 'Pilotez', text: 'votre équipe', color: 'blue' },
       { icon: IconBarChart, title: 'Suivez', text: 'les performances', color: 'green' },
-      { icon: IconTarget, title: 'Analysez', text: 'les résultats', color: 'orange' },
+      { icon: IconCheckCircle, title: 'Analysez', text: 'les résultats', color: 'orange' },
       { icon: IconMapPin, title: 'Accompagnez', text: 'sur le terrain', color: 'blue' },
     ],
     metric: [{ label: 'Visites suivies', value: '532', trend: '+12%' }, { label: 'Taux de réalisation', value: '89%', trend: '+6%' }, { label: 'Équipe active', value: '17', trend: 'En activité' }],
@@ -29,7 +28,7 @@ const slides = [
     points: [
       { icon: IconBarChart, title: 'Pilotez', text: "l'activité globale", color: 'blue' },
       { icon: IconUsers, title: 'Analysez', text: 'les équipes', color: 'green' },
-      { icon: IconTarget, title: 'Décidez', text: 'avec confiance', color: 'orange' },
+      { icon: IconCheckCircle, title: 'Décidez', text: 'avec confiance', color: 'orange' },
       { icon: IconTrendingUp, title: 'Développez', text: 'la performance', color: 'blue' },
     ],
     metric: [{ label: 'Activité globale', value: '3 842', trend: '+12%' }, { label: 'Performance', value: '92%', trend: '+6%' }, { label: 'Équipes actives', value: '17', trend: 'Pilotage global' }],
@@ -42,7 +41,7 @@ const slides = [
       { icon: IconCalendar, title: 'Planifiez', text: 'vos journées', color: 'blue' },
       { icon: IconMapPin, title: 'Visitez', text: 'sur le terrain', color: 'green' },
       { icon: IconClipboard, title: 'Renseignez', text: 'vos activités', color: 'orange' },
-      { icon: IconShieldCheck, title: 'Progressez', text: 'en confiance', color: 'blue' },
+      { icon: IconLock, title: 'Progressez', text: 'en confiance', color: 'blue' },
     ],
     metric: [{ label: 'Programme du jour', value: '12', trend: 'Visites prévues' }, { label: 'Visites réalisées', value: '8', trend: '67% du jour' }, { label: 'Synchronisation', value: 'Active', trend: 'Données protégées' }],
   },
@@ -132,7 +131,7 @@ export default function WelcomeScreen({ onLogin }: Props) {
                   </div>
                   <div className="relative mt-4 flex items-center justify-between gap-3"><div className="flex -space-x-2">{['#163E63','#1FA37A','#F28C28','#6B8CA5'].map((color,i)=><span key={i} className="h-8 w-8 rounded-full border-2 border-[#163E63]" style={{background:color}} />)}</div><p className="text-[10px] font-medium text-white/65">Une vision claire, une équipe engagée.</p></div>
                 </div>
-                <div className="absolute -bottom-4 -left-2 hidden items-center gap-2 rounded-2xl border border-white bg-white px-4 py-3 shadow-xl sm:flex"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1FA37A]/10 text-[#1FA37A]"><IconShieldCheck className="h-5 w-5" /></span><div><p className="text-xs font-bold text-[#163E63]">Données structurées</p><p className="text-[10px] text-[#8293A1]">Pilotage en confiance</p></div></div>
+                <div className="absolute -bottom-4 -left-2 hidden items-center gap-2 rounded-2xl border border-white bg-white px-4 py-3 shadow-xl sm:flex"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1FA37A]/10 text-[#1FA37A]"><IconLock className="h-5 w-5" /></span><div><p className="text-xs font-bold text-[#163E63]">Données structurées</p><p className="text-[10px] text-[#8293A1]">Pilotage en confiance</p></div></div>
               </motion.div>
             </AnimatePresence>
           </div>
@@ -141,7 +140,7 @@ export default function WelcomeScreen({ onLogin }: Props) {
         <footer className="mt-auto border-t border-[#163E63]/10 pt-5">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="text-center sm:text-left"><p className="text-sm font-bold text-[#163E63]">Bienvenue sur Provisit</p><p className="mt-0.5 text-[11px] text-[#8293A1]">L’excellence au cœur de chaque visite.</p></div>
-            <button type="button" onClick={onLogin} className="group flex w-full items-center justify-center gap-3 rounded-full bg-[#163E63] px-8 py-4 text-sm font-extrabold text-white shadow-[0_12px_30px_rgba(22,62,99,.2)] transition hover:-translate-y-0.5 hover:bg-[#1C5278] active:translate-y-0 sm:w-auto sm:min-w-[260px]">Se connecter <IconArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></button>
+            <button type="button" onClick={onLogin} className="group flex w-full items-center justify-center gap-3 rounded-full bg-[#163E63] px-8 py-4 text-sm font-extrabold text-white shadow-[0_12px_30px_rgba(22,62,99,.2)] transition hover:-translate-y-0.5 hover:bg-[#1C5278] active:translate-y-0 sm:w-auto sm:min-w-[260px]">Se connecter <IconChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" /></button>
           </div>
           <p className="mt-4 text-center text-[9px] text-[#9AA8B4]">© {new Date().getFullYear()} Provisit · Plateforme de pilotage et de suivi des activités</p>
         </footer>
