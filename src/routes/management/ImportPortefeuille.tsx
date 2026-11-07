@@ -13,16 +13,73 @@ type Specialite = Database['public']['Enums']['specialite_client']
 type Potentiel = Database['public']['Enums']['potentiel_client']
 type Secteur = Database['public']['Enums']['secteur_code']
 
-const SPECIALITES: string[] = ['GENERALISTE', 'GYNECOLOGUE', 'PEDIATRE', 'CARDIOLOGUE', 'RHUMATOLOGUE', 'ORL', 'AUTRE_SPECIALITE', 'MATERNITE', 'DISPENSAIRE', 'PHARMACIE'] satisfies Specialite[]
+const SPECIALITE_LABELS: Record<string, string> = {
+  "GENERALISTE": "Médecin généraliste",
+  "GYNECOLOGUE": "Gynécologue",
+  "PEDIATRE": "Pédiatre",
+  "CARDIOLOGUE": "Cardiologue",
+  "RHUMATOLOGUE": "Rhumatologue",
+  "ORL": "ORL",
+  "AUTRE_SPECIALITE": "Autre spécialité",
+  "MATERNITE": "Maternité",
+  "DISPENSAIRE": "Dispensaire",
+  "PHARMACIE": "Pharmacie",
+  "IDE": "Infirmier(ère)",
+  "ANESTHESISTE": "Anesthésiste",
+  "CHIRURGIEN": "Chirurgien",
+  "CHIRURGIEN_PEDIATRIQUE": "Chirurgien pédiatrique",
+  "DERMATOLOGUE": "Dermatologue",
+  "DIABETOLOGUE": "Diabétologue",
+  "ENDOCRINOLOGUE": "Endocrinologue",
+  "GASTROENTEROLOGUE": "Gastro-entérologue",
+  "SAGE_FEMME": "Sage-femme",
+  "NEPHROLOGUE": "Néphrologue",
+  "NEUROLOGUE": "Neurologue",
+  "NEUROCHIRURGIEN": "Neurochirurgien",
+  "NUTRITIONNISTE": "Nutritionniste",
+  "ONCOLOGUE": "Oncologue",
+  "PNEUMOLOGUE": "Pneumologue",
+  "REANIMATEUR": "Réanimateur",
+  "TRAUMATOLOGUE": "Traumatologue",
+  "URGENTISTE": "Urgentiste",
+  "UROLOGUE": "Urologue",
+  "INTERNISTE": "Médecin interniste",
+  "PSYCHOLOGUE": "Psychologue"
+}
+const SPECIALITES: string[] = Object.keys(SPECIALITE_LABELS) satisfies Specialite[]
 const POTENTIELS: string[] = ['GROS', 'MOYEN', 'FAIBLE'] satisfies Potentiel[]
 const SECTEURS: string[] = ['A', 'B'] satisfies Secteur[]
 
-// Le fichier peut contenir soit le code (GENERALISTE), soit le libellé français avec
-// accents (Généraliste) : les deux doivent être acceptés, insensibles à la casse/accents.
-const SPECIALITE_LABELS: Record<string, string> = {
-  GENERALISTE: 'Généraliste', GYNECOLOGUE: 'Gynécologue', PEDIATRE: 'Pédiatre', CARDIOLOGUE: 'Cardiologue',
-  RHUMATOLOGUE: 'Rhumatologue', ORL: 'ORL', AUTRE_SPECIALITE: 'Autre spécialité',
-  MATERNITE: 'Maternité', DISPENSAIRE: 'Dispensaire', PHARMACIE: 'Pharmacie'
+// Les libellés et codes des spécialités sont acceptés, avec ou sans accents.
+const SPECIALITE_ALIASES: Record<string, string> = Object.fromEntries(
+  SPECIALITES.flatMap((code) => [
+    [normalizeText(code), code],
+    [normalizeText(SPECIALITE_LABELS[code]), code]
+  ])
+)
+const ALIASES_METIER: Record<string, string> = {
+  CHIR: 'CHIRURGIEN', CHIRURGIE: 'CHIRURGIEN', CHIRUGIEN: 'CHIRURGIEN', CHIRUGUEN: 'CHIRURGIEN',
+  CHIRURGIENS: 'CHIRURGIEN', CHIRURGIENNE: 'CHIRURGIEN', 'C HIRURGIE': 'CHIRURGIEN',
+  'CHIRURGIE PEDIATRIQUE': 'CHIRURGIEN_PEDIATRIQUE', 'CHIRURGIEN PEDIATRIQUE': 'CHIRURGIEN_PEDIATRIQUE',
+  'PROF CHIR PEDIA': 'CHIRURGIEN_PEDIATRIQUE',
+  MG: 'GENERALISTE', MD: 'GENERALISTE', 'MEDECIN GENERALISTE': 'GENERALISTE',
+  GYN: 'GYNECOLOGUE', GYNECO: 'GYNECOLOGUE', GYNECOLOGIE: 'GYNECOLOGUE', 'MG GYN': 'GYNECOLOGUE',
+  PED: 'PEDIATRE', 'MG PEDIATRIE': 'PEDIATRE',
+  PHARMACIEN: 'PHARMACIE', 'IDE MATERNITE': 'IDE', 'IDE MEDECINE': 'IDE',
+  ANESTHESIE: 'ANESTHESISTE', ANNESTHESISTE: 'ANESTHESISTE',
+  ENDOCRINO: 'ENDOCRINOLOGUE', DIABETOLOGUE: 'DIABETOLOGUE', DIABETO: 'DIABETOLOGUE',
+  GASTRO: 'GASTROENTEROLOGUE', 'MG GASTRO': 'GASTROENTEROLOGUE', GASTOENTEROLOGUE: 'GASTROENTEROLOGUE',
+  NEPHRO: 'NEPHROLOGUE', 'NEPHROLOGIE': 'NEPHROLOGUE', NEURO: 'NEUROLOGUE',
+  'NEURO CHIR': 'NEUROCHIRURGIEN', 'CHUD REANIMATEUR': 'REANIMATEUR', REA: 'REANIMATEUR',
+  'PROF REA': 'REANIMATEUR', 'REA ANESTEISTE': 'ANESTHESISTE',
+  RHU: 'RHUMATOLOGUE', 'RHUMATOLOGIE': 'RHUMATOLOGUE',
+  TRAUMATO: 'TRAUMATOLOGUE', TROMATO: 'TRAUMATOLOGUE',
+  URGENCE: 'URGENTISTE', SFE: 'SAGE_FEMME', SYCH: 'PSYCHOLOGUE',
+  'MEDECIN INTERNISTE DIABETO': 'DIABETOLOGUE'
+}
+function resoudreSpecialite(valeur: string): string {
+  const normalisee = normalizeText(valeur)
+  return SPECIALITE_ALIASES[normalisee] ?? ALIASES_METIER[normalisee] ?? valeur.toUpperCase()
 }
 const SPECIALITE_ALIASES: Record<string, string> = Object.fromEntries(
   SPECIALITES.flatMap((code) => [
