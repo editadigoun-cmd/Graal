@@ -19,18 +19,17 @@ type TypeVisite = Database['public']['Enums']['type_visite']
 type Specialite = Database['public']['Enums']['specialite_client']
 type Potentiel = Database['public']['Enums']['potentiel_client']
 
-// Regroupement pour le récapitulatif hebdomadaire par spécialité — demande explicite du
-// client : afficher combien de médecins de chaque spécialité (+ pharmacies) ont été
-// programmés dans la semaine, l'addition de ces nombres formant le total programmé.
-const RECAP_SPECIALITES: { cles: Specialite[]; label: string }[] = [
-  { cles: ['GENERALISTE'], label: 'Médecins généralistes' },
-  { cles: ['GYNECOLOGUE'], label: 'Gynécologues' },
-  { cles: ['PEDIATRE'], label: 'Pédiatres' },
-  { cles: ['DISPENSAIRE'], label: 'Dispensaires' },
-  { cles: ['MATERNITE'], label: 'Maternités' },
-  { cles: ['CARDIOLOGUE', 'RHUMATOLOGUE', 'ORL', 'AUTRE_SPECIALITE'], label: 'Autres spécialités' },
-  { cles: ['PHARMACIE'], label: 'Pharmacies' }
-]
+// Correspondance entre les cibles hebdomadaires configurées par équipe et les spécialités.
+const RECAP_CIBLES: Record<string, { cles: Specialite[]; label: string }> = {
+  MEDECINS_GENERALISTES: { cles: ['GENERALISTE'], label: 'Médecins généralistes' },
+  GYNECOLOGUES: { cles: ['GYNECOLOGUE'], label: 'Gynécologues' },
+  PEDIATRES: { cles: ['PEDIATRE'], label: 'Pédiatres' },
+  DISPENSAIRES: { cles: ['DISPENSAIRE'], label: 'Dispensaires' },
+  MATERNITES: { cles: ['MATERNITE'], label: 'Maternités' },
+  AUTRES_SPECIALITES: { cles: ['RHUMATOLOGUE', 'ORL', 'AUTRE_SPECIALITE'], label: 'Autres spécialités' },
+  CARDIOLOGUES: { cles: ['CARDIOLOGUE'], label: 'Cardiologues' },
+  PHARMACIES: { cles: ['PHARMACIE'], label: 'Pharmacies' }
+}
 const POTENTIEL_LABEL: Record<Potentiel, string> = { GROS: 'Gros', MOYEN: 'Moyens', FAIBLE: 'Faibles' }
 
 interface Seuils {
@@ -62,6 +61,7 @@ export default function Planning() {
   const [submitting, setSubmitting] = useState(false)
   const [resultat, setResultat] = useState<{ statut: string; message?: string; conformite?: unknown[] } | null>(null)
   const [seuils, setSeuils] = useState<Seuils>(SEUILS_DEFAUT)
+  const [objectifsSpecialites, setObjectifsSpecialites] = useState<{ cible: string; libelle: string; quota: number; ordre: number }[]>([])
   const [heureLimiteSoumission, setHeureLimiteSoumission] = useState('14:00')
   const [jourStatuts, setJourStatuts] = useState<Record<string, { statut: string; date_limite: string | null; soumis_at?: string | null }>>({})
   const [, forceTick] = useState(0)
@@ -106,6 +106,39 @@ export default function Planning() {
         if (typeof heure === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(heure)) setHeureLimiteSoumission(heure)
       })
   }, [])
+
+  // Charger les objectifs hebdomadaires correspondant à l'équipe réelle du VM.
+  useEffect(() => {
+    if (!programme?.vm_id) { setObjectifsSpecialites([]); return }
+    let actif = true
+    async function chargerObjectifs() {
+      const { data: vm, error: vmError } = await supabase
+        .from('profiles').select('equipe_id').eq('id', programme!.vm_id).maybeSingle()
+      if (vmError || !vm?.equipe_id) {
+        if (actif) setObjectifsSpecialites([])
+        return
+      }
+      const { data, error: quotaError } = await supabase
+        .from('quotas_cibles')
+        .select('cible, libelle, quota_hebdomadaire, ordre')
+        .eq('equipe_id', vm.equipe_id)
+        .order('ordre')
+      if (!actif) return
+      if (quotaError) {
+        setError(quotaError.message)
+        setObjectifsSpecialites([])
+        return
+      }
+      setObjectifsSpecialites((data ?? []).map((q) => ({
+        cible: q.cible,
+        libelle: q.libelle,
+        quota: q.quota_hebdomadaire,
+        ordre: q.ordre
+      })))
+    }
+    chargerObjectifs()
+    return () => { actif = false }
+  }, [programme?.vm_id])
 
   const lignesJour = lignes.filter((l) => l.jour === jourActif)
   const etatJourActif = jourStatuts[jourActif]
@@ -182,7 +215,7 @@ export default function Planning() {
     return false
   }
 
-  // Récapitulatif hebdomadaire par spécialité + par potentiel (toute la semaine, tous jours confondus).
+  // Récapitulatif hebdomadaire par spécialité et potentiel, tous jours confondus.
   const specialiteCounts: Partial<Record<Specialite, number>> = {}
   const potentielCounts: Record<Potentiel, number> = { GROS: 0, MOYEN: 0, FAIBLE: 0 }
   for (const l of lignes) {
@@ -191,6 +224,21 @@ export default function Planning() {
     const p = l.clients?.potentiel
     if (p) potentielCounts[p] += 1
   }
+  const ciblesRecap = objectifsSpecialites.map((objectif) => {
+    const definition = RECAP_CIBLES[objectif.cible]
+    if (!definition) return null
+    // Si l'équipe possède une cible dédiée Cardiologues, ceux-ci ne sont pas inclus
+    // dans « Autres spécialités » afin d'éviter un double comptage.
+    const cles = objectif.cible === 'AUTRES_SPECIALITES' &&
+      objectifsSpecialites.some((o) => o.cible === 'CARDIOLOGUES')
+      ? definition.cles
+      : objectif.cible === 'AUTRES_SPECIALITES'
+        ? [...definition.cles, 'CARDIOLOGUE' as Specialite]
+        : definition.cles
+    const programme = cles.reduce((total, specialite) => total + (specialiteCounts[specialite] ?? 0), 0)
+    return { ...objectif, label: definition.label || objectif.libelle, programme }
+  }).filter((item): item is NonNullable<typeof item> => item !== null)
+  const totalObjectifSpecialites = ciblesRecap.reduce((total, item) => total + item.quota, 0)
 
   const parJour = Object.fromEntries(joursAffiches.map((j) => {
     const ljour = lignes.filter((l) => l.jour === j)
@@ -362,21 +410,19 @@ export default function Planning() {
 
       {lignes.length > 0 && (
         <Card>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 gap-3">
             <p className="text-xs font-bold text-ink-600">Récapitulatif de la semaine — par spécialité</p>
-            <p className="text-sm font-extrabold text-royal-600">{lignes.length} visites</p>
+            <p className="text-sm font-extrabold text-royal-600 whitespace-nowrap">{lignes.length} / {totalObjectifSpecialites || '—'} visites</p>
           </div>
-          <div className="space-y-1.5">
-            {RECAP_SPECIALITES.map(({ cles, label }) => {
-              const count = cles.reduce((s, c) => s + (specialiteCounts[c] ?? 0), 0)
-              if (count === 0) return null
-              return (
-                <div key={label} className="flex items-center justify-between text-xs">
-                  <span className="text-ink-500">{label}</span>
-                  <span className="font-semibold text-ink-700">{count}</span>
-                </div>
-              )
-            })}
+          <div className="space-y-2">
+            {ciblesRecap.map((item) => (
+              <div key={item.cible} className="flex items-center justify-between gap-3 text-xs">
+                <span className="text-ink-500">{item.label}</span>
+                <span className={`font-semibold tabular-nums whitespace-nowrap ${item.programme >= item.quota ? 'text-emerald-600' : 'text-ink-700'}`}>
+                  {item.programme} / {item.quota}
+                </span>
+              </div>
+            ))}
           </div>
           <div className="mt-3 pt-3 border-t border-ink-100 flex items-center gap-2 flex-wrap">
             {(Object.keys(POTENTIEL_LABEL) as Potentiel[]).map((p) => (
