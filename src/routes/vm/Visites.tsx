@@ -80,7 +80,7 @@ export default function Visites() {
   if (estCloturee) {
     return (
       <>
-      <div className="space-y-5 mt-2 pb-6">
+      <div className="space-y-5 mt-2 pb-7">
         <div className="mt-6 flex flex-col items-center text-center px-4">
           <div className="rounded-full bg-emerald-50 p-4"><IconCheckCircle className="h-10 w-10 text-emerald-600" /></div>
           <p className="mt-4 text-lg font-bold text-ink-800 font-display">Journée déjà clôturée</p>
@@ -113,8 +113,10 @@ export default function Visites() {
     <div className="space-y-5 mt-2 pb-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="provisit-page-title">Visites du jour</h1>
-          <p className="text-xs text-ink-400 capitalize">{nowBenin().format('dddd D MMMM')}</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-royal-600">Mon activité terrain</p>
+          <h1 className="provisit-page-title mt-1">Visites du jour</h1>
+          <p className="mt-1 text-xs text-ink-400 capitalize">{nowBenin().format("dddd D MMMM YYYY")}</p>
+          
         </div>
         <div className="flex gap-2">
           <button onClick={exporterFiche} disabled={exporting} title={`Télécharger la fiche du ${jourFicheAffiche.format('dddd D MMMM')}`} aria-label={`Télécharger la fiche du ${jourFicheAffiche.format('dddd D MMMM')}`} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-ink-500 shadow-softer">
