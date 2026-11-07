@@ -92,6 +92,10 @@ export default function ManagementProgrammes() {
   const [detailJours, setDetailJours] = useState<Record<string, { statut: string; soumis_at?: string | null }>>({})
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailJourActif, setDetailJourActif] = useState<string>(JOURS[0])
+  const [samediClients, setSamediClients] = useState<{ id: string; nom: string; potentiel: string; specialite: string | null; centre: string | null }[]>([])
+  const [samediClientId, setSamediClientId] = useState('')
+  const [samediLoading, setSamediLoading] = useState(false)
+  const [samediSaving, setSamediSaving] = useState(false)
 
   const [delaiValeur, setDelaiValeur] = useState<Record<string, string>>({})
   const semaineCourante = isoWeekMonday(nowBenin()).format('YYYY-MM-DD')
@@ -163,6 +167,8 @@ export default function ManagementProgrammes() {
   async function ouvrirDetail(p: ProgrammeRow) {
     setDetail(p)
     setDetailJourActif(JOURS[0])
+    setSamediClients([])
+    setSamediClientId('')
     setDetailLoading(true)
     setDetailLignes([])
     setDetailQuotas([])
@@ -181,6 +187,56 @@ export default function ManagementProgrammes() {
     setDetailEquipeNom(equipe?.nom ?? '')
     setDetailJours(Object.fromEntries((validations ?? []).map((v: any) => [v.jour, { statut: v.statut, soumis_at: v.soumis_at }])))
     setDetailLoading(false)
+  }
+
+  async function chargerClientsSamedi(programme: ProgrammeRow) {
+    setSamediLoading(true)
+    setSamediClientId('')
+    const { data, error } = await supabase
+      .from('portefeuille')
+      .select('clients(id, nom, potentiel, specialite, centre, secteur, actif)')
+      .eq('vm_id', programme.vm_id)
+      .order('client_id')
+    if (error) {
+      setForceMsg({ type: 'error', text: 'Impossible de charger le portefeuille de Chadrac : ' + error.message })
+      setSamediClients([])
+    } else {
+      const dejaProgrammes = new Set(detailLignes.map((ligne) => ligne.clients?.id).filter(Boolean))
+      const clients = ((data ?? []) as unknown as { clients: { id: string; nom: string; potentiel: string; specialite: string | null; centre: string | null; secteur: string | null; actif: boolean } | null }[])
+        .map((row) => row.clients)
+        .filter((client): client is NonNullable<typeof client> => !!client && client.actif && client.secteur === 'A' && !dejaProgrammes.has(client.id))
+        .map(({ id, nom, potentiel, specialite, centre }) => ({ id, nom, potentiel, specialite, centre }))
+      setSamediClients(clients)
+    }
+    setSamediLoading(false)
+  }
+
+  async function ajouterClientSamedi() {
+    if (!detail || !samediClientId || profile?.role !== 'admin') return
+    setSamediSaving(true)
+    setForceMsg(null)
+    const { error } = await supabase.from('programme_lignes').insert({
+      programme_id: detail.id,
+      client_id: samediClientId,
+      jour: 'SAMEDI' as any,
+      type_visite: samediClients.find((client) => client.id === samediClientId)?.specialite === 'PHARMACIE' ? 'PHARMACIE' : 'MEDICAL',
+      ordre: detailLignes.filter((ligne) => ligne.jour === 'SAMEDI').length
+    })
+    setSamediSaving(false)
+    if (error) {
+      setForceMsg({ type: 'error', text: 'Visite non ajoutée : ' + error.message })
+      return
+    }
+    const { data, error: reloadError } = await supabase.from('programme_lignes')
+      .select('id, jour, type_visite, clients(id, nom, potentiel, specialite, centre)')
+      .eq('programme_id', detail.id).order('ordre')
+    if (reloadError) setForceMsg({ type: 'error', text: 'Visite ajoutée, mais actualisation impossible : ' + reloadError.message })
+    else {
+      setDetailLignes((data as unknown as LigneRow[]) ?? [])
+      setSamediClientId('')
+      setForceMsg({ type: 'success', text: 'Visite ajoutée au samedi de Chadrac.' })
+      await chargerClientsSamedi(detail)
+    }
   }
 
   async function validerJour(programmeId: string, jour: string) {
@@ -440,6 +496,24 @@ export default function ManagementProgrammes() {
           })}
         </div>
       </div>
+
+      {profile?.role === 'admin' && demoSamediChadrac && detailJourActif === 'SAMEDI' && detail.statut === 'BROUILLON' && detailJours.SAMEDI?.statut !== 'VALIDE' && (
+        <Card className="border border-royal-200 bg-royal-50/40">
+          <div className="mb-3">
+            <h2 className="text-sm font-bold text-ink-800">Planifier les visites du samedi — Chadrac</h2>
+            <p className="mt-1 text-xs text-ink-500">Choisis un client actif de son portefeuille (secteur A). Les contrôles de la base restent appliqués lors de l’ajout.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select value={samediClientId} onChange={(e) => setSamediClientId(e.target.value)} onFocus={() => { if (samediClients.length === 0 && !samediLoading) void chargerClientsSamedi(detail) }}
+              className="min-w-0 flex-1 rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm">
+              <option value="">{samediLoading ? 'Chargement du portefeuille…' : 'Sélectionner un client…'}</option>
+              {samediClients.map((client) => <option key={client.id} value={client.id}>{client.nom} · {client.potentiel}</option>)}
+            </select>
+            <Button size="sm" loading={samediSaving} disabled={!samediClientId || samediSaving} onClick={ajouterClientSamedi}>Ajouter la visite</Button>
+          </div>
+          {samediClients.length === 0 && !samediLoading && <p className="mt-2 text-[11px] text-ink-400">Ouvre la liste pour charger les clients disponibles.</p>}
+        </Card>
+      )}
 
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-3">
