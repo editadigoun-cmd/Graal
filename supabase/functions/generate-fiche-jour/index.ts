@@ -91,12 +91,16 @@ Deno.serve(async (req) => {
       .eq('semaine_debut', semaineDebut)
       .maybeSingle()
 
-    const jourSemaine = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI'][
+    const jourSemaine = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI'][
       (new Date(jour + 'T00:00:00Z').getUTCDay() + 6) % 7
     ]
 
     if (!programme) {
       return jsonError("Aucun programme n'a été trouvé pour cette semaine.", 400)
+    }
+
+    if (!jourSemaine) {
+      return jsonError("La fiche journalière est disponible uniquement du lundi au samedi.", 400)
     }
 
     // La validation peut être faite jour par jour : elle prime alors sur le statut global
@@ -119,10 +123,6 @@ Deno.serve(async (req) => {
     if (!programmeValideGlobalement && !jourValide) {
       return jsonError("La fiche est disponible lorsque cette journée du programme a été validée.", 400)
     }
-    if (!jourSemaine) {
-      return jsonError("La fiche journalière est disponible uniquement du lundi au vendredi.", 400)
-    }
-
     const { data: lignesProgramme } = await supabase
       .from('programme_lignes')
       .select('id, jour, type_visite, ordre, clients(nom, centre, categorie, potentiel)')
