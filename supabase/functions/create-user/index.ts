@@ -129,8 +129,8 @@ Deno.serve(async (req) => {
       if (!full_name || !role) {
         return json({ error: 'Email, nom complet et rôle sont obligatoires.' }, 400)
       }
-      if (role === 'vm' && (!secteur || !equipe_id || !zone_id)) {
-        return json({ error: 'Un VM doit avoir un secteur, une équipe et une zone.' }, 400)
+      if (role === 'vm' && (!secteur || !equipe_id)) {
+        return json({ error: 'Un VM doit avoir un secteur et une équipe.' }, 400)
       }
     }
 
