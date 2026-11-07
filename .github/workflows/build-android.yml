@@ -33,6 +33,8 @@ jobs:
         run: cp .env.example .env
 
       - run: npm ci
+      - name: Generate Android launcher icons from the repository's official Provisit artwork
+        run: npx capacitor-assets generate --android
       - run: npm run build
       - run: npx cap sync android
 
