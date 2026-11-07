@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'com.graalmedicalsolutions.app',
+  appId: 'com.provisit.provisit',
   appName: 'Provisit',
   webDir: 'dist',
   android: {
