@@ -5,13 +5,6 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 
-// Confirm the embedded bundle loaded correctly so Capgo never promotes a broken update.
-if (Capacitor.isNativePlatform()) {
-  void CapacitorUpdater.notifyAppReady().catch((error) => {
-    console.warn('[Provisit] Capgo readiness notification failed:', error)
-  })
-}
-
 const hasSupabaseConfig = Boolean(
   import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 )
@@ -37,7 +30,14 @@ function ConfigError() {
 // App and its Supabase client are loaded only after the environment has been checked.
 // This prevents Supabase's module initialization from throwing before React can render
 // the configuration error, which previously resulted in a completely blank page.
-const App = lazy(() => import('./App'))
+const App = lazy(() => import('./App').then((module) => {
+  if (Capacitor.isNativePlatform()) {
+    void CapacitorUpdater.notifyAppReady().catch((error) => {
+      console.warn('[Provisit] Capgo readiness notification failed:', error)
+    })
+  }
+  return module
+}))
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
