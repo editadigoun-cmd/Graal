@@ -564,7 +564,7 @@ export default function ManagementProgrammes() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-bold text-ink-800">{p.profiles?.full_name}</p>
-                    <p className="text-xs text-ink-400">Semaine du {dayjs(p.semaine_debut).format('DD/MM/YYYY')} · soumis le {dayjs(p.soumis_at).format('DD/MM HH:mm')}</p>
+                    <p className="provisit-page-subtitle">Semaine du {dayjs(p.semaine_debut).format('DD/MM/YYYY')} · soumis le {dayjs(p.soumis_at).format('DD/MM HH:mm')}</p>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => ouvrirDetail(p)} className="rounded-full p-2 bg-royal-50 text-royal-600 hover:bg-royal-100 transition"><IconEye className="h-4 w-4" /></button>
