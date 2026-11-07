@@ -392,11 +392,11 @@ export default function ManagementProgrammes() {
   }, {})).sort((a, b) => b[1] - a[1])
 
   if (detail) return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-6">
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="secondary" onClick={() => setDetail(null)}>← Retour aux programmes</Button>
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-ink-800 font-display">Programme hebdomadaire</h1>
+          <h1 className="provisit-page-title">Programme hebdomadaire</h1>
           <p className="text-sm text-ink-500">{detail.profiles?.full_name ?? 'VM/PM'} · Semaine du {dayjs(detail.semaine_debut).format('DD/MM/YYYY')}</p>
         </div>
         <Badge tone={detail.statut === 'VALIDE' || detail.statut === 'VERROUILLE' ? 'success' : detail.statut === 'SOUMIS' ? 'info' : 'warning'}>{detail.statut}</Badge>
@@ -470,7 +470,7 @@ export default function ManagementProgrammes() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-ink-800 font-display">Validation des programmes</h1>
+        <h1 className="provisit-page-title">Validation des programmes</h1>
         <p className="text-sm text-ink-400">Programmes hebdomadaires soumis par les visiteurs médicaux</p>
       </div>
 
