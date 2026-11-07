@@ -134,9 +134,9 @@ export default function ManagementEquipes() {
   const totalSuperviseurs = profilesVisibles.filter((p) => p.role === 'superviseur').length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><h1 className="text-xl font-bold text-ink-800 font-display">Équipes & visiteurs médicaux</h1><p className="text-sm text-ink-400">{isAdmin ? "Gestion des comptes et rattachements d'équipe" : 'Les visiteurs médicaux de vos équipes'}</p></div>
+        <div><h1 className="provisit-page-title">Équipes & visiteurs médicaux</h1><p className="text-sm text-ink-400">{isAdmin ? "Gestion des comptes et rattachements d'équipe" : 'Les visiteurs médicaux de vos équipes'}</p></div>
         {isAdmin && <Button size="sm" icon={<IconPlus className="h-4 w-4" />} onClick={() => setModalOpen(true)}>Ajouter un membre</Button>}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
