@@ -51,18 +51,39 @@ export default function ManagementClients() {
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   async function load() {
-    const [{ data: cl }, { data: pf }, { data: vm }, { data: sup }] = await Promise.all([
+    const pageSize = 1000
+    const [clientsResult, vmResult, supervisorResult] = await Promise.all([
       supabase.from('clients').select('*').order('nom'),
-      supabase.from('portefeuille').select('client_id, vm_id'),
       supabase.from('profiles').select('*').eq('role', 'vm').order('full_name'),
       supabase.from('profiles').select('*').eq('role', 'superviseur').order('full_name')
     ])
-    setClients(cl ?? [])
-    setPortefeuille(pf ?? [])
-    const { data: sp } = await supabase.from('portefeuille_superviseurs').select('client_id, superviseur_id')
+
+    // Supabase/PostgREST limite chaque réponse à 1 000 lignes par défaut.
+    // Charger toutes les pages pour ne pas tronquer les affectations VM.
+    const allAssignments: { client_id: string; vm_id: string }[] = []
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from('portefeuille')
+        .select('client_id, vm_id')
+        .order('client_id')
+        .range(from, from + pageSize - 1)
+      if (error) {
+        console.error('Erreur de chargement du portefeuille clients :', error)
+        break
+      }
+      allAssignments.push(...(data ?? []))
+      if (!data || data.length < pageSize) break
+    }
+
+    setClients(clientsResult.data ?? [])
+    setPortefeuille(allAssignments)
+    const { data: sp, error: supervisorAssignmentsError } = await supabase
+      .from('portefeuille_superviseurs')
+      .select('client_id, superviseur_id')
+    if (supervisorAssignmentsError) console.error('Erreur de chargement des affectations superviseurs :', supervisorAssignmentsError)
     setSuperviseurParClient(Object.fromEntries((sp ?? []).map((p) => [p.client_id, p.superviseur_id])))
-    setVms(vm ?? [])
-    setSuperviseurs(sup ?? [])
+    setVms(vmResult.data ?? [])
+    setSuperviseurs(supervisorResult.data ?? [])
     setLoading(false)
   }
 
