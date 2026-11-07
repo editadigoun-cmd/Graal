@@ -216,10 +216,10 @@ export default function ManagementDashboard() {
   if (loading) return <div className="space-y-4"><Skeleton className="h-24" /><Skeleton className="h-64" /></div>
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-ink-800 font-display">Tableau de bord — {dayjs().format('dddd D MMMM')}</h1>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-royal-600">Vue d’ensemble</p><h1 className="provisit-page-title mt-1">Tableau de bord</h1><p className="mt-1 text-xs font-medium capitalize text-ink-400">{dayjs().format("dddd D MMMM")}</p>
           <p className="text-sm text-ink-400">Suivi en temps réel de l'activité terrain</p>
         </div>
         {equipes.length > 0 && (
@@ -255,7 +255,7 @@ export default function ManagementDashboard() {
       )}
 
       <div className="grid md:grid-cols-2 gap-4">
-        <Card>
+        <Card className="border border-ink-100 bg-white shadow-sm">
           <p className="text-sm font-bold text-ink-800 mb-4">Comparaison par équipe (taux du jour)</p>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
