@@ -117,7 +117,7 @@ export default function WelcomeScreen({ onLogin }: Props) {
                   <div className="absolute -bottom-32 -left-24 h-72 w-72 rounded-full border border-white/10" />
                   <div className="relative flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10"><IconBarChart className="h-4 w-4 text-[#77D7B7]" /></span><div><p className="text-[10px] font-bold tracking-[.16em] text-white/60">PROVISIT</p><p className="text-sm font-bold text-white">Vue de pilotage</p></div></div>
-                    <span className="rounded-full border border-[#77D7B7]/30 bg-[#1FA37A]/15 px-3 py-1.5 text-[9px] font-bold text-[#A8F0D7]">APERÇU</span>
+                    <span className="rounded-full border border-[#77D7B7]/30 bg-[#1FA37A]/15 px-3 py-1.5 text-[9px] font-bold text-[#A8F0D7]">APERÇU ILLUSTRATIF</span>
                   </div>
                   <div className="relative mt-5 grid grid-cols-3 gap-2 sm:mt-7 sm:gap-3">
                     {slide.metric.map((metric) => <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/[.09] p-3 backdrop-blur-sm sm:p-4"><p className="text-[9px] leading-4 text-white/60 sm:text-[10px]">{metric.label}</p><p className="mt-1 text-xl font-extrabold tracking-tight text-white sm:text-2xl">{metric.value}</p><p className="mt-1 text-[9px] font-semibold text-[#A8F0D7]">{metric.trend}</p></div>)}
