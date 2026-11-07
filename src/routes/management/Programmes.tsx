@@ -164,6 +164,21 @@ export default function ManagementProgrammes() {
     else { setForceMsg({ type: 'success', text: 'Délai supplémentaire accordé.' }); load() }
   }
 
+  async function retirerDelai(programmeId: string) {
+    if (!window.confirm('Retirer immédiatement le délai supplémentaire de ce programme ?')) return
+    setBusy(programmeId)
+    setForceMsg(null)
+    const { error } = await supabase.rpc('retirer_delai_supplementaire_programme', {
+      p_programme_id: programmeId
+    })
+    setBusy(null)
+    if (error) setForceMsg({ type: 'error', text: error.message })
+    else {
+      setForceMsg({ type: 'success', text: 'Délai supplémentaire retiré.' })
+      await load()
+    }
+  }
+
   async function ouvrirDetail(p: ProgrammeRow) {
     setDetail(p)
     setDetailJourActif(JOURS[0])
@@ -597,9 +612,14 @@ export default function ManagementProgrammes() {
                 </div>
                 {profile?.role === 'admin' && (
                   delaiActif(b) ? (
-                    <p className="mt-3 text-xs font-semibold text-emerald-700 border-t border-flame-200 pt-3">
-                      Délai supplémentaire accordé jusqu'au {dayjs(b.delai_supplementaire_jusqu_a).format('DD/MM/YYYY HH:mm')} — le VM peut encore soumettre lui-même.
-                    </p>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-flame-200 pt-3">
+                      <p className="text-xs font-semibold text-emerald-700">
+                        Délai supplémentaire accordé jusqu'au {dayjs(b.delai_supplementaire_jusqu_a).format('DD/MM/YYYY HH:mm')} — le VM peut encore soumettre lui-même.
+                      </p>
+                      <Button size="sm" variant="danger" loading={busy === b.id} onClick={() => retirerDelai(b.id)}>
+                        Retirer le délai
+                      </Button>
+                    </div>
                   ) : (
                     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-flame-200 pt-3">
                       <label className="text-xs text-ink-500">Ou donner un délai supplémentaire jusqu'au :</label>
