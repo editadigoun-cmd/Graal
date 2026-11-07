@@ -4,7 +4,7 @@ import {
   IconUsers, IconBarChart, IconCheckCircle, IconMapPin, IconCalendar,
   IconChevronRight, IconChevronLeft, IconTrendingUp, IconClipboard, IconLock
 } from '@/components/ui/icons'
-const logoMark = '/provisit-icon.svg'
+import logoBrand from '@/assets/provisit-brand.svg'
 
 type Props = { onLogin: () => void }
 
@@ -65,7 +65,7 @@ export default function WelcomeScreen({ onLogin }: Props) {
       <div className="pointer-events-none absolute -right-36 top-1/3 h-[28rem] w-[28rem] rounded-full bg-[#163E63]/10 blur-3xl" />
       <div className="relative mx-auto flex min-h-[100svh] w-full max-w-7xl flex-col px-5 pb-6 pt-5 sm:px-8 lg:px-12">
         <header className="flex items-center justify-between">
-          <div className="flex items-center gap-3"><img src={logoMark} alt="" className="h-12 w-12 rounded-xl object-contain" /><span className="text-2xl font-black tracking-tight text-[#163E63]">PROVISIT</span></div>
+          <img src={logoBrand} alt="PROVISIT" className="h-12 w-auto max-w-[240px] object-contain" />
           <div className="hidden items-center gap-2 rounded-full border border-[#163E63]/10 bg-white/80 px-4 py-2 text-xs font-bold tracking-wide text-[#163E63] shadow-sm sm:flex">
             <span className="h-2 w-2 rounded-full bg-[#1FA37A]" />
             PLATEFORME DE PILOTAGE
