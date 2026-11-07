@@ -96,6 +96,7 @@ export default function Planning() {
   const [seuils, setSeuils] = useState<Seuils>(SEUILS_DEFAUT)
   const [objectifsSpecialites, setObjectifsSpecialites] = useState<{ cible: string; libelle: string; quota: number; ordre: number }[]>([])
   const [heureLimiteSoumission, setHeureLimiteSoumission] = useState('14:00')
+  const [jourLimiteSoumission, setJourLimiteSoumission] = useState('SAMEDI')
   const [jourStatuts, setJourStatuts] = useState<Record<string, { statut: string; date_limite: string | null; soumis_at?: string | null }>>({})
   const [, forceTick] = useState(0)
 
@@ -104,7 +105,7 @@ export default function Planning() {
   // L'échéance de soumission hebdomadaire est indépendante des échéances de clôture
   // des journées : chaque VM doit pouvoir soumettre jusqu'au samedi à 14 h (Bénin).
   // Seul un délai supplémentaire explicitement accordé par l'administration peut la prolonger.
-  const deadline = deadlineSoumission(semaineDebut, programme?.delai_supplementaire_jusqu_a, heureLimiteSoumission)
+  const deadline = deadlineSoumission(semaineDebut, programme?.delai_supplementaire_jusqu_a, heureLimiteSoumission, jourLimiteSoumission)
   const countdown = formatCountdown(deadline)
 
   useEffect(() => {
@@ -116,7 +117,7 @@ export default function Planning() {
     supabase.from('parametres').select('key, value')
       .in('key', [
         'visites_minimum_medical_jour', 'visites_minimum_pharmacie_jour', 'seuil_faible_jeudi_pourcentage_max',
-        'nb_max_moyen_lun_mar_mer_jour', 'poids_visite_moyen_reduit_pourcentage', 'max_visites_jour', 'max_gros_jeudi', 'max_gros_vendredi', 'max_faible_jeudi', 'max_faible_vendredi', 'heure_limite_soumission_programme'
+        'nb_max_moyen_lun_mar_mer_jour', 'poids_visite_moyen_reduit_pourcentage', 'max_visites_jour', 'max_gros_jeudi', 'max_gros_vendredi', 'max_faible_jeudi', 'max_faible_vendredi', 'heure_limite_soumission_programme', 'jour_limite_soumission_programme'
       ])
       .then(({ data }) => {
         if (!data) return
@@ -134,6 +135,8 @@ export default function Planning() {
           maxFaibleJeudi: valeur('max_faible_jeudi', SEUILS_DEFAUT.maxFaibleJeudi),
           maxFaibleVendredi: valeur('max_faible_vendredi', SEUILS_DEFAUT.maxFaibleVendredi)
         })
+        const jour = data.find((p) => p.key === 'jour_limite_soumission_programme')?.value
+        if (typeof jour === 'string' && ['LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI','SAMEDI','DIMANCHE'].includes(jour)) setJourLimiteSoumission(jour)
         const heure = data.find((p) => p.key === 'heure_limite_soumission_programme')?.value
         if (typeof heure === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(heure)) setHeureLimiteSoumission(heure)
       })
