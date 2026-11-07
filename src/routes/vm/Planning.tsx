@@ -117,7 +117,18 @@ export default function Planning() {
         if (actif) setObjectifsSpecialites([])
         return
       }
-      const { data, error: quotaError } = await supabase
+      const { data: individu, error: individuelError } = await supabase
+        .from('vm_quotas_cibles')
+        .select('cible, libelle, quota_hebdomadaire, ordre')
+        .eq('vm_id', programme!.vm_id)
+        .order('ordre')
+      if (!actif) return
+      if (individuelError) {
+        setError(individuelError.message)
+        setObjectifsSpecialites([])
+        return
+      }
+      const { data: equipe, error: quotaError } = await supabase
         .from('quotas_cibles')
         .select('cible, libelle, quota_hebdomadaire, ordre')
         .eq('equipe_id', vm.equipe_id)
@@ -128,7 +139,8 @@ export default function Planning() {
         setObjectifsSpecialites([])
         return
       }
-      setObjectifsSpecialites((data ?? []).map((q) => ({
+      const objectifs = individu?.length ? individu : (equipe ?? [])
+      setObjectifsSpecialites(objectifs.map((q) => ({
         cible: q.cible,
         libelle: q.libelle,
         quota: q.quota_hebdomadaire,
