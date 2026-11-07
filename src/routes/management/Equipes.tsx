@@ -134,9 +134,9 @@ export default function ManagementEquipes() {
   const totalSuperviseurs = profilesVisibles.filter((p) => p.role === 'superviseur').length
 
   return (
-    <div className="space-y-5 pb-6">
+    <div className="space-y-6 pb-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><h1 className="provisit-page-title">Équipes & visiteurs médicaux</h1><p className="text-sm text-ink-400">{isAdmin ? "Gestion des comptes et rattachements d'équipe" : 'Les visiteurs médicaux de vos équipes'}</p></div>
+        <div><p className="text-[11px] font-bold uppercase tracking-[0.16em] text-royal-600">Organisation</p><h1 className="provisit-page-title mt-1">Équipes & visiteurs médicaux</h1><p className="text-sm text-ink-400">{isAdmin ? "Gestion des comptes et rattachements d'équipe" : 'Les visiteurs médicaux de vos équipes'}</p></div>
         {isAdmin && <Button size="sm" icon={<IconPlus className="h-4 w-4" />} onClick={() => setModalOpen(true)}>Ajouter un membre</Button>}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -144,14 +144,14 @@ export default function ManagementEquipes() {
         <StatCard label="Visiteurs médicaux" value={totalVm} tone="emerald" icon={<IconUsers className="h-4 w-4" />} />
         {isAdmin && <StatCard label="Superviseurs" value={totalSuperviseurs} tone="flame" icon={<IconCheckCircle className="h-4 w-4" />} />}
       </div>
-      <Card className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <Card className="flex flex-col gap-3 border border-ink-100 bg-white/95 shadow-sm sm:flex-row sm:items-center">
         <div className="relative flex-1"><IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un nom ou un email…" className="w-full rounded-xl border border-ink-200 pl-10 pr-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100" /></div>
         <select value={equipeFilter} onChange={(e) => setEquipeFilter(e.target.value)} className="rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm"><option value="">{isAdmin ? 'Toutes les équipes' : 'Mes équipes'}</option>{isAdmin && <option value="__none__">Sans équipe</option>}{equipesVisibles.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}</select>
         {isAdmin && <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | '')} className="rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm"><option value="">Tous les rôles</option>{(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select>}
       </Card>
       {notice && <p className={`text-xs rounded-xl px-3.5 py-2.5 ${notice.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{notice.text}</p>}
 
-      <Card className="p-0 overflow-hidden">
+      <Card className="overflow-hidden border border-ink-100 bg-white p-0 shadow-sm">
         <div className="hidden lg:block overflow-x-auto">
           <table className="w-full text-sm"><thead><tr className="border-b border-ink-100 bg-ink-50/60 text-xs text-ink-500"><th className="px-4 py-3 text-left">Utilisateur</th><th className="px-4 py-3 text-left">Rôle</th><th className="px-4 py-3 text-left">Équipe</th><th className="px-4 py-3 text-left">Secteur</th><th className="px-4 py-3 text-left">Statut</th><th className="px-4 py-3 text-right">Actions</th></tr></thead><tbody className="divide-y divide-ink-100">
             {filtered.map((p) => <tr key={p.id}><td className="px-4 py-3"><UserCell p={p} isAdmin={isAdmin} editingEmailId={editingEmailId} editEmailValue={editEmailValue} setEditingEmailId={setEditingEmailId} setEditEmailValue={setEditEmailValue} modifierEmail={modifierEmail} rowBusy={rowBusy} /></td><td className="px-4 py-3"><Badge tone={ROLE_TONE[p.role]}>{ROLE_LABEL[p.role]}</Badge></td><td className="px-4 py-3">{p.role === 'vm' ? (isAdmin ? <select value={p.equipe_id ?? ''} onChange={(e) => changerEquipe(p.id, e.target.value)} className="rounded-lg border border-ink-200 px-2 py-1 text-xs"><option value="">Sans équipe</option>{equipes.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}</select> : <span className="text-xs">{p.equipe_id ? equipeNomById[p.equipe_id] ?? '—' : '—'}</span>) : <SupervisorTeams p={p} isAdmin={isAdmin} equipes={equipes} superviseurEquipes={superviseurEquipes} equipeNomById={equipeNomById} assignerEquipe={assignerEquipe} retirerEquipe={retirerEquipe} />}</td><td className="px-4 py-3">{p.role === 'vm' ? (isAdmin ? <select value={p.secteur ?? ''} onChange={(e) => changerSecteur(p.id, e.target.value)} className="rounded-lg border border-ink-200 px-2 py-1 text-xs"><option value="A">Secteur A</option><option value="B">Secteur B</option></select> : `Secteur ${p.secteur ?? '—'}`) : '—'}</td><td className="px-4 py-3"><Badge tone={p.actif ? 'success' : 'neutral'}>{p.actif ? 'Actif' : 'Inactif'}</Badge></td><td className="px-4 py-3 text-right">{isAdmin && <Actions p={p} busy={rowBusy === p.id} isSelf={p.id === session?.user.id} renvoyerInvitation={renvoyerInvitation} toggleActif={toggleActif} supprimerDefinitivement={supprimerDefinitivement} />}</td></tr>)}
