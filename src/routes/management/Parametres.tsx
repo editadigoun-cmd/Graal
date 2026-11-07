@@ -91,32 +91,64 @@ function CiblesPonderationsPanel() {
   const [equipeId, setEquipeId] = useState('')
   const [quotas, setQuotas] = useState<QuotaCible[]>([])
   const [poids, setPoids] = useState<PoidsSpecialite[]>([])
+  const [vms, setVms] = useState<{ id: string; full_name: string; equipe_id: string | null }[]>([])
+  const [vmId, setVmId] = useState('')
+  const [vmQuotas, setVmQuotas] = useState<{ cible: string; libelle: string; quota_hebdomadaire: number; ordre: number }[]>([])
+  const [vmPoids, setVmPoids] = useState<{ specialite: Specialite; poids: number }[]>([])
+  const [hasVmOverride, setHasVmOverride] = useState(false)
   const [loading, setLoading] = useState(true)
   const [savingQuotas, setSavingQuotas] = useState(false)
   const [savingPoids, setSavingPoids] = useState(false)
+  const [savingVm, setSavingVm] = useState(false)
   const [savedQuotas, setSavedQuotas] = useState(false)
   const [savedPoids, setSavedPoids] = useState(false)
+  const [savedVm, setSavedVm] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    void supabase.from('equipes').select('*').order('nom').then(({ data }) => {
-      setEquipes(data ?? [])
-      if (data?.length) setEquipeId(data[0].id)
+    void Promise.all([
+      supabase.from('equipes').select('*').order('nom'),
+      supabase.from('profiles').select('id, full_name, equipe_id').eq('role', 'vm').eq('actif', true).order('full_name')
+    ]).then(([e, v]) => {
+      setEquipes(e.data ?? [])
+      setVms(v.data ?? [])
+      if (e.data?.length) setEquipeId(e.data[0].id)
+      setLoading(false)
     })
   }, [])
 
   useEffect(() => {
     if (!equipeId) return
-    setLoading(true)
     void Promise.all([
       supabase.from('quotas_cibles').select('*').eq('equipe_id', equipeId).order('ordre'),
       supabase.from('poids_specialite_visite').select('*').eq('equipe_id', equipeId)
     ]).then(([q, p]) => {
       setQuotas(q.data ?? [])
       setPoids((p.data ?? []).sort((a, b) => SPECIALITE_LABEL[a.specialite].localeCompare(SPECIALITE_LABEL[b.specialite])))
-      setLoading(false)
     })
   }, [equipeId])
+
+  useEffect(() => {
+    if (!vmId) { setVmQuotas([]); setVmPoids([]); setHasVmOverride(false); return }
+    let alive = true
+    async function charger() {
+      const vm = vms.find(x => x.id === vmId)
+      const [q, p] = await Promise.all([
+        supabase.from('vm_quotas_cibles').select('*').eq('vm_id', vmId).order('ordre'),
+        supabase.from('vm_poids_specialite_visite').select('*').eq('vm_id', vmId)
+      ])
+      if (!alive) return
+      const overrides = (q.data?.length ?? 0) > 0 || (p.data?.length ?? 0) > 0
+      setHasVmOverride(overrides)
+      const teamQ = quotas.length ? quotas : []
+      const teamP = poids.length ? poids : []
+      setVmQuotas(q.data?.length ? q.data : teamQ.map(x => ({ cible: x.cible, libelle: x.libelle, quota_hebdomadaire: x.quota_hebdomadaire, ordre: x.ordre })))
+      setVmPoids(p.data?.length ? p.data : teamP.map(x => ({ specialite: x.specialite, poids: x.poids })))
+      if (vm?.equipe_id && vm.equipe_id !== equipeId) setError('Le VM sélectionné appartient à une autre équipe. Sélectionnez son équipe pour afficher ses valeurs héritées.')
+    }
+    void charger()
+    return () => { alive = false }
+  }, [vmId, quotas, poids, vms, equipeId])
 
   async function sauvegarderQuotas() {
     setSavingQuotas(true); setError(null)
@@ -136,6 +168,40 @@ function CiblesPonderationsPanel() {
     setSavedPoids(true); setTimeout(() => setSavedPoids(false), 2000)
   }
 
+  async function sauvegarderVm() {
+    if (!vmId) return
+    setSavingVm(true); setError(null)
+    const [delQ, delP] = await Promise.all([
+      supabase.from('vm_quotas_cibles').delete().eq('vm_id', vmId),
+      supabase.from('vm_poids_specialite_visite').delete().eq('vm_id', vmId)
+    ])
+    if (delQ.error || delP.error) { setSavingVm(false); setError(delQ.error?.message ?? delP.error?.message ?? 'Erreur de suppression'); return }
+    const [q, p] = await Promise.all([
+      supabase.from('vm_quotas_cibles').insert(vmQuotas.map(x => ({ ...x, vm_id: vmId }))),
+      supabase.from('vm_poids_specialite_visite').insert(vmPoids.map(x => ({ ...x, vm_id: vmId })))
+    ])
+    setSavingVm(false)
+    if (q.error || p.error) { setError(q.error?.message ?? p.error?.message ?? 'Enregistrement impossible'); return }
+    setHasVmOverride(true); setSavedVm(true); setTimeout(() => setSavedVm(false), 2000)
+  }
+
+  async function reinitialiserVm() {
+    if (!vmId) return
+    setSavingVm(true); setError(null)
+    const [q, p] = await Promise.all([
+      supabase.from('vm_quotas_cibles').delete().eq('vm_id', vmId),
+      supabase.from('vm_poids_specialite_visite').delete().eq('vm_id', vmId)
+    ])
+    setSavingVm(false)
+    if (q.error || p.error) { setError(q.error?.message ?? p.error?.message ?? 'Réinitialisation impossible'); return }
+    setHasVmOverride(false)
+    const vm = vms.find(x => x.id === vmId)
+    const teamQ = quotas
+    const teamP = poids
+    setVmQuotas(vm?.equipe_id === equipeId ? teamQ.map(x => ({ cible: x.cible, libelle: x.libelle, quota_hebdomadaire: x.quota_hebdomadaire, ordre: x.ordre })) : [])
+    setVmPoids(vm?.equipe_id === equipeId ? teamP.map(x => ({ specialite: x.specialite, poids: x.poids })) : [])
+  }
+
   if (loading) return <Skeleton className="h-48" />
 
   return (
@@ -147,20 +213,43 @@ function CiblesPonderationsPanel() {
         </select>
       </div>
       <Card>
-        <p className="text-sm font-bold text-ink-800">Cibles hebdomadaires</p>
-        <p className="mb-4 text-xs text-ink-400">Nombre de visites attendu par semaine pour chaque cible.</p>
+        <p className="text-sm font-bold text-ink-800">Cibles hebdomadaires de l’équipe</p>
+        <p className="mb-4 text-xs text-ink-400">Valeurs par défaut pour tous les VM sans configuration individuelle.</p>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {quotas.map(q => <div key={q.cible}><label className="mb-1.5 block text-xs font-semibold text-ink-500">{q.libelle}</label><input type="number" min={0} value={q.quota_hebdomadaire} onChange={e => setQuotas(qs => qs.map(x => x.cible === q.cible ? { ...x, quota_hebdomadaire: Number(e.target.value) } : x))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm" /></div>)}
         </div>
         <div className="mt-5 border-t border-ink-100 pt-4"><Button size="sm" loading={savingQuotas} variant={savedQuotas ? 'success' : 'secondary'} icon={<IconCheck className="h-4 w-4" />} onClick={sauvegarderQuotas}>{savedQuotas ? 'Enregistré' : 'Enregistrer les cibles'}</Button></div>
       </Card>
       <Card>
-        <p className="text-sm font-bold text-ink-800">Pondération par spécialité</p>
-        <p className="mb-4 text-xs text-ink-400">Poids de chaque spécialité dans le score de couverture hebdomadaire pondéré.</p>
+        <p className="text-sm font-bold text-ink-800">Pondérations par spécialité de l’équipe</p>
+        <p className="mb-4 text-xs text-ink-400">Poids par défaut utilisé dans le calcul de couverture pondérée.</p>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {poids.map(p => <div key={p.specialite}><label className="mb-1.5 block text-xs font-semibold text-ink-500">{SPECIALITE_LABEL[p.specialite]}</label><input type="number" min={0} step={0.5} value={p.poids} onChange={e => setPoids(ps => ps.map(x => x.specialite === p.specialite ? { ...x, poids: Number(e.target.value) } : x))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm" /></div>)}
         </div>
         <div className="mt-5 border-t border-ink-100 pt-4"><Button size="sm" loading={savingPoids} variant={savedPoids ? 'success' : 'secondary'} icon={<IconCheck className="h-4 w-4" />} onClick={sauvegarderPoids}>{savedPoids ? 'Enregistré' : 'Enregistrer les pondérations'}</Button></div>
+      </Card>
+      <Card>
+        <p className="text-sm font-bold text-ink-800">Configuration individuelle d’un VM</p>
+        <p className="mb-3 text-xs text-ink-400">Une configuration individuelle remplace les valeurs de l’équipe uniquement pour le VM sélectionné.</p>
+        <select value={vmId} onChange={e => setVmId(e.target.value)} className="mb-4 w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm">
+          <option value="">Sélectionner un VM…</option>
+          {vms.filter(v => v.equipe_id === equipeId).map(v => <option key={v.id} value={v.id}>{v.full_name}</option>)}
+        </select>
+        {vmId && <>
+          <p className="mb-3 text-xs font-semibold text-royal-700">{hasVmOverride ? 'Configuration individuelle active' : 'Héritage des valeurs de l’équipe'}</p>
+          <p className="mb-2 text-xs font-bold text-ink-600">Cibles hebdomadaires</p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {vmQuotas.map(q => <label key={q.cible} className="text-xs font-semibold text-ink-500">{q.libelle}<input type="number" min={0} value={q.quota_hebdomadaire} onChange={e => setVmQuotas(xs => xs.map(x => x.cible === q.cible ? { ...x, quota_hebdomadaire: Number(e.target.value) } : x))} className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm" /></label>)}
+          </div>
+          <p className="mb-2 mt-5 text-xs font-bold text-ink-600">Pondérations par spécialité</p>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {vmPoids.map(p => <label key={p.specialite} className="text-xs font-semibold text-ink-500">{SPECIALITE_LABEL[p.specialite]}<input type="number" min={0} step={0.5} value={p.poids} onChange={e => setVmPoids(xs => xs.map(x => x.specialite === p.specialite ? { ...x, poids: Number(e.target.value) } : x))} className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm" /></label>)}
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2 border-t border-ink-100 pt-4">
+            <Button size="sm" loading={savingVm} variant={savedVm ? 'success' : 'secondary'} onClick={sauvegarderVm}>{savedVm ? 'Enregistré' : 'Enregistrer la configuration du VM'}</Button>
+            <Button size="sm" variant="ghost" onClick={reinitialiserVm} disabled={savingVm || !hasVmOverride}>Rétablir les valeurs de l’équipe</Button>
+          </div>
+        </>}
       </Card>
       {error && <p className="text-xs font-semibold text-red-600">{error}</p>}
     </div>
