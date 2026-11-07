@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Avatar } from './Avatar'
 import { IconBell } from './icons'
 import { nowBenin } from '@/lib/time'
+import logoBrand from '@/assets/provisit-brand.svg'
 
 interface TopBarProps {
   name: string
@@ -16,7 +17,8 @@ export function TopBar({ name, avatarUrl, notificationsCount = 0 }: TopBarProps)
 
   return (
     <div className="mb-4 flex items-center justify-between rounded-2xl border border-[#163E63]/[.07] bg-white/85 px-3 py-3 shadow-[0_8px_24px_rgba(22,62,99,.045)] backdrop-blur-xl sm:px-4">
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <img src={logoBrand} alt="PROVISIT" className="h-8 w-auto max-w-[104px] object-contain sm:max-w-[120px]" />
         <Link to="/app/profil"><Avatar name={name} url={avatarUrl} /></Link>
         <div>
           <p className="text-sm font-extrabold text-[#163E63]">{greeting}, {firstName}</p>
