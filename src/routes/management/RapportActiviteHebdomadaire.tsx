@@ -55,7 +55,7 @@ export default function RapportActiviteHebdomadaire() {
     if (!error) { setFormOpen(false); load() }
   }
 
-  return <div className="space-y-6">
+  return <div className="space-y-5 pb-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="text-xl font-extrabold text-ink-800 font-display">Rapport d'activité hebdomadaire</h1><p className="text-sm text-ink-400">Statistiques et liste. Le formulaire s'ouvre uniquement à la création ou modification.</p></div>
       <Button size="sm" icon={<IconPlus className="h-4 w-4"/>} onClick={nouveau}>Nouveau rapport</Button>
