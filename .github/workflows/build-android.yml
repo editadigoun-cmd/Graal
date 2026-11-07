@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'vite.config.ts'
       - 'android/**'
       - 'assets/**'
       - 'capacitor.config.ts'
