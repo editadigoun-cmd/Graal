@@ -9,8 +9,8 @@ import {
   IconUser, IconClipboard, IconMapPin, IconPill, IconTrendingUp, IconBarChart,
   IconMenu, IconX, IconChevronRight, IconGift
 } from '@/components/ui/icons'
-import logoFull from '@/assets/logo-full.png'
-import logoMark from '@/assets/logo-mark.png'
+import logoFull from '@/assets/provisit-brand.svg'
+import logoMark from '@/assets/provisit-mark.svg'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 
 type NavItem = {
