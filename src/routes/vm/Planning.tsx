@@ -661,10 +661,14 @@ export default function Planning() {
                         </span>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-ink-800 truncate">{c.nom}</p>
-                          <p className="text-[11px] text-ink-400 truncate">
-                            {SPECIALITE_LABEL[c.specialite] ?? c.specialite.replaceAll('_', ' ')}
-                            {c.centre ? ` · ${c.centre}` : ''}
+                          <p className="text-[11px] font-medium text-royal-600 truncate">
+                            {c.specialite
+                              ? `Spécialité : ${SPECIALITE_LABEL[c.specialite] ?? c.specialite.replaceAll('_', ' ')}`
+                              : 'Spécialité non renseignée'}
                           </p>
+                          {c.centre && (
+                            <p className="text-[10px] text-ink-400 truncate">{c.centre}</p>
+                          )}
                           {bloque && (
                             <p className="text-[10px] text-flame-600 truncate">
                               {bloqueQuota
