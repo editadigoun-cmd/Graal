@@ -26,10 +26,10 @@ export default function Notifications() {
   }, [])
 
   return (
-    <div className="space-y-3 mt-2 pb-4">
+    <div className="space-y-5 mt-2 pb-6">
       <div className="flex items-center gap-2">
         <Link to="/app" className="rounded-full p-1.5 hover:bg-ink-100"><IconChevronLeft className="h-5 w-5" /></Link>
-        <h1 className="text-lg font-bold text-ink-800 font-display">Notifications</h1>
+        <h1 className="provisit-page-title">Notifications</h1>
       </div>
 
       {!loading && notifs.length === 0 && (
