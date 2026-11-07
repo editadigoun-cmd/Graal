@@ -16,9 +16,37 @@ type Specialite = Database['public']['Enums']['specialite_client']
 type Potentiel = Database['public']['Enums']['potentiel_client']
 
 const SPECIALITE_LABEL: Record<Specialite, string> = {
-  GENERALISTE: 'Généraliste', GYNECOLOGUE: 'Gynécologue', PEDIATRE: 'Pédiatre', CARDIOLOGUE: 'Cardiologue',
-  RHUMATOLOGUE: 'Rhumatologue', ORL: 'ORL', AUTRE_SPECIALITE: 'Autre spécialité',
-  MATERNITE: 'Maternité', DISPENSAIRE: 'Dispensaire', PHARMACIE: 'Pharmacie'
+  "GENERALISTE": "Médecin généraliste",
+  "GYNECOLOGUE": "Gynécologue",
+  "PEDIATRE": "Pédiatre",
+  "CARDIOLOGUE": "Cardiologue",
+  "RHUMATOLOGUE": "Rhumatologue",
+  "ORL": "ORL",
+  "AUTRE_SPECIALITE": "Autre spécialité",
+  "MATERNITE": "Maternité",
+  "DISPENSAIRE": "Dispensaire",
+  "PHARMACIE": "Pharmacie",
+  "IDE": "Infirmier(ère)",
+  "ANESTHESISTE": "Anesthésiste",
+  "CHIRURGIEN": "Chirurgien",
+  "CHIRURGIEN_PEDIATRIQUE": "Chirurgien pédiatrique",
+  "DERMATOLOGUE": "Dermatologue",
+  "DIABETOLOGUE": "Diabétologue",
+  "ENDOCRINOLOGUE": "Endocrinologue",
+  "GASTROENTEROLOGUE": "Gastro-entérologue",
+  "SAGE_FEMME": "Sage-femme",
+  "NEPHROLOGUE": "Néphrologue",
+  "NEUROLOGUE": "Neurologue",
+  "NEUROCHIRURGIEN": "Neurochirurgien",
+  "NUTRITIONNISTE": "Nutritionniste",
+  "ONCOLOGUE": "Oncologue",
+  "PNEUMOLOGUE": "Pneumologue",
+  "REANIMATEUR": "Réanimateur",
+  "TRAUMATOLOGUE": "Traumatologue",
+  "URGENTISTE": "Urgentiste",
+  "UROLOGUE": "Urologue",
+  "INTERNISTE": "Médecin interniste",
+  "PSYCHOLOGUE": "Psychologue"
 }
 
 const EMPTY_FORM = {
