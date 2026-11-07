@@ -358,7 +358,7 @@ export default function Login() {
           </div>
 
           <p className="mt-6 text-center lg:text-left text-[11px] text-ink-400">
-            Document confidentiel — usage réservé aux collaborateurs PROVISIT MEDICAL SOLUTIONS
+            Accès réservé aux collaborateurs et partenaires autorisés
           </p>
         </motion.div>
       </div>
