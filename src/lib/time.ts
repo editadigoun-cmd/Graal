@@ -23,10 +23,11 @@ export function isoWeekMonday(d = nowBenin()) {
   return d.tz(BENIN_TZ).startOf('isoWeek')
 }
 
-/** Échéance standard du samedi à 14h (Bénin), prolongée si un délai individuel est accordé. */
-export function deadlineSoumission(semaineDebut: string, delaiSupplementaireJusquA?: string | null, heureLimite = '14:00') {
+/** Échéance standard configurable (jour et heure, Bénin), prolongée si un délai individuel est accordé. */
+export function deadlineSoumission(semaineDebut: string, delaiSupplementaireJusquA?: string | null, heureLimite = '14:00', jourLimite = 'SAMEDI') {
   const [heure, minute] = heureLimite.split(':').map(Number)
-  const standard = dayjs.tz(semaineDebut, BENIN_TZ).subtract(2, 'day').hour(heure).minute(minute).second(0).millisecond(0)
+  const offsets: Record<string, number> = { LUNDI: 0, MARDI: 1, MERCREDI: 2, JEUDI: 3, VENDREDI: 4, SAMEDI: 5, DIMANCHE: 6 }
+  const standard = dayjs.tz(semaineDebut, BENIN_TZ).add(offsets[jourLimite] ?? 5, 'day').hour(heure).minute(minute).second(0).millisecond(0)
   if (!delaiSupplementaireJusquA) return standard
 
   const supplement = dayjs(delaiSupplementaireJusquA).tz(BENIN_TZ)
