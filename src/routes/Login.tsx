@@ -5,8 +5,8 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { IconStethoscope, IconTrendingUp, IconCheckCircle } from '@/components/ui/icons'
-import logoFull from '@/assets/provisit-brand.svg'
-import logoMark from '@/assets/provisit-mark.svg'
+import logoFull from '@/assets/logo-mark.png'
+import logoMark from '@/assets/logo-mark.png'
 import WelcomeScreen from '@/routes/WelcomeScreen'
 import { isBiometricAvailable, hasBiometricEnrolled, unlockWithBiometric } from '@/lib/biometric'
 
@@ -163,7 +163,7 @@ export default function Login() {
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="relative flex items-center gap-3"
         >
-          <img src={logoMark} alt="" className="h-10 w-10" />
+          <img src={logoMark} alt="" className="h-10 w-10 rounded-lg" />
           <div>
             <p className="text-sm font-extrabold tracking-wide text-white font-display leading-none">PROVISIT</p>
             <p className="text-[10px] font-semibold tracking-wide text-white/60">L’EXCELLENCE AU CŒUR DE CHAQUE VISITE</p>
@@ -213,7 +213,7 @@ export default function Login() {
           className="relative mx-auto w-full max-w-sm"
         >
           <div className="flex justify-center mb-8 lg:hidden">
-            <img src={logoFull} alt="PROVISIT Medical Solutions" className="h-24 w-auto drop-shadow-sm" />
+            <div className="flex items-center gap-3"><img src={logoFull} alt="" className="h-16 w-16 rounded-xl" /><span className="text-2xl font-black tracking-tight text-[#163E63]">PROVISIT</span></div>
           </div>
 
           <div className="glass-panel rounded-xl4 p-7 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
