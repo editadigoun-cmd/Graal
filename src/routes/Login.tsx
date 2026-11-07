@@ -148,11 +148,11 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-screen lg:grid lg:grid-cols-2">
-      <div className="relative hidden overflow-hidden bg-ink-900 lg:flex lg:flex-col lg:justify-between lg:p-14">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-royal-900 via-ink-900 to-ink-900" />
-        <div className="pointer-events-none absolute -top-32 -left-20 h-96 w-96 rounded-full bg-royal-500/25 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-40 -right-24 h-[28rem] w-[28rem] rounded-full bg-emerald-500/15 blur-3xl" />
+    <div className="relative min-h-[100svh] bg-[#F7FAFC] lg:grid lg:grid-cols-2">
+      <div className="relative hidden overflow-hidden bg-[#102F4B] lg:flex lg:flex-col lg:justify-between lg:p-14">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#163E63] via-[#123653] to-[#0B263D]" />
+        <div className="pointer-events-none absolute -top-32 -left-20 h-96 w-96 rounded-full bg-[#1FA37A]/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-40 -right-24 h-[28rem] w-[28rem] rounded-full bg-[#F28C28]/15 blur-3xl" />
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.05]"
           style={{ backgroundImage: `url(${logoMark})`, backgroundRepeat: 'repeat', backgroundSize: '140px' }}
@@ -202,7 +202,7 @@ export default function Login() {
         </p>
       </div>
 
-      <div className="graal-surface relative flex min-h-screen flex-col justify-center overflow-hidden px-6 py-10 lg:px-16">
+      <div className="graal-surface relative flex min-h-[100svh] flex-col justify-center overflow-hidden px-6 py-10 lg:px-16">
         <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-royal-500/10 blur-3xl lg:hidden" />
         <div className="pointer-events-none absolute -bottom-32 -right-16 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl lg:hidden" />
 
@@ -216,7 +216,7 @@ export default function Login() {
             <div className="flex items-center gap-3"><img src={logoFull} alt="" className="h-16 w-16 rounded-xl" /><span className="text-2xl font-black tracking-tight text-[#163E63]">PROVISIT</span></div>
           </div>
 
-          <div className="glass-panel rounded-xl4 p-7 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
+          <div className="glass-panel rounded-[1.75rem] border border-white/80 bg-white/90 p-6 shadow-[0_18px_55px_rgba(22,62,99,.09)] backdrop-blur-xl sm:p-8 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none">
             {firstLoginOpen ? (
               <>
                 <h1 className="text-lg font-bold text-ink-800 text-center lg:text-left font-display">Première connexion</h1>
@@ -230,7 +230,7 @@ export default function Login() {
                       <label className="text-xs font-semibold text-ink-500 mb-1.5 block">E-mail du compte PROVISIT</label>
                       <input type="email" required autoComplete="email" value={firstLoginEmail}
                         onChange={(e) => setFirstLoginEmail(e.target.value)} placeholder="prenom.nom@provisit.app"
-                        className="w-full rounded-2xl border border-ink-200 bg-white/80 px-4 py-3 text-[15px] outline-none transition focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
+                        className="w-full rounded-xl border border-ink-200 bg-white px-4 py-3.5 text-[15px] outline-none transition focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
                     </div>
                     <Button type="submit" fullWidth loading={firstLoginLoading}>Recevoir le code par e-mail</Button>
                   </form>
@@ -282,7 +282,7 @@ export default function Login() {
               </>
             ) : (
               <>
-            <h1 className="text-lg font-bold text-ink-800 text-center lg:text-left font-display">Connexion</h1>
+            <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1FA37A]">Espace sécurisé</p><h1 className="text-2xl font-extrabold tracking-tight text-[#163E63] text-center lg:text-left font-display">Connexion</h1>
             <p className="text-sm text-ink-400 text-center lg:text-left mt-1 mb-6">Accédez à votre espace PROVISIT</p>
 
             {successMessage && (
