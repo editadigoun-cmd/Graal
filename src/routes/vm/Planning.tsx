@@ -641,9 +641,9 @@ export default function Planning() {
                                 'Quota FAIBLE atteint : programmez d’abord les GROS et MOYENS disponibles'
                               : potentielIndisponible
                               ? (c.potentiel
-                                  ? `${c.centre || c.specialite} · Potentiel ${c.potentiel} non autorisé le ${JOUR_LABEL[jourActif]}`
-                                  : `${c.centre || c.specialite} · Potentiel non renseigné, programmation impossible`)
-                              : c.centre || c.specialite}
+                                  ? `${c.specialite.replaceAll('_', ' ')} · ${c.centre || 'Centre non renseigné'} · Potentiel ${c.potentiel} non autorisé le ${JOUR_LABEL[jourActif]}`
+                                  : `${c.specialite.replaceAll('_', ' ')} · Potentiel non renseigné, programmation impossible`)
+                              : `${c.specialite === 'GENERALISTE' ? 'Médecin généraliste' : c.specialite.replaceAll('_', ' ')}${c.centre ? ` · ${c.centre}` : ''}`}
                           </p>
                         </div>
                       </div>
