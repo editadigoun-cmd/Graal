@@ -662,18 +662,22 @@ export default function Planning() {
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-ink-800 truncate">{c.nom}</p>
                           <p className="text-[11px] text-ink-400 truncate">
-                            {bloqueQuota
-                              ? totalJourProjete >= seuils.maxVisitesJour ? `Maximum de ${seuils.maxVisitesJour} visites par jour atteint` :
-                                JOURS_DEROGATION_MOYEN.includes(jourActif) && c.potentiel === 'MOYEN' ? `Maximum de ${seuils.maxMoyenLunMarMer} MOYENS par jour (médical + pharmacie)` :
-                                JOURS_DEROGATION_MOYEN.includes(jourActif) ? 'Seuls les potentiels GROS et MOYEN sont autorisés du lundi au mercredi' :
-                                c.potentiel === 'GROS' ? `Maximum de ${jourActif === 'JEUDI' ? seuils.maxGrosJeudi : seuils.maxGrosVendredi} GROS` :
-                                'Quota FAIBLE atteint : programmez d’abord les GROS et MOYENS disponibles'
-                              : potentielIndisponible
-                              ? (c.potentiel
-                                  ? `${c.specialite.replaceAll('_', ' ')} · ${c.centre || 'Centre non renseigné'} · Potentiel ${c.potentiel} non autorisé le ${JOUR_LABEL[jourActif]}`
-                                  : `${c.specialite.replaceAll('_', ' ')} · Potentiel non renseigné, programmation impossible`)
-                              : `${SPECIALITE_LABEL[c.specialite] ?? c.specialite.replaceAll('_', ' ')}${c.centre ? ` · ${c.centre}` : ''}`}
+                            {SPECIALITE_LABEL[c.specialite] ?? c.specialite.replaceAll('_', ' ')}
+                            {c.centre ? ` · ${c.centre}` : ''}
                           </p>
+                          {bloque && (
+                            <p className="text-[10px] text-flame-600 truncate">
+                              {bloqueQuota
+                                ? totalJourProjete >= seuils.maxVisitesJour ? `Maximum de ${seuils.maxVisitesJour} visites par jour atteint` :
+                                  JOURS_DEROGATION_MOYEN.includes(jourActif) && c.potentiel === 'MOYEN' ? `Maximum de ${seuils.maxMoyenLunMarMer} MOYENS par jour (médical + pharmacie)` :
+                                  JOURS_DEROGATION_MOYEN.includes(jourActif) ? 'Seuls les potentiels GROS et MOYEN sont autorisés du lundi au mercredi' :
+                                  c.potentiel === 'GROS' ? `Maximum de ${jourActif === 'JEUDI' ? seuils.maxGrosJeudi : seuils.maxGrosVendredi} GROS` :
+                                  'Quota FAIBLE atteint : programmez d’abord les GROS et MOYENS disponibles'
+                                : c.potentiel
+                                  ? `Potentiel ${c.potentiel} non autorisé le ${JOUR_LABEL[jourActif]}`
+                                  : 'Potentiel non renseigné, programmation impossible'}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <PotentielBadge potentiel={c.potentiel} compact />
