@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   build-and-publish:
-    if: ${{ secrets.CAPGO_API_KEY != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main
@@ -25,6 +24,7 @@ jobs:
       - name: Build web bundle
         run: npm run build
       - name: Publish OTA update to Capgo
+        if: ${{ secrets.CAPGO_API_KEY != '' }}
         env:
           CAPGO_API_KEY: ${{ secrets.CAPGO_API_KEY }}
         run: npx @capgo/cli@latest bundle upload com.provisit.provisit --path ./dist --channel production --apikey "$CAPGO_API_KEY" --auto-bump patch
