@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database'
 
 type Parametre = Database['public']['Tables']['parametres']['Row']
-type FieldType = 'time' | 'percentage' | 'number' | 'boolean' | 'json'
+type FieldType = 'time' | 'day' | 'percentage' | 'number' | 'boolean' | 'json'
 
 type FieldMeta = { key: string; label: string; type: FieldType }
 type Group = {
@@ -31,7 +31,8 @@ const GROUPS: Group[] = [
     icon: IconCalendar,
     tone: 'royal',
     fields: [
-      { key: 'heure_limite_soumission_programme', label: 'Heure limite de soumission (samedi)', type: 'time' },
+      { key: 'jour_limite_soumission_programme', label: 'Jour limite de soumission', type: 'day' },
+      { key: 'heure_limite_soumission_programme', label: 'Heure limite de soumission', type: 'time' },
       { key: 'seuil_faible_jeudi_pourcentage_max', label: 'Part max. de clients FAIBLE potentiel le jeudi', type: 'percentage' },
       { key: 'visites_minimum_medical_jour', label: 'Visites médicales minimum / jour', type: 'number' },
       { key: 'visites_minimum_pharmacie_jour', label: 'Visites pharmacie minimum / jour', type: 'number' },
@@ -313,7 +314,7 @@ export default function ManagementParametres() {
         </nav>
         {group.custom ? <div><div className="mb-5 flex items-start gap-3"><div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${TONE_BG[group.tone]}`}><group.icon className="h-5 w-5" /></div><div><p className="text-sm font-bold text-ink-800">{group.title}</p><p className="mt-0.5 text-xs text-ink-400">{group.description}</p></div></div><CiblesPonderationsPanel /></div> : <Card>
           <div className="mb-5 flex items-start gap-3"><div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${TONE_BG[group.tone]}`}><group.icon className="h-5 w-5" /></div><div><p className="text-sm font-bold text-ink-800">{group.title}</p><p className="mt-0.5 text-xs text-ink-400">{group.description}</p></div></div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{group.fields.map(field => <div key={field.key}><label className="mb-1.5 block text-xs font-semibold text-ink-500">{field.label}</label>{field.type === 'json' ? <textarea rows={7} value={valeurs[field.key] ?? ''} onChange={e => setValeurs(v => ({ ...v, [field.key]: e.target.value }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 font-mono text-xs" /> : field.type === 'boolean' ? <label className="flex items-center gap-2 rounded-xl border border-ink-200 px-3.5 py-3 text-sm"><input type="checkbox" checked={valeurs[field.key] === 'true'} onChange={e => setValeurs(v => ({ ...v, [field.key]: String(e.target.checked) }))} />Activé</label> : <div className="relative"><input type={field.type === 'time' ? 'time' : 'number'} value={valeurs[field.key] ?? ''} onChange={e => setValeurs(v => ({ ...v, [field.key]: e.target.value }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm" />{field.type === 'percentage' && <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-ink-400">%</span>}</div>}</div>)}</div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{group.fields.map(field => <div key={field.key}><label className="mb-1.5 block text-xs font-semibold text-ink-500">{field.label}</label>{field.type === 'day' ? <select value={valeurs[field.key] ?? 'SAMEDI'} onChange={e => setValeurs(v => ({ ...v, [field.key]: e.target.value }))} className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm"><option value="LUNDI">Lundi</option><option value="MARDI">Mardi</option><option value="MERCREDI">Mercredi</option><option value="JEUDI">Jeudi</option><option value="VENDREDI">Vendredi</option><option value="SAMEDI">Samedi</option><option value="DIMANCHE">Dimanche</option></select> : field.type === 'json' ? <textarea rows={7} value={valeurs[field.key] ?? ''} onChange={e => setValeurs(v => ({ ...v, [field.key]: e.target.value }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 font-mono text-xs" /> : field.type === 'boolean' ? <label className="flex items-center gap-2 rounded-xl border border-ink-200 px-3.5 py-3 text-sm"><input type="checkbox" checked={valeurs[field.key] === 'true'} onChange={e => setValeurs(v => ({ ...v, [field.key]: String(e.target.checked) }))} />Activé</label> : <div className="relative"><input type={field.type === 'time' ? 'time' : 'number'} value={valeurs[field.key] ?? ''} onChange={e => setValeurs(v => ({ ...v, [field.key]: e.target.value }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm" />{field.type === 'percentage' && <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-ink-400">%</span>}</div>}</div>)}</div>
           <div className="mt-5 flex items-center gap-3 border-t border-ink-100 pt-4"><Button size="sm" loading={saving === group.title} variant={saved === group.title ? 'success' : 'secondary'} icon={<IconCheck className="h-4 w-4" />} onClick={() => sauvegarderGroupe(group)}>{saved === group.title ? 'Enregistré' : 'Enregistrer cette section'}</Button>{saveError && <p className="text-xs font-semibold text-red-600">{saveError}</p>}</div>
         </Card>}
       </div>
