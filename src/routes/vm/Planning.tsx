@@ -67,8 +67,7 @@ export default function Planning() {
   const [, forceTick] = useState(0)
 
   const semaineDebut = programme?.semaine_debut ?? targetSemaineDebut()
-  const demoSamediChadrac = programme?.vm_id === 'd0be68dd-eba0-4b9e-8215-df216d6a7963' && semaineDebut === '2026-11-02'
-  const joursAffiches = demoSamediChadrac ? [...JOURS, 'SAMEDI' as Jour] : JOURS
+  const joursAffiches = JOURS
   // L'échéance de soumission hebdomadaire est indépendante des échéances de clôture
   // des journées : chaque VM doit pouvoir soumettre jusqu'au samedi à 14 h (Bénin).
   // Seul un délai supplémentaire explicitement accordé par l'administration peut la prolonger.
