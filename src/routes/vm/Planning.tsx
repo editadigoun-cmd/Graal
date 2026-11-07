@@ -31,6 +31,39 @@ const RECAP_CIBLES: Record<string, { cles: Specialite[]; label: string }> = {
   PHARMACIES: { cles: ['PHARMACIE'], label: 'Pharmacies' }
 }
 const POTENTIEL_LABEL: Record<Potentiel, string> = { GROS: 'Gros', MOYEN: 'Moyens', FAIBLE: 'Faibles' }
+const SPECIALITE_LABEL: Record<string, string> = {
+  "GENERALISTE": "Médecin généraliste",
+  "GYNECOLOGUE": "Gynécologue",
+  "PEDIATRE": "Pédiatre",
+  "CARDIOLOGUE": "Cardiologue",
+  "RHUMATOLOGUE": "Rhumatologue",
+  "ORL": "ORL",
+  "AUTRE_SPECIALITE": "Autre spécialité",
+  "MATERNITE": "Maternité",
+  "DISPENSAIRE": "Dispensaire",
+  "PHARMACIE": "Pharmacie",
+  "IDE": "Infirmier(ère)",
+  "ANESTHESISTE": "Anesthésiste",
+  "CHIRURGIEN": "Chirurgien",
+  "CHIRURGIEN_PEDIATRIQUE": "Chirurgien pédiatrique",
+  "DERMATOLOGUE": "Dermatologue",
+  "DIABETOLOGUE": "Diabétologue",
+  "ENDOCRINOLOGUE": "Endocrinologue",
+  "GASTROENTEROLOGUE": "Gastro-entérologue",
+  "SAGE_FEMME": "Sage-femme",
+  "NEPHROLOGUE": "Néphrologue",
+  "NEUROLOGUE": "Neurologue",
+  "NEUROCHIRURGIEN": "Neurochirurgien",
+  "NUTRITIONNISTE": "Nutritionniste",
+  "ONCOLOGUE": "Oncologue",
+  "PNEUMOLOGUE": "Pneumologue",
+  "REANIMATEUR": "Réanimateur",
+  "TRAUMATOLOGUE": "Traumatologue",
+  "URGENTISTE": "Urgentiste",
+  "UROLOGUE": "Urologue",
+  "INTERNISTE": "Médecin interniste",
+  "PSYCHOLOGUE": "Psychologue"
+}
 
 interface Seuils {
   minMedical: number
@@ -508,11 +541,7 @@ export default function Planning() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-ink-800 truncate">{l.clients?.nom}</p>
                   <p className="mt-0.5 text-[11px] text-ink-500 truncate">
-                    {l.clients?.specialite === 'MATERNITE' ? 'Maternité' :
-                      l.clients?.specialite === 'DISPENSAIRE' ? 'Dispensaire' :
-                      l.clients?.specialite === 'PHARMACIE' ? 'Pharmacie' :
-                      l.clients?.specialite === 'GENERALISTE' ? 'Médecin généraliste' :
-                      l.clients?.specialite ? l.clients.specialite.replaceAll('_', ' ') : 'Client médical'}
+                    {l.clients?.specialite ? SPECIALITE_LABEL[l.clients.specialite] ?? l.clients.specialite.replaceAll('_', ' ') : 'Client médical'}
                     {l.clients?.centre && l.clients.centre !== l.clients?.nom ? ` · ${l.clients.centre}` : ''}
                   </p>
                   <div className="mt-1 flex items-center gap-2">
@@ -643,7 +672,7 @@ export default function Planning() {
                               ? (c.potentiel
                                   ? `${c.specialite.replaceAll('_', ' ')} · ${c.centre || 'Centre non renseigné'} · Potentiel ${c.potentiel} non autorisé le ${JOUR_LABEL[jourActif]}`
                                   : `${c.specialite.replaceAll('_', ' ')} · Potentiel non renseigné, programmation impossible`)
-                              : `${c.specialite === 'GENERALISTE' ? 'Médecin généraliste' : c.specialite.replaceAll('_', ' ')}${c.centre ? ` · ${c.centre}` : ''}`}
+                              : `${SPECIALITE_LABEL[c.specialite] ?? c.specialite.replaceAll('_', ' ')}${c.centre ? ` · ${c.centre}` : ''}`}
                           </p>
                         </div>
                       </div>
