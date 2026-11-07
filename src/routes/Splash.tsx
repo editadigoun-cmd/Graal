@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import logoBrand from '@/assets/provisit-brand.svg'
+import logoMark from '@/assets/logo-mark.png'
 
 export default function Splash() {
   return (
@@ -15,7 +15,7 @@ export default function Splash() {
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           className="absolute inset-0 -z-10 rounded-full bg-gradient-to-br from-royal-500/20 to-teal-500/20 blur-2xl"
         />
-        <img src={logoBrand} alt="PROVISIT" className="h-auto w-64 max-w-[80vw] object-contain" />
+        <img src={logoMark} alt="PROVISIT" className="h-auto w-64 max-w-[80vw] object-contain" />
       </motion.div>
       <motion.div
         initial={{ opacity: 0, y: 8 }}
