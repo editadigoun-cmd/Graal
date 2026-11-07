@@ -2,6 +2,13 @@ name: Build Provisit Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'assets/**'
+      - 'android/**'
+      - '.github/workflows/build-provisit-android.yml'
 
 permissions:
   contents: read
