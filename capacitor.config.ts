@@ -7,8 +7,13 @@ const config: CapacitorConfig = {
   plugins: {
     CapacitorUpdater: {
       appId: 'com.provisit.provisit',
-      autoUpdate: 'atBackground',
+      autoUpdate: 'always',
+      autoSplashscreen: true,
+      keepUrlPathAfterReload: true,
       version: '1.1.0'
+    },
+    SplashScreen: {
+      launchAutoHide: false
     }
   },
   android: {
