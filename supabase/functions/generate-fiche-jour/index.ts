@@ -165,12 +165,31 @@ Deno.serve(async (req) => {
 
     // Pagination automatique : chaque volet peut utiliser autant de pages A4
     // que nécessaire. Les lignes sont découpées en blocs sans perdre ni masquer de visite.
-    const medicalHeaders = ['Client programmé', 'Centre', 'Catégorie / potentiel', 'Cachet prospect', 'Cachet centre', 'Produits présentés', 'Promesses', 'Prescriptions']
-    const medicalWidths = [125, 105, 85, 75, 75, 110, 95, 92]
-    const pharmacyHeaders = ['Pharmacie programmée', 'Centre', 'Catégorie / potentiel', 'Stock disponible', 'Commande obtenue', 'Veille concurrentielle']
-    const pharmacyWidths = [145, 100, 90, 140, 140, 147]
-    const medicalCapacity = 9
-    const pharmacyCapacity = 9
+    // Modèle unique de fiche validée : aucune colonne de potentiel/catégorie.
+    // Les libellés sont volontairement centralisés ici pour éviter le retour de l'ancien modèle.
+    const medicalHeaders = [
+      'Visite', 'Centre', 'Cachet prospect', 'Cachet centre',
+      'Produits présentés', 'Engagements de prescription obtenus',
+      'Produits habituellement prescrits', 'Constats de prescription',
+      'Résumé de la visite'
+    ]
+    const medicalWidths = [88, 82, 65, 65, 90, 100, 100, 90, 81]
+    const pharmacyHeaders = [
+      'Visite', 'Centre', 'Stock disponible', 'Commande obtenue',
+      'Veille concurrentielle', 'Observations'
+    ]
+    const pharmacyWidths = [105, 90, 150, 150, 170, 96]
+    // Hauteur doublée pour laisser un espace réel aux cachets et aux notes manuscrites.
+    const medicalCapacity = 7
+    const pharmacyCapacity = 7
+    const rowHeight = 48
+    if (medicalWidths.reduce((sum, width) => sum + width, 0) !== CONTENT_WIDTH ||
+        pharmacyWidths.reduce((sum, width) => sum + width, 0) !== CONTENT_WIDTH) {
+      throw new Error('La largeur des colonnes de la fiche journalière doit correspondre à la largeur imprimable.')
+    }
+    if ([...medicalHeaders, ...pharmacyHeaders].some((header) => /potentiel|catégorie|preuve pharmacien|photo/i.test(header))) {
+      throw new Error('Un ancien champ interdit est présent dans le modèle de fiche journalière.')
+    }
     // Trois lignes vierges sont toujours ajoutées à la fin de chaque volet pour les ajouts manuscrits.
     // Elles sont incluses dans la pagination afin de ne jamais déborder en bas de page.
     const blankRows = () => Array.from({ length: 3 }, () => ({ __blank: true }))
@@ -186,7 +205,7 @@ Deno.serve(async (req) => {
       drawTable(
         page, font, bold, 438, 'VOLET MÉDICAL',
         medicalHeaders, medicalWidths,
-        chunk, Math.min(chunk.length + 2, 11), 30
+        chunk, Math.min(chunk.length + 2, medicalCapacity), rowHeight
       )
     }
 
@@ -197,7 +216,7 @@ Deno.serve(async (req) => {
       drawTable(
         page, font, bold, 438, 'VOLET PHARMACIE',
         pharmacyHeaders, pharmacyWidths,
-        chunk, Math.min(chunk.length + 2, 6), 30
+        chunk, Math.min(chunk.length + 2, pharmacyCapacity), rowHeight
       )
     }
 
@@ -206,7 +225,9 @@ Deno.serve(async (req) => {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="fiche-${jour}.pdf"`
+        'Content-Disposition': `inline; filename="fiche-${jour}.pdf"`,
+        'Cache-Control': 'no-store, max-age=0, must-revalidate',
+        'Pragma': 'no-cache'
       }
     })
   } catch (e) {
@@ -320,8 +341,9 @@ function drawTable(
     const ligne = rows[r]
     const nom = ligne?.clients?.nom ?? ''
     const centre = ligne?.clients?.centre ?? ''
-    const categorie = ligne?.clients?.potentiel ?? ligne?.clients?.categorie ?? ''
-    const cells = [nom, centre, categorie, ...Array(headers.length - 3).fill('')]
+    // La première colonne s'intitule « Visite » et contient le nom du lieu/client prévu.
+    // Les autres cellules restent vierges pour la saisie manuscrite pendant la visite.
+    const cells = [nom, centre, ...Array(headers.length - 2).fill('')]
     x = x0
     for (let i = 0; i < headers.length; i++) {
       page.drawRectangle({
