@@ -18,6 +18,8 @@ export default function Visites() {
   const { lignes, loading } = useVisitesDuJour()
   const [exporting, setExporting] = useState(false)
   const [confirmationOuverte, setConfirmationOuverte] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null)
   const [, setHorloge] = useState(0)
   const [cloture, setCloture] = useState<{ statut: string; heure_cloture: string | null } | null | undefined>(undefined)
   // NON_FAITE signifie que la visite reste à effectuer : elle ne doit pas apparaître dans « Traitées ».
@@ -42,6 +44,7 @@ export default function Visites() {
   }, [session])
 
   function exporterFiche() {
+    setDownloadError(null)
     setConfirmationOuverte(true)
   }
 
@@ -52,11 +55,14 @@ export default function Visites() {
     const jourFiche = aujourdHui.day() === 6 ? aujourdHui : maintenant.hour() >= 19 ? prochainJourOuvrable(aujourdHui) : aujourdHui
     setExporting(true)
     try {
-      await ouvrirFicheJour(jourFiche.format('YYYY-MM-DD'))
+      const result = await ouvrirFicheJour(jourFiche.format('YYYY-MM-DD'))
       setConfirmationOuverte(false)
+      setDownloadError(null)
+      setDownloadMessage(`Fiche enregistrée : ${result.filename} — ${result.location}`)
+      window.setTimeout(() => setDownloadMessage(null), 7000)
     } catch (e) {
       const message = e instanceof Error ? e.message : "Impossible de télécharger la fiche pour le moment."
-      window.alert(message)
+      setDownloadError(message)
     } finally {
       setExporting(false)
     }
@@ -75,6 +81,7 @@ export default function Visites() {
       open={confirmationOuverte}
       date={jourFicheAffiche.format('dddd D MMMM YYYY')}
       loading={exporting}
+      error={downloadError}
       onCancel={() => setConfirmationOuverte(false)}
       onConfirm={confirmerTelechargement}
     />
@@ -108,6 +115,7 @@ export default function Visites() {
         </Link>
       </div>
       {dialogueTelechargement}
+      <DownloadNotice message={downloadMessage} />
       </>
     )
   }
@@ -194,11 +202,21 @@ export default function Visites() {
         </div>
       </Link>
       {dialogueTelechargement}
+      <DownloadNotice message={downloadMessage} />
     </div>
   )
 }
 
-function FicheDownloadDialog({ open, date, loading, onCancel, onConfirm }: { open: boolean; date: string; loading: boolean; onCancel: () => void; onConfirm: () => void }) {
+function DownloadNotice({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <div role="status" className="fixed bottom-24 left-4 right-4 z-[110] mx-auto max-w-md rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-xl">
+      <span className="mr-2">✓</span>{message}
+    </div>
+  )
+}
+
+function FicheDownloadDialog({ open, date, loading, error, onCancel, onConfirm }: { open: boolean; date: string; loading: boolean; error: string | null; onCancel: () => void; onConfirm: () => void }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm" role="presentation">
@@ -217,6 +235,7 @@ function FicheDownloadDialog({ open, date, loading, onCancel, onConfirm }: { ope
             <div><p className="text-[11px] font-semibold uppercase tracking-wide text-royal-600">Date de la fiche</p><p className="text-sm font-bold capitalize text-royal-950">{date}</p></div>
           </div>
           <p className="mt-3 text-xs leading-5 text-slate-500">Vérifiez la date avant de continuer. La fiche sera générée au format PDF.</p>
+          {error && <p role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium leading-5 text-red-700">{error}</p>}
           <div className="mt-5 grid grid-cols-2 gap-3">
             <button type="button" onClick={onCancel} disabled={loading} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">Annuler</button>
             <button type="button" onClick={onConfirm} disabled={loading} className="flex items-center justify-center rounded-xl bg-royal-700 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-royal-700/20 transition hover:bg-royal-800 disabled:opacity-60">{loading ? 'Préparation…' : 'Confirmer'}</button>
