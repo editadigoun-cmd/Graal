@@ -536,7 +536,7 @@ export default function ManagementProgrammes() {
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={detailJours[detailJourActif]?.statut === 'VALIDE' ? 'success' : detailJours[detailJourActif]?.statut === 'SOUMIS' ? 'info' : 'warning'}>{detailJours[detailJourActif]?.statut === 'VALIDE' ? 'Journée validée' : detailJours[detailJourActif]?.statut === 'SOUMIS' ? 'Soumise' : 'En cours / non soumise'}</Badge>
             {profile?.role === 'admin' && detailJours[detailJourActif]?.statut === 'VALIDE' && <Button size="sm" variant="secondary" loading={busy === detail.id + ':' + detailJourActif} onClick={() => void invaliderJour(detail.id, detailJourActif)}>Invalider cette journée</Button>}
-            {profile?.role === 'admin' && detailJours[detailJourActif]?.statut !== 'VALIDE' && lignesJourActif.length > 0 && <Button size="sm" variant="secondary" loading={busy === detail.id + ':' + detailJourActif} onClick={() => void validerJour(detail.id, detailJourActif)}>Valider cette journée</Button>}
+            {(profile?.role === 'admin' || profile?.role === 'superviseur') && detailJours[detailJourActif]?.statut !== 'VALIDE' && lignesJourActif.length > 0 && <Button size="sm" variant="secondary" loading={busy === detail.id + ':' + detailJourActif} onClick={() => void validerJour(detail.id, detailJourActif)}>Valider cette journée</Button>}
           </div>
         </div>
         <div className="mt-4">
