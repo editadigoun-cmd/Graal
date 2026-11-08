@@ -26,4 +26,4 @@ jobs:
       - name: Build web bundle
         run: npm run build
       - name: Publish OTA update to Capgo
-        run: npx @capgo/cli@latest bundle upload com.provisit.provisit --path ./dist --channel production --apikey "$CAPGO_API_KEY" --auto-bump patch
+        run: npx @capgo/cli@latest bundle upload com.provisit.provisit --path ./dist --channel production --apikey "$CAPGO_API_KEY" --auto-bump patch --delta
