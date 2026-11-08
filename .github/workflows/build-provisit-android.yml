@@ -8,6 +8,9 @@ on:
     paths:
       - 'assets/**'
       - 'android/**'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/build-provisit-android.yml'
 
 permissions:
