@@ -2,7 +2,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 import { supabase } from './supabase'
 
 interface NativePdfPlugin {
-  savePdf(options: { filename: string; data: string }): Promise<{ saved: boolean }>
+  savePdf(options: { filename: string; data: string }): Promise<{ saved: boolean; filename?: string; location?: string }>
 }
 
 const NativePdf = registerPlugin<NativePdfPlugin>('NativePdf')
@@ -41,8 +41,9 @@ async function openFunctionPdf(fn: string, params: Record<string, string>) {
   // sans ouvrir de nouvel onglet ni dépendre du téléchargement de la WebView.
   if (Capacitor.isNativePlatform()) {
     const data = arrayBufferToBase64(await blob.arrayBuffer())
-    await NativePdf.savePdf({ filename, data })
-    return
+    const result = await NativePdf.savePdf({ filename, data })
+    if (!result?.saved) throw new Error("Android n'a pas confirmé l'enregistrement du PDF. Réessayez.")
+    return { filename: result.filename ?? filename, location: result.location ?? 'Téléchargements/Graal' }
   }
 
   // Sur le site web, déclenche un téléchargement du navigateur.
@@ -55,6 +56,7 @@ async function openFunctionPdf(fn: string, params: Record<string, string>) {
   link.click()
   link.remove()
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+  return { filename, location: 'Téléchargements du navigateur' }
 }
 
 export function ouvrirFicheJour(jour: string) {
