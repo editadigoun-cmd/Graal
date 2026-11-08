@@ -1,5 +1,9 @@
 name: Provisit Live Updates
 
+concurrency:
+  group: provisit-capgo-publish
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
