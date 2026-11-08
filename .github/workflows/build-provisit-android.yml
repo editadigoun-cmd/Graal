@@ -23,6 +23,10 @@ permissions:
 jobs:
   android:
     runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: https://bjwcsfdvucrwtlheivuu.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yw_ecNheum1JSgS56I4SSg_PKTuAuFK
+      VITE_APP_TIMEZONE: Africa/Porto-Novo
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -40,6 +44,11 @@ jobs:
         run: npm ci
       - name: Generate Android icons from repository artwork
         run: npx capacitor-assets generate --android
+      - name: Verify Supabase build configuration
+        run: |
+          test -n "$VITE_SUPABASE_URL"
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
+          echo "Supabase public configuration is present."
       - name: Build web application
         run: npm run build
       - name: Sync Capacitor Android
