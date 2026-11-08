@@ -65,6 +65,7 @@ begin
     and jour in ('LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI');
 
   if v_valides = 5 then
+    perform set_config('graal.internal_rpc', 'on', true);
     update public.programmes_hebdomadaires
     set statut = 'VALIDE',
         soumis_at = coalesce(soumis_at, now())
