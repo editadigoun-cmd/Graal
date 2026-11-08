@@ -17,6 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CAPGO_API_KEY: ${{ secrets.CAPGO_API_KEY }}
+      VITE_SUPABASE_URL: https://bjwcsfdvucrwtlheivuu.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yw_ecNheum1JSgS56I4SSg_PKTuAuFK
+      VITE_APP_TIMEZONE: Africa/Porto-Novo
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -27,6 +30,11 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Verify Supabase build configuration
+        run: |
+          test -n "$VITE_SUPABASE_URL"
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
+          echo "Supabase public configuration is present."
       - name: Build web bundle
         run: npm run build
       - name: Publish OTA update to Capgo
