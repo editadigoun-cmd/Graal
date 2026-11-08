@@ -173,18 +173,18 @@ Deno.serve(async (req) => {
       'Produits habituellement prescrits', 'Constats de prescription',
       'Résumé de la visite'
     ]
-    const medicalWidths = [88, 82, 65, 65, 90, 100, 100, 90, 81]
+    const medicalWidths = [88, 82, 65, 65, 90, 100, 100, 90, CONTENT_WIDTH - 680]
     const pharmacyHeaders = [
       'Visite', 'Centre', 'Stock disponible', 'Commande obtenue',
       'Veille concurrentielle', 'Observations'
     ]
-    const pharmacyWidths = [105, 90, 150, 150, 170, 96]
+    const pharmacyWidths = [105, 90, 150, 150, 170, CONTENT_WIDTH - 665]
     // Hauteur doublée pour laisser un espace réel aux cachets et aux notes manuscrites.
     const medicalCapacity = 7
     const pharmacyCapacity = 7
     const rowHeight = 48
-    if (medicalWidths.reduce((sum, width) => sum + width, 0) !== CONTENT_WIDTH ||
-        pharmacyWidths.reduce((sum, width) => sum + width, 0) !== CONTENT_WIDTH) {
+    if (Math.abs(medicalWidths.reduce((sum, width) => sum + width, 0) - CONTENT_WIDTH) > 0.01 ||
+        Math.abs(pharmacyWidths.reduce((sum, width) => sum + width, 0) - CONTENT_WIDTH) > 0.01) {
       throw new Error('La largeur des colonnes de la fiche journalière doit correspondre à la largeur imprimable.')
     }
     if ([...medicalHeaders, ...pharmacyHeaders].some((header) => /potentiel|catégorie|preuve pharmacien|photo/i.test(header))) {
