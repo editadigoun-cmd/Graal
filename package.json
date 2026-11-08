@@ -25,7 +25,8 @@
     "react-router-dom": "^6.27.0",
     "recharts": "^2.13.0",
     "zustand": "^4.5.5",
-    "@capgo/capacitor-updater": "^8.54.2"
+    "@capgo/capacitor-updater": "^8.54.2",
+    "@capacitor/splash-screen": "^8.0.2"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
