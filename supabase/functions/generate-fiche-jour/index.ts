@@ -168,21 +168,20 @@ Deno.serve(async (req) => {
     // Modèle unique de fiche validée : aucune colonne de potentiel/catégorie.
     // Les libellés sont volontairement centralisés ici pour éviter le retour de l'ancien modèle.
     const medicalHeaders = [
-      'Visite', 'Centre', 'Cachet prospect', 'Cachet centre',
-      'Produits présentés', 'Engagements de prescription obtenus',
-      'Produits habituellement prescrits', 'Constats de prescription',
-      'Résumé de la visite'
+      'Visite', 'Centre (cachet)', 'Cachet prospect', 'Produits présentés',
+      'Engagements de prescription obtenus', 'Produits habituellement prescrits',
+      'Constats de prescription', 'Résumé de la visite'
     ]
-    const medicalWidths = [88, 82, 65, 65, 90, 100, 100, 90, CONTENT_WIDTH - 680]
+    const medicalWidths = [85, 110, 65, 90, 105, 105, 95, CONTENT_WIDTH - 655]
     const pharmacyHeaders = [
       'Visite', 'Centre', 'Stock disponible', 'Commande obtenue',
       'Veille concurrentielle', 'Observations'
     ]
     const pharmacyWidths = [105, 90, 150, 150, 170, CONTENT_WIDTH - 665]
-    // Hauteur doublée pour laisser un espace réel aux cachets et aux notes manuscrites.
-    const medicalCapacity = 7
-    const pharmacyCapacity = 7
-    const rowHeight = 48
+    // Lignes agrandies pour laisser davantage d'espace aux cachets et aux notes manuscrites.
+    const medicalCapacity = 5
+    const pharmacyCapacity = 5
+    const rowHeight = 60
     if (Math.abs(medicalWidths.reduce((sum, width) => sum + width, 0) - CONTENT_WIDTH) > 0.01 ||
         Math.abs(pharmacyWidths.reduce((sum, width) => sum + width, 0) - CONTENT_WIDTH) > 0.01) {
       throw new Error('La largeur des colonnes de la fiche journalière doit correspondre à la largeur imprimable.')
@@ -343,7 +342,9 @@ function drawTable(
     const centre = ligne?.clients?.centre ?? ''
     // La première colonne s'intitule « Visite » et contient le nom du lieu/client prévu.
     // Les autres cellules restent vierges pour la saisie manuscrite pendant la visite.
-    const cells = [nom, centre, ...Array(headers.length - 2).fill('')]
+    const cells = headers[0] === 'Visite'
+      ? [nom, '', ...Array(headers.length - 2).fill('')]
+      : [nom, centre, ...Array(headers.length - 2).fill('')]
     x = x0
     for (let i = 0; i < headers.length; i++) {
       page.drawRectangle({
