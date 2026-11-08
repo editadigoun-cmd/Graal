@@ -1,5 +1,9 @@
 name: Build Provisit Android APK
 
+concurrency:
+  group: provisit-android-build
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
