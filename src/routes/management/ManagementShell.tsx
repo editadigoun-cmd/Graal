@@ -118,7 +118,7 @@ export function ManagementShell() {
     }
     return []
   }, [profile?.role])
-  const visibleTopItems = profile?.role === 'superviseur' ? [...topItems, { to: '/admin/visites', label: 'Visites', icon: IconMapPin }] : topItems
+  const visibleTopItems: NavItem[] = profile?.role === 'superviseur' ? [...topItems, { to: '/admin/visites', label: 'Visites', icon: IconMapPin }] : topItems
   const currentPage = [...visibleTopItems, ...visibleGroups.flatMap((g) => g.children)].find((item) => isPathActive(location.pathname, location.search, item.to))
 
   function toggleGroup(label: string) {
