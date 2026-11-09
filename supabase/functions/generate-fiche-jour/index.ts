@@ -167,21 +167,21 @@ Deno.serve(async (req) => {
     // que nécessaire. Les lignes sont découpées en blocs sans perdre ni masquer de visite.
     // Modèle unique de fiche validée : aucune colonne de potentiel/catégorie.
     // Les libellés sont volontairement centralisés ici pour éviter le retour de l'ancien modèle.
+    // Reproduction du modèle de référence fourni : mêmes intitulés, ordre et proportions de colonnes.
     const medicalHeaders = [
-      'Visite', 'Centre (cachet)', 'Cachet prospect', 'Produits présentés',
-      'Engagements de prescription obtenus', 'Produits habituellement prescrits',
-      'Constats de prescription', 'Résumé de la visite'
+      'Nom du prospect', 'Cachet prospect', 'Cachet centre',
+      'Produits présentés', 'Promesses obtenues', 'Prescriptions constatées'
     ]
-    const medicalWidths = [85, 110, 65, 90, 105, 105, 95, CONTENT_WIDTH - 655]
+    const medicalWidths = [114, 105, 105, 150, 154, CONTENT_WIDTH - 628]
     const pharmacyHeaders = [
-      'Visite', 'Centre', 'Stock disponible', 'Commande obtenue',
-      'Veille concurrentielle', 'Observations'
+      'Pharmacie programmée', 'Stocks disponibles',
+      'Négociations obtenues', 'Constat de prescription / veille concurrentielle'
     ]
-    const pharmacyWidths = [105, 90, 150, 150, 170, CONTENT_WIDTH - 665]
-    // Lignes agrandies pour laisser davantage d'espace aux cachets et aux notes manuscrites.
+    const pharmacyWidths = [150, 180, 180, CONTENT_WIDTH - 510]
+    // Cinq lignes par page ; deux lignes manuscrites supplémentaires à la fin de chaque volet.
     const medicalCapacity = 5
     const pharmacyCapacity = 5
-    const rowHeight = 60
+    const rowHeight = 64
     if (Math.abs(medicalWidths.reduce((sum, width) => sum + width, 0) - CONTENT_WIDTH) > 0.01 ||
         Math.abs(pharmacyWidths.reduce((sum, width) => sum + width, 0) - CONTENT_WIDTH) > 0.01) {
       throw new Error('La largeur des colonnes de la fiche journalière doit correspondre à la largeur imprimable.')
@@ -189,9 +189,9 @@ Deno.serve(async (req) => {
     if ([...medicalHeaders, ...pharmacyHeaders].some((header) => /potentiel|catégorie|preuve pharmacien|photo/i.test(header))) {
       throw new Error('Un ancien champ interdit est présent dans le modèle de fiche journalière.')
     }
-    // Trois lignes vierges sont toujours ajoutées à la fin de chaque volet pour les ajouts manuscrits.
+    // Exactement deux lignes vierges sont ajoutées à la fin de chaque volet.
     // Elles sont incluses dans la pagination afin de ne jamais déborder en bas de page.
-    const blankRows = () => Array.from({ length: 3 }, () => ({ __blank: true }))
+    const blankRows = () => Array.from({ length: 2 }, () => ({ __blank: true }))
     const medicalChunks = chunkRows([...medical, ...blankRows()], medicalCapacity)
     const pharmacyChunks = chunkRows([...pharmacie, ...blankRows()], pharmacyCapacity)
     const totalPages = medicalChunks.length + pharmacyChunks.length
@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
       drawTable(
         page, font, bold, 438, 'VOLET MÉDICAL',
         medicalHeaders, medicalWidths,
-        chunk, Math.min(chunk.length + 2, medicalCapacity), rowHeight
+        chunk, Math.min(chunk.length, medicalCapacity), rowHeight
       )
     }
 
@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
       drawTable(
         page, font, bold, 438, 'VOLET PHARMACIE',
         pharmacyHeaders, pharmacyWidths,
-        chunk, Math.min(chunk.length + 2, pharmacyCapacity), rowHeight
+        chunk, Math.min(chunk.length, pharmacyCapacity), rowHeight
       )
     }
 
@@ -342,9 +342,9 @@ function drawTable(
     const centre = ligne?.clients?.centre ?? ''
     // La première colonne s'intitule « Visite » et contient le nom du lieu/client prévu.
     // Les autres cellules restent vierges pour la saisie manuscrite pendant la visite.
-    const cells = headers[0] === 'Visite'
-      ? [nom, '', ...Array(headers.length - 2).fill('')]
-      : [nom, centre, ...Array(headers.length - 2).fill('')]
+    // Le modèle de référence réserve la première colonne au nom du prospect/de la pharmacie.
+    // Toutes les autres colonnes restent vides pour la saisie manuscrite sur le terrain.
+    const cells = [nom, ...Array(headers.length - 1).fill('')]
     x = x0
     for (let i = 0; i < headers.length; i++) {
       page.drawRectangle({
