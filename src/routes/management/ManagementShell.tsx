@@ -118,7 +118,8 @@ export function ManagementShell() {
     }
     return []
   }, [profile?.role])
-  const currentPage = [...topItems, ...visibleGroups.flatMap((g) => g.children)].find((item) => isPathActive(location.pathname, location.search, item.to))
+  const visibleTopItems = profile?.role === 'superviseur' ? [...topItems, { to: '/admin/visites', label: 'Visites', icon: IconMapPin }] : topItems
+  const currentPage = [...visibleTopItems, ...visibleGroups.flatMap((g) => g.children)].find((item) => isPathActive(location.pathname, location.search, item.to))
 
   function toggleGroup(label: string) {
     setOpenGroups((current) => { const next = new Set(current); if (next.has(label)) next.delete(label); else next.add(label); return next })
@@ -127,7 +128,7 @@ export function ManagementShell() {
   function Navigation({ mobile = false }: { mobile?: boolean }) {
     return (
       <nav className="space-y-1 flex-1 overflow-y-auto styled-scrollbar pr-1">
-        {topItems.map(({ to, label, icon: Icon, end }) => (
+        {visibleTopItems.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} onClick={mobile ? () => setMenuOpen(false) : undefined}>
             {({ isActive }) => <div className={clsx('flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-semibold transition', isActive ? 'bg-royal-600 text-white shadow-soft' : 'text-ink-500 hover:bg-ink-100')}><Icon className="h-4.5 w-4.5" />{label}</div>}
           </NavLink>
