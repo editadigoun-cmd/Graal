@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
     }
     const { data: lignesProgramme } = await supabase
       .from('programme_lignes')
-      .select('id, jour, type_visite, ordre, clients(nom, centre, categorie, potentiel)')
+      .select('id, jour, type_visite, ordre, clients(nom)')
       .eq('programme_id', programme.id)
       .eq('jour', jourSemaine)
       .order('ordre')
@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
     if (idsReportes.length) {
       const { data: reportLines } = await supabase
         .from('programme_lignes')
-        .select('id, jour, type_visite, ordre, clients(nom, centre, categorie, potentiel)')
+        .select('id, jour, type_visite, ordre, clients(nom)')
         .in('id', idsReportes)
       lignesReportees = (reportLines ?? []).map((l: any) => ({ ...l, ordre: 100000 + (l.ordre ?? 0) }))
     }
@@ -339,11 +339,9 @@ function drawTable(
   for (let r = 0; r < total; r++) {
     const ligne = rows[r]
     const nom = ligne?.clients?.nom ?? ''
-    const centre = ligne?.clients?.centre ?? ''
-    // La première colonne s'intitule « Visite » et contient le nom du lieu/client prévu.
-    // Les autres cellules restent vierges pour la saisie manuscrite pendant la visite.
-    // Le modèle de référence réserve la première colonne au nom du prospect/de la pharmacie.
-    // Toutes les autres colonnes restent vides pour la saisie manuscrite sur le terrain.
+    // Seul le nom du client est récupéré depuis le portefeuille.
+    // Potentiel, secteur, spécialité et autres données du client ne sont jamais imprimés.
+    // Toutes les autres cellules restent vierges pour être renseignées sur le terrain.
     const cells = [nom, ...Array(headers.length - 1).fill('')]
     x = x0
     for (let i = 0; i < headers.length; i++) {
