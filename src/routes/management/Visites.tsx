@@ -51,10 +51,22 @@ export default function SupervisorVisites() {
   useEffect(() => { if (profile?.role !== 'superviseur') { navigate('/admin', { replace: true }); return } void load() }, [profile?.id, profile?.role])
 
   const selected = clients.find(c => c.id === clientId)
+  // Le type de visite pilote aussi la liste des clients : aucune pharmacie
+  // dans une visite médicale, aucun client médical dans une visite pharmacie.
   const filtered = useMemo(() => clients.filter(c => {
+    const estPharmacie = c.specialite === 'PHARMACIE'
+    if (type === 'PHARMACIE' && !estPharmacie) return false
+    if (type === 'MEDICAL' && estPharmacie) return false
     const q = query.trim().toLocaleLowerCase('fr')
     return !q || c.nom.toLocaleLowerCase('fr').includes(q) || (c.centre ?? '').toLocaleLowerCase('fr').includes(q)
-  }), [clients, query])
+  }), [clients, query, type])
+
+  function changerType(nextType: 'MEDICAL' | 'PHARMACIE') {
+    setType(nextType)
+    setClientId('')
+    setError(null)
+    setSuccess(null)
+  }
 
   async function save(fields: Record<string, unknown>, products: string[]) {
     if (!profile?.id || !selected) { setError('Sélectionnez un client de votre portefeuille.'); return }
@@ -142,8 +154,8 @@ export default function SupervisorVisites() {
         </select>
         {selected && <div className="rounded-xl bg-ink-50 p-3 text-xs text-ink-600"><strong>{selected.nom}</strong><p className="mt-1">{selected.specialite ?? 'Spécialité non renseignée'} · {selected.centre ?? 'Centre non renseigné'}</p></div>}
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => setType('MEDICAL')} className={`rounded-xl px-3 py-3 text-sm font-bold ${type === 'MEDICAL' ? 'bg-royal-700 text-white' : 'bg-ink-100 text-ink-600'}`}>Visite médicale</button>
-          <button type="button" onClick={() => setType('PHARMACIE')} className={`rounded-xl px-3 py-3 text-sm font-bold ${type === 'PHARMACIE' ? 'bg-royal-700 text-white' : 'bg-ink-100 text-ink-600'}`}>Visite pharmacie</button>
+          <button type="button" onClick={() => changerType('MEDICAL')} className={`rounded-xl px-3 py-3 text-sm font-bold ${type === 'MEDICAL' ? 'bg-royal-700 text-white' : 'bg-ink-100 text-ink-600'}`}>Visite médicale</button>
+          <button type="button" onClick={() => changerType('PHARMACIE')} className={`rounded-xl px-3 py-3 text-sm font-bold ${type === 'PHARMACIE' ? 'bg-royal-700 text-white' : 'bg-ink-100 text-ink-600'}`}>Visite pharmacie</button>
         </div>
         <div className="flex items-center gap-2 rounded-xl border border-ink-100 px-3 py-2 text-xs">
           <IconMapPin className="h-4 w-4 text-royal-600" />
@@ -154,7 +166,7 @@ export default function SupervisorVisites() {
       {!selected ? <Card className="py-8 text-center text-sm text-ink-400">Sélectionnez un client pour afficher le formulaire de visite.</Card> : type === 'MEDICAL'
         ? <MedicalFields onSubmit={save} saving={saving} />
         : <PharmacieFields onSubmit={save} saving={saving} />}
-      {clients.length === 0 && <Card className="py-8 text-center text-sm text-ink-400">Aucun client n’est encore affecté à votre portefeuille personnel.</Card>}
+      {filtered.length === 0 && <Card className="py-8 text-center text-sm text-ink-400">{type === 'PHARMACIE' ? 'Aucune pharmacie dans votre portefeuille.' : 'Aucun client médical dans votre portefeuille.'}</Card>}
     </div>
   )
 }
