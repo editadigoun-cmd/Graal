@@ -610,7 +610,7 @@ export default function ManagementProgrammes() {
                     <span className="text-[11px] text-ink-400">Contactez l'administrateur</span>
                   )}
                 </div>
-                {profile?.role === 'admin' && (
+                {(profile?.role === 'admin' || profile?.role === 'superviseur') && (
                   delaiActif(b) ? (
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-flame-200 pt-3">
                       <p className="text-xs font-semibold text-emerald-700">
