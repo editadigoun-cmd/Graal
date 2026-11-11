@@ -71,7 +71,8 @@ function ProgrammeForm({ ligneId }: { ligneId: string }) {
       if (active) setLoading(false)
     }
     void load()
-    return () => { active = false }
+    window.addEventListener('online', load)
+    return () => { active = false; window.removeEventListener('online', load) }
   }, [ligneId, session])
 
   async function handleSave(fields: Record<string, unknown>, produitsIds: string[]) {
@@ -232,6 +233,8 @@ function HorsProgrammeForm() {
       }
     }
     void loadData()
+    window.addEventListener('online', loadData)
+    return () => window.removeEventListener('online', loadData)
   }, [session])
 
   const client = clients.find((c) => c.id === clientId)
@@ -439,7 +442,8 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
       }
     }
     void loadProducts()
-    return () => { active = false }
+    window.addEventListener('online', loadProducts)
+    return () => { active = false; window.removeEventListener('online', loadProducts) }
   }, [profile?.equipe_id])
 
   const toggleProduit = (id: string) => setProduits((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
