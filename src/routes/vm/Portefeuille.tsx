@@ -6,12 +6,12 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { IconSearch, IconChevronRight, IconAlert } from '@/components/ui/icons'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/types/database'
+import type { Database } from '@/types/database'\nimport { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
 
 type ClientFreq = Database['public']['Views']['v_client_frequence']['Row']
 
 export default function Portefeuille() {
-  const { profile } = useAuth()
+  const { profile, session } = useAuth()
   const [clients, setClients] = useState<ClientFreq[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -22,12 +22,30 @@ export default function Portefeuille() {
     : null
 
   useEffect(() => {
-    supabase.from('v_client_frequence').select('*').order('nom')
-      .then(({ data }) => {
-        setClients(data ?? [])
-        setLoading(false)
-      })
-  }, [])
+    let active = true
+    async function load() {
+      if (!session) { setLoading(false); return }
+      const key = 'portefeuille-frequence'
+      if (!navigator.onLine) {
+        const cached = await getOfflineSnapshot<ClientFreq[]>(session.user.id, key)
+        if (active) { setClients(cached?.data ?? []); setLoading(false) }
+        return
+      }
+      const { data, error } = await supabase.from('v_client_frequence').select('*').order('nom')
+      if (!active) return
+      if (error) {
+        const cached = await getOfflineSnapshot<ClientFreq[]>(session.user.id, key)
+        if (active && cached) setClients(cached.data)
+      } else {
+        const rows = data ?? []
+        setClients(rows)
+        await saveOfflineSnapshot(session.user.id, key, rows)
+      }
+      if (active) setLoading(false)
+    }
+    void load()
+    return () => { active = false }
+  }, [session])
 
   const filtered = useMemo(
     () => clients.filter((c) => (c.nom ?? '').toLowerCase().includes(query.toLowerCase())),
