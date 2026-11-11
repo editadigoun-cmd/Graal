@@ -2,13 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { isoWeekMonday } from '@/lib/time'
-import type { Database } from '@/types/database'\nimport { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
+import type { Database } from '@/types/database'
+import { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
 
 type Programme = Database['public']['Tables']['programmes_hebdomadaires']['Row']
 type Ligne = Database['public']['Tables']['programme_lignes']['Row'] & {
   clients: Pick<Database['public']['Tables']['clients']['Row'], 'id' | 'nom' | 'potentiel' | 'specialite' | 'centre'> | null
 }
-type ClientRow = Database['public']['Tables']['clients']['Row']\ntype PlanningSnapshot = { programme: Programme; lignes: Ligne[]; portefeuille: ClientRow[]; zone: boolean; potentiel: boolean; generaliste: boolean }
+type ClientRow = Database['public']['Tables']['clients']['Row']
+type PlanningSnapshot = { programme: Programme; lignes: Ligne[]; portefeuille: ClientRow[]; zone: boolean; potentiel: boolean; generaliste: boolean }
 
 export function targetSemaineDebut() {
   return isoWeekMonday().add(7, 'day').format('YYYY-MM-DD')
