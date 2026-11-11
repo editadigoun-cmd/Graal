@@ -154,7 +154,7 @@ export default function ManagementClients() {
           case 'vm_id': return filter.value === '__sans_vm__'
             ? !portefeuille.some((p) => p.client_id === c.id)
             : portefeuille.some((p) => p.client_id === c.id && p.vm_id === filter.value)
-          case 'specialite': return c.specialite === filter.value
+          case 'specialite': return c.specialite === filter.value || (SPECIALITE_LABEL[c.specialite] ?? c.specialite).toLowerCase().includes(value)
           case 'potentiel': return c.potentiel === filter.value
           case 'secteur': return c.secteur === filter.value
           case 'actif': return String(c.actif) === filter.value
@@ -411,9 +411,10 @@ export default function ManagementClients() {
             <label className="text-xs font-semibold text-ink-500">
               Valeur
               {filter.field === 'specialite' ? (
-                <select value={filter.value} onChange={(e) => modifierFiltre(filter.id, { value: e.target.value })} className="mt-1.5 w-full px-3 py-2.5 text-sm">
-                  <option value="">Toutes les spécialités</option>{(Object.keys(SPECIALITE_LABEL) as Specialite[]).map((s) => <option key={s} value={s}>{SPECIALITE_LABEL[s]}</option>)}
-                </select>
+                <>
+                  <input list={`provisit-specialites-${filter.id}`} value={filter.value} onChange={(e) => modifierFiltre(filter.id, { value: e.target.value })} placeholder="Choisir ou saisir une spécialité…" className="mt-1.5 w-full px-3 py-2.5 text-sm" />
+                  <datalist id={`provisit-specialites-${filter.id}`}>{(Object.keys(SPECIALITE_LABEL) as Specialite[]).map((s) => <option key={s} value={SPECIALITE_LABEL[s]} />)}</datalist>
+                </>
               ) : filter.field === 'potentiel' ? (
                 <select value={filter.value} onChange={(e) => modifierFiltre(filter.id, { value: e.target.value })} className="mt-1.5 w-full px-3 py-2.5 text-sm">
                   <option value="">Tous les potentiels</option><option value="GROS">Gros</option><option value="MOYEN">Moyen</option><option value="FAIBLE">Faible</option>
