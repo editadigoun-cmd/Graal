@@ -72,6 +72,9 @@ export default function ManagementClients() {
   const [secteurFilter, setSecteurFilter] = useState('')
   const [potentielFilter, setPotentielFilter] = useState('')
   const [vmFilter, setVmFilter] = useState('')
+  const [advancedFilters, setAdvancedFilters] = useState<{ id: number; field: string; value: string }[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 50
 
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [bulkVmId, setBulkVmId] = useState('')
@@ -79,31 +82,46 @@ export default function ManagementClients() {
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   async function load() {
-    const pageSize = 1000
-    const [clientsResult, vmResult, supervisorResult] = await Promise.all([
-      supabase.from('clients').select('*').order('nom'),
+    setLoading(true)
+    const batchSize = 1000
+    const [vmResult, supervisorResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('role', 'vm').order('full_name'),
       supabase.from('profiles').select('*').eq('role', 'superviseur').order('full_name')
     ])
 
-    // Supabase/PostgREST limite chaque réponse à 1 000 lignes par défaut.
-    // Charger toutes les pages pour ne pas tronquer les affectations VM.
+    // Lire la table clients par lots pour dépasser la limite PostgREST de 1 000 lignes.
+    const allClients: Client[] = []
+    for (let from = 0; ; from += batchSize) {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .order('nom')
+        .order('id')
+        .range(from, from + batchSize - 1)
+      if (error) {
+        console.error('Erreur de chargement des clients :', error)
+        break
+      }
+      allClients.push(...((data ?? []) as Client[]))
+      if (!data || data.length < batchSize) break
+    }
+
     const allAssignments: { client_id: string; vm_id: string }[] = []
-    for (let from = 0; ; from += pageSize) {
+    for (let from = 0; ; from += batchSize) {
       const { data, error } = await supabase
         .from('portefeuille')
         .select('client_id, vm_id')
         .order('client_id')
-        .range(from, from + pageSize - 1)
+        .range(from, from + batchSize - 1)
       if (error) {
         console.error('Erreur de chargement du portefeuille clients :', error)
         break
       }
       allAssignments.push(...(data ?? []))
-      if (!data || data.length < pageSize) break
+      if (!data || data.length < batchSize) break
     }
 
-    setClients(clientsResult.data ?? [])
+    setClients(allClients)
     setPortefeuille(allAssignments)
     const { data: sp, error: supervisorAssignmentsError } = await supabase
       .from('portefeuille_superviseurs')
@@ -129,14 +147,71 @@ export default function ManagementClients() {
       if (vmFilter === '__sans_vm__' && portefeuille.some((p) => p.client_id === c.id)) return false
       if (vmFilter && vmFilter !== '__sans_vm__' && !portefeuille.some((p) => p.client_id === c.id && p.vm_id === vmFilter)) return false
       if (q && !c.nom.toLowerCase().includes(q) && !(c.centre ?? '').toLowerCase().includes(q)) return false
-      return true
+      return advancedFilters.every((filter) => {
+        if (!filter.value.trim()) return true
+        const value = filter.value.trim().toLowerCase()
+        switch (filter.field) {
+          case 'vm_id': return filter.value === '__sans_vm__'
+            ? !portefeuille.some((p) => p.client_id === c.id)
+            : portefeuille.some((p) => p.client_id === c.id && p.vm_id === filter.value)
+          case 'specialite': return c.specialite === filter.value
+          case 'potentiel': return c.potentiel === filter.value
+          case 'secteur': return c.secteur === filter.value
+          case 'actif': return String(c.actif) === filter.value
+          case 'nom': return c.nom.toLowerCase().includes(value)
+          case 'centre': return (c.centre ?? '').toLowerCase().includes(value)
+          case 'categorie': return (c.categorie ?? '').toLowerCase().includes(value)
+          case 'contacts': return (c.contacts ?? '').toLowerCase().includes(value)
+          case 'observations': return (c.observations ?? '').toLowerCase().includes(value)
+          case 'frequence_visite_mensuelle': return String(c.frequence_visite_mensuelle) === filter.value
+          default: return true
+        }
+      })
     })
-  }, [clients, search, secteurFilter, potentielFilter, vmFilter, portefeuille])
+  }, [clients, search, secteurFilter, potentielFilter, vmFilter, portefeuille, advancedFilters])
 
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const pageClients = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   const selectedClients = clients.filter((c) => selection.has(c.id))
   const secteursSelection = new Set(selectedClients.map((c) => c.secteur))
   const secteurCommun = secteursSelection.size === 1 ? [...secteursSelection][0] : null
-  const toutSelectionne = filtered.length > 0 && filtered.every((c) => selection.has(c.id))
+  const toutSelectionne = pageClients.length > 0 && pageClients.every((c) => selection.has(c.id))
+
+  useEffect(() => { setCurrentPage(1) }, [search, secteurFilter, potentielFilter, vmFilter, advancedFilters])
+
+  function ajouterFiltre() {
+    setAdvancedFilters((items) => [...items, { id: Date.now(), field: 'specialite', value: '' }])
+  }
+
+  function modifierFiltre(id: number, patch: Partial<{ field: string; value: string }>) {
+    setAdvancedFilters((items) => items.map((item) => item.id === id ? { ...item, ...patch, ...(patch.field ? { value: '' } : {}) } : item))
+  }
+
+  function exporterClients(format: 'csv' | 'excel' | 'pdf') {
+    const headers = ['Client', 'Centre', 'Spécialité', 'Potentiel', 'Secteur', 'Visiteur médical', 'Catégorie', 'Statut', 'Fréquence mensuelle', 'Contacts', 'Observations']
+    const rows = filtered.map((c) => [
+      c.nom, c.centre ?? '', SPECIALITE_LABEL[c.specialite] ?? c.specialite, c.potentiel, c.secteur,
+      vmNomById[vmParClient[c.id]] ?? 'Sans affectation', c.categorie ?? '', c.actif ? 'Actif' : 'Inactif',
+      String(c.frequence_visite_mensuelle), c.contacts ?? '', c.observations ?? ''
+    ])
+    if (format === 'pdf') {
+      const popup = window.open('', '_blank')
+      if (!popup) return
+      const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char))
+      popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Export portefeuille clients</title><style>body{font:12px Arial,sans-serif;color:#16324f;padding:24px}h1{font-size:20px}p{color:#647789}table{width:100%;border-collapse:collapse}th,td{border:1px solid #dbe4ec;padding:7px;text-align:left}th{background:#edf3f8} @media print{body{padding:0}}</style></head><body><h1>Portefeuille clients</h1><p>${rows.length} résultat(s) · Export PROVISIT</p><table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`)
+      popup.document.close()
+      return
+    }
+    const csv = [headers, ...rows].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(';')).join('\r\n')
+    const mime = format === 'excel' ? 'application/vnd.ms-excel;charset=utf-8' : 'text/csv;charset=utf-8'
+    const blob = new Blob(['\ufeff', csv], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = format === 'excel' ? 'provisit-portefeuille-clients.xls' : 'provisit-portefeuille-clients.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   function toggleSelection(id: string) {
     setSelection((s) => {
@@ -151,11 +226,11 @@ export default function ManagementClients() {
     setSelection((s) => {
       if (toutSelectionne) {
         const next = new Set(s)
-        filtered.forEach((c) => next.delete(c.id))
+        pageClients.forEach((c) => next.delete(c.id))
         return next
       }
       const next = new Set(s)
-      filtered.forEach((c) => next.add(c.id))
+      pageClients.forEach((c) => next.add(c.id))
       return next
     })
   }
@@ -309,6 +384,67 @@ export default function ManagementClients() {
         </select>
       </Card>
 
+      <Card className="space-y-4 border border-[#163E63]/[.08] bg-white shadow-[0_8px_26px_rgba(22,62,99,.045)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-[#163E63]">Filtres avancés</p>
+            <p className="mt-1 text-xs text-ink-400">Combine plusieurs critères pour analyser précisément les portefeuilles.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={ajouterFiltre}>+ Ajouter un filtre</Button>
+            <Button size="sm" variant="ghost" onClick={() => setAdvancedFilters([])}>Réinitialiser</Button>
+          </div>
+        </div>
+        {advancedFilters.map((filter) => (
+          <div key={filter.id} className="grid grid-cols-1 gap-2 rounded-xl border border-ink-100 bg-ink-50/50 p-3 sm:grid-cols-[minmax(150px,1fr)_minmax(180px,1.4fr)_auto] sm:items-end">
+            <label className="text-xs font-semibold text-ink-500">
+              Colonne
+              <select value={filter.field} onChange={(e) => modifierFiltre(filter.id, { field: e.target.value })} className="mt-1.5 w-full px-3 py-2.5 text-sm">
+                <option value="nom">Nom du client</option><option value="centre">Centre</option><option value="specialite">Spécialité</option>
+                <option value="potentiel">Potentiel</option><option value="secteur">Secteur</option><option value="vm_id">Visiteur médical (VM)</option>
+                <option value="categorie">Catégorie</option><option value="actif">Statut</option><option value="frequence_visite_mensuelle">Fréquence mensuelle</option>
+                <option value="contacts">Contacts</option><option value="observations">Observations</option>
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-ink-500">
+              Valeur
+              {filter.field === 'specialite' ? (
+                <select value={filter.value} onChange={(e) => modifierFiltre(filter.id, { value: e.target.value })} className="mt-1.5 w-full px-3 py-2.5 text-sm">
+                  <option value="">Toutes les spécialités</option>{(Object.keys(SPECIALITE_LABEL) as Specialite[]).map((s) => <option key={s} value={s}>{SPECIALITE_LABEL[s]}</option>)}
+                </select>
+              ) : filter.field === 'potentiel' ? (
+                <select value={filter.value} onChange={(e) => modifierFiltre(filter.id, { value: e.target.value })} className="mt-1.5 w-full px-3 py-2.5 text-sm">
+                  <option value="">Tous les potentiels</option><option value="GROS">Gros</option><option value="MOYEN">Moyen</option><option value="FAIBLE">Faible</option>
+                </select>
+              ) : filter.field === 'secteur' ? (
+                <select value={filter.value} onChange={(e) => modifierFiltre(filter.id, { value: e.target.value })} className="mt-1.5 w-full px-3 py-2.5 text-sm">
+                  <option value="">Tous les secteurs</option><option value="A">Secteur A</option><option value="B">Secteur B</option>
+                </select>
+              ) : filter.field === 'vm_id' ? (
+                <select value={filter.value} onChange={(e) => modifierFiltre(filter.id, { value: e.target.value })} className="mt-1.5 w-full px-3 py-2.5 text-sm">
+                  <option value="">Tous les VM</option><option value="__sans_vm__">Sans affectation</option>{vms.map((v) => <option key={v.id} value={v.id}>{v.full_name}</option>)}
+                </select>
+              ) : filter.field === 'actif' ? (
+                <select value={filter.value} onChange={(e) => modifierFiltre(filter.id, { value: e.target.value })} className="mt-1.5 w-full px-3 py-2.5 text-sm">
+                  <option value="">Tous les statuts</option><option value="true">Actif</option><option value="false">Inactif</option>
+                </select>
+              ) : (
+                <input value={filter.value} onChange={(e) => modifierFiltre(filter.id, { value: e.target.value })} placeholder="Saisir une valeur…" className="mt-1.5 w-full px-3 py-2.5 text-sm" />
+              )}
+            </label>
+            <button type="button" onClick={() => setAdvancedFilters((items) => items.filter((item) => item.id !== filter.id))} className="rounded-lg px-3 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50">Supprimer</button>
+          </div>
+        ))}
+        <div className="flex flex-col gap-3 border-t border-ink-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-ink-500"><strong className="text-[#163E63]">{filtered.length.toLocaleString('fr-FR')}</strong> client(s) correspondant aux critères</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={() => exporterClients('excel')}>Exporter Excel</Button>
+            <Button size="sm" variant="secondary" onClick={() => exporterClients('csv')}>Exporter CSV</Button>
+            <Button size="sm" variant="secondary" onClick={() => exporterClients('pdf')}>Exporter PDF</Button>
+          </div>
+        </div>
+      </Card>
+
       {selection.size > 0 && (
         <Card className="flex flex-col sm:flex-row sm:items-center gap-3 border border-royal-200 bg-royal-50/50">
           <p className="text-xs font-semibold text-royal-700 flex-1">
@@ -349,7 +485,7 @@ export default function ManagementClients() {
 
       {/* Liste mobile : toute la carte est cliquable pour sélectionner (case à cocher trop petite à viser dans un tableau qui défile) */}
       <div className="space-y-2.5 md:hidden">
-        {filtered.map((c) => {
+        {pageClients.map((c) => {
           const selected = selection.has(c.id)
           return (
             <Card
@@ -397,6 +533,17 @@ export default function ManagementClients() {
         )}
       </div>
 
+      <div className="flex flex-col gap-3 rounded-2xl border border-[#163E63]/[.08] bg-white px-4 py-3 shadow-[0_8px_26px_rgba(22,62,99,.035)] sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-ink-500">Affichage <strong>{filtered.length ? ((currentPage - 1) * pageSize) + 1 : 0}–{Math.min(currentPage * pageSize, filtered.length)}</strong> sur <strong>{filtered.length.toLocaleString('fr-FR')}</strong> résultat(s) · {pageSize} par page</p>
+        <div className="flex items-center gap-2">
+          <button type="button" disabled={currentPage <= 1} onClick={() => setCurrentPage(1)} className="rounded-lg border border-ink-200 px-2.5 py-2 text-xs font-semibold text-ink-600 disabled:opacity-40">«</button>
+          <button type="button" disabled={currentPage <= 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} className="rounded-lg border border-ink-200 px-3 py-2 text-xs font-semibold text-ink-600 disabled:opacity-40">Précédent</button>
+          <span className="min-w-20 text-center text-xs font-bold text-[#163E63]">Page {currentPage} / {pageCount}</span>
+          <button type="button" disabled={currentPage >= pageCount} onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))} className="rounded-lg border border-ink-200 px-3 py-2 text-xs font-semibold text-ink-600 disabled:opacity-40">Suivant</button>
+          <button type="button" disabled={currentPage >= pageCount} onClick={() => setCurrentPage(pageCount)} className="rounded-lg border border-ink-200 px-2.5 py-2 text-xs font-semibold text-ink-600 disabled:opacity-40">»</button>
+        </div>
+      </div>
+
       {/* Tableau desktop */}
       <Card className="hidden overflow-hidden border border-ink-100 bg-white p-0 shadow-sm md:block">
         <div className="overflow-x-auto">
@@ -418,7 +565,7 @@ export default function ManagementClients() {
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
-              {filtered.map((c) => (
+              {pageClients.map((c) => (
                 <tr
                   key={c.id}
                   onClick={() => toggleSelection(c.id)}
