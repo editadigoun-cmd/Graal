@@ -44,7 +44,8 @@ export default function Portefeuille() {
       if (active) setLoading(false)
     }
     void load()
-    return () => { active = false }
+    window.addEventListener('online', load)
+    return () => { active = false; window.removeEventListener('online', load) }
   }, [session])
 
   const filtered = useMemo(
