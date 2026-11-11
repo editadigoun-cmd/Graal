@@ -9,7 +9,8 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { supabase } from '@/lib/supabase'
 import { nowBenin, todayBenin, isoWeekMonday } from '@/lib/time'
-import { enqueueVisite } from '@/lib/offlineQueue'\nimport { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
+import { enqueueVisite } from '@/lib/offlineQueue'
+import { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
 import type { Database } from '@/types/database'
 
 type Ligne = Database['public']['Tables']['programme_lignes']['Row'] & {
