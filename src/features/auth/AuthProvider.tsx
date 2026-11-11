@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/types/database'\nimport { getOfflineSnapshot, saveOfflineSnapshot, clearOfflineSnapshots } from '@/lib/offlineCache'
+import type { Database } from '@/types/database'
+import { getOfflineSnapshot, saveOfflineSnapshot, clearOfflineSnapshots } from '@/lib/offlineCache'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
