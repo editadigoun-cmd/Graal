@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { todayBenin } from '@/lib/time'
-import type { Database } from '@/types/database'
+import type { Database } from '@/types/database'\nimport { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
 
 export type LigneStatut = Database['public']['Views']['v_lignes_avec_statut']['Row']
 
