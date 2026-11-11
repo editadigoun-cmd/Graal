@@ -24,7 +24,7 @@ export function useVisitesDuJour() {
     setLoading(false)
   }, [session])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {\n    void load()\n    window.addEventListener('online', load)\n    return () => window.removeEventListener('online', load)\n  }, [load])
 
   return { lignes, loading, reload: load }
 }
