@@ -149,7 +149,7 @@ export function ManagementShell() {
   return <div className="graal-surface flex h-screen overflow-hidden">
     <aside className="hidden md:flex w-72 flex-shrink-0 flex-col border-r border-[#163E63]/[.08] bg-white/90 backdrop-blur-2xl p-5 shadow-[8px_0_32px_rgba(22,62,99,.035)]">
       <div className="mb-8 flex items-center px-1"><img src={logoMark} alt="PROVISIT" className="h-10 w-auto max-w-[220px] object-contain" /></div>
-      {Navigation()}
+      {Navigation({})}
       <div className="mt-4 flex items-center gap-3 rounded-2xl border border-ink-100 p-2.5"><Avatar name={profile?.full_name ?? ''} url={profile?.avatar_url} size={38} /><div className="min-w-0 flex-1"><p className="text-xs font-bold text-ink-800 truncate">{profile?.full_name}</p><p className="text-[10px] text-ink-400">{profile ? ROLE_LABEL[profile.role] ?? profile.role : ''}</p></div></div>
       <button onClick={signOut} className="mt-2 flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-semibold text-ink-400 hover:bg-red-50 hover:text-red-500 transition"><IconLogout className="h-4 w-4" /> Se déconnecter</button>
     </aside>
