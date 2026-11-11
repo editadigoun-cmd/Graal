@@ -200,7 +200,11 @@ export function usePlanning() {
     setLoading(false)
   }, [session, profile?.secteur, profile?.id])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    void load()
+    window.addEventListener('online', load)
+    return () => window.removeEventListener('online', load)
+  }, [load])
 
   return { programme, lignes, portefeuille, loading, error, setError, reload: load, estFawaz, estFagbede, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive }
 }
