@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/types/database'
+import type { Database } from '@/types/database'\nimport { getOfflineSnapshot, saveOfflineSnapshot, clearOfflineSnapshots } from '@/lib/offlineCache'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -22,7 +22,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   async function loadProfile(userId: string) {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    if (!navigator.onLine) {
+      const cached = await getOfflineSnapshot<Profile>(userId, 'profile')
+      setProfile(cached?.data ?? null)
+      return
+    }
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
     if (data && !data.actif) {
       // Compte désactivé par un administrateur : on met fin à la session immédiatement,
       // même si le jeton d'accès courant est encore valide.
