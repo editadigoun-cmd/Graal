@@ -6,7 +6,8 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { IconSearch, IconChevronRight, IconAlert } from '@/components/ui/icons'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/types/database'\nimport { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
+import type { Database } from '@/types/database'
+import { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
 
 type ClientFreq = Database['public']['Views']['v_client_frequence']['Row']
 
