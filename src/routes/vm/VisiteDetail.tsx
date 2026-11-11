@@ -9,7 +9,7 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { supabase } from '@/lib/supabase'
 import { nowBenin, todayBenin, isoWeekMonday } from '@/lib/time'
-import { enqueueVisite } from '@/lib/offlineQueue'
+import { enqueueVisite } from '@/lib/offlineQueue'\nimport { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
 import type { Database } from '@/types/database'
 
 type Ligne = Database['public']['Tables']['programme_lignes']['Row'] & {
@@ -50,9 +50,29 @@ function ProgrammeForm({ ligneId }: { ligneId: string }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.from('programme_lignes').select('*, clients(*)').eq('id', ligneId).single()
-      .then(({ data }) => { setLigne(data as Ligne); setLoading(false) })
-  }, [ligneId])
+    let active = true
+    async function load() {
+      if (!session) { setLoading(false); return }
+      const key = `programme-ligne:${ligneId}`
+      if (!navigator.onLine) {
+        const cached = await getOfflineSnapshot<Ligne>(session.user.id, key)
+        if (active) { setLigne(cached?.data ?? null); setLoading(false) }
+        return
+      }
+      const { data, error } = await supabase.from('programme_lignes').select('*, clients(*)').eq('id', ligneId).single()
+      if (!active) return
+      if (data) {
+        setLigne(data as Ligne)
+        await saveOfflineSnapshot(session.user.id, key, data as Ligne)
+      } else if (error) {
+        const cached = await getOfflineSnapshot<Ligne>(session.user.id, key)
+        if (active) setLigne(cached?.data ?? null)
+      }
+      if (active) setLoading(false)
+    }
+    void load()
+    return () => { active = false }
+  }, [ligneId, session])
 
   async function handleSave(fields: Record<string, unknown>, produitsIds: string[]) {
     if (!ligne || !session) return
@@ -163,27 +183,55 @@ function HorsProgrammeForm() {
 
   useEffect(() => {
     if (!session) { setClients([]); return }
-    // Une visite hors programme ne doit proposer que les clients affectés au VM connecté.
-    // On part de portefeuille (filtré par vm_id) au lieu de charger toute la table clients.
-    supabase.from('portefeuille').select('clients(*)').eq('vm_id', session.user.id)
-      .then(({ data, error }) => {
-        if (error) { setError('Impossible de charger votre portefeuille.'); setClients([]); return }
-        const propres = (data ?? []).map((row: any) => row.clients).filter(Boolean) as ClientRow[]
-        setClients(propres.filter((client) => client.actif).sort((a, b) => a.nom.localeCompare(b.nom, 'fr')))
-      })
-
-    if (!session) return
+    // Le portefeuille reste strictement filtré par le VM connecté, y compris hors connexion.
+    const userId = session.user.id
+    const clientsKey = 'hors-programme-portefeuille'
+    const countsKey = `hors-programme-compteurs:${isoWeekMonday().format('YYYY-MM-DD')}`
     const today = todayBenin().format('YYYY-MM-DD')
     const weekStart = isoWeekMonday().format('YYYY-MM-DD')
     const weekEnd = isoWeekMonday().add(4, 'day').format('YYYY-MM-DD')
-    supabase.from('visites').select('jour')
-      .eq('vm_id', session.user.id).eq('hors_programme', true).is('garde_id', null)
-      .gte('jour', weekStart).lte('jour', weekEnd)
-      .then(({ data }) => {
-        const list = data ?? []
-        setOccasionnelsJour(list.filter((v) => v.jour === today).length)
+    async function loadData() {
+      if (!navigator.onLine) {
+        const [cachedClients, cachedCounts] = await Promise.all([
+          getOfflineSnapshot<ClientRow[]>(userId, clientsKey),
+          getOfflineSnapshot<{ jour: number; semaine: number }>(userId, countsKey)
+        ])
+        const pending = (await import('@/lib/offlineQueue')).peekQueue()
+          .filter((item) => item.payload.vm_id === userId && item.payload.hors_programme === true)
+        const pendingToday = pending.filter((item) => item.payload.jour === today).length
+        if (cachedClients) setClients(cachedClients.data)
+        else setError('Portefeuille non disponible hors connexion. Connectez-vous une première fois pour le télécharger.')
+        setOccasionnelsJour((cachedCounts?.data.jour ?? 0) + pendingToday)
+        setOccasionnelsSemaine((cachedCounts?.data.semaine ?? 0) + pending.length)
+        return
+      }
+      const [{ data: portfolioRows, error: portfolioError }, { data: visits, error: visitsError }] = await Promise.all([
+        supabase.from('portefeuille').select('clients(*)').eq('vm_id', userId),
+        supabase.from('visites').select('jour').eq('vm_id', userId).eq('hors_programme', true).is('garde_id', null)
+          .gte('jour', weekStart).lte('jour', weekEnd)
+      ])
+      if (portfolioError) {
+        const cached = await getOfflineSnapshot<ClientRow[]>(userId, clientsKey)
+        if (cached) setClients(cached.data)
+        else setError('Impossible de charger votre portefeuille.')
+      } else {
+        const propres = (portfolioRows ?? []).map((row: any) => row.clients).filter(Boolean) as ClientRow[]
+        const rows = propres.filter((client) => client.actif).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
+        setClients(rows)
+        await saveOfflineSnapshot(userId, clientsKey, rows)
+      }
+      if (visitsError) {
+        const cached = await getOfflineSnapshot<{ jour: number; semaine: number }>(userId, countsKey)
+        if (cached) { setOccasionnelsJour(cached.data.jour); setOccasionnelsSemaine(cached.data.semaine) }
+      } else {
+        const list = visits ?? []
+        const jour = list.filter((v) => v.jour === today).length
+        setOccasionnelsJour(jour)
         setOccasionnelsSemaine(list.length)
-      })
+        await saveOfflineSnapshot(userId, countsKey, { jour, semaine: list.length })
+      }
+    }
+    void loadData()
   }, [session])
 
   const client = clients.find((c) => c.id === clientId)
@@ -373,8 +421,25 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
 
   useEffect(() => {
     if (!profile?.equipe_id) return
-    supabase.from('produits').select('*').eq('actif', true).eq('equipe_id', profile.equipe_id).order('nom')
-      .then(({ data }) => setProduitsCatalogue(data ?? []))
+    let active = true
+    const key = `produits:${profile.equipe_id}`
+    async function loadProducts() {
+      if (!navigator.onLine) {
+        const cached = await getOfflineSnapshot<Produit[]>(profile.id, key)
+        if (active) setProduitsCatalogue(cached?.data ?? [])
+        return
+      }
+      const { data, error } = await supabase.from('produits').select('*').eq('actif', true).eq('equipe_id', profile.equipe_id).order('nom')
+      if (data) {
+        if (active) setProduitsCatalogue(data)
+        await saveOfflineSnapshot(profile.id, key, data)
+      } else if (error) {
+        const cached = await getOfflineSnapshot<Produit[]>(profile.id, key)
+        if (active) setProduitsCatalogue(cached?.data ?? [])
+      }
+    }
+    void loadProducts()
+    return () => { active = false }
   }, [profile?.equipe_id])
 
   const toggleProduit = (id: string) => setProduits((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
