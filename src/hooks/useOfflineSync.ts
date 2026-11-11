@@ -28,7 +28,12 @@ export function useOfflineSync() {
       for (const item of items) {
         // L'identifiant local stable rend la reprise idempotente après une coupure réseau
         // survenue après l'insertion serveur mais avant la confirmation locale.
-        const payload = { ...item.payload, id: item.localId } as VisiteInsert
+        const payload = {
+          ...item.payload,
+          id: item.localId,
+          // Compatibilité avec les visites déjà en file avant l'ajout de horodatage.
+          horodatage: item.payload.horodatage ?? item.createdAt
+        } as VisiteInsert
         const { error: insertError } = await supabase.from('visites').insert(payload)
         if (insertError) {
           const { data: existing, error: lookupError } = await supabase
