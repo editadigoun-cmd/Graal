@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { isoWeekMonday } from '@/lib/time'
-import type { Database } from '@/types/database'
+import type { Database } from '@/types/database'\nimport { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
 
 type Programme = Database['public']['Tables']['programmes_hebdomadaires']['Row']
 type Ligne = Database['public']['Tables']['programme_lignes']['Row'] & {
   clients: Pick<Database['public']['Tables']['clients']['Row'], 'id' | 'nom' | 'potentiel' | 'specialite' | 'centre'> | null
 }
-type ClientRow = Database['public']['Tables']['clients']['Row']
+type ClientRow = Database['public']['Tables']['clients']['Row']\ntype PlanningSnapshot = { programme: Programme; lignes: Ligne[]; portefeuille: ClientRow[]; zone: boolean; potentiel: boolean; generaliste: boolean }
 
 export function targetSemaineDebut() {
   return isoWeekMonday().add(7, 'day').format('YYYY-MM-DD')
@@ -33,6 +33,22 @@ export function usePlanning() {
     setLoading(true)
     setError(null)
     const vmId = session.user.id
+    if (!navigator.onLine) {
+      const cached = await getOfflineSnapshot<PlanningSnapshot>(vmId, 'planning')
+      if (cached) {
+        setProgramme(cached.data.programme)
+        setLignes(cached.data.lignes)
+        setPortefeuille(cached.data.portefeuille)
+        setDerogationZoneActive(cached.data.zone)
+        setDerogationPotentielActive(cached.data.potentiel)
+        setDerogationGeneralisteActive(cached.data.generaliste)
+        setError(null)
+      } else {
+        setError('Aucun planning enregistré sur ce téléphone. Connectez-vous à Internet pour le télécharger avant de passer hors connexion.')
+      }
+      setLoading(false)
+      return
+    }
     const semaineActuelle = isoWeekMonday().format('YYYY-MM-DD')
     const semaineSuivante = targetSemaineDebut()
 
@@ -171,6 +187,16 @@ export function usePlanning() {
       return zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || !prog!.secteur || client.secteur === prog!.secteur
     }))
     setLignes((lignesData as Ligne[]) ?? [])
+    await saveOfflineSnapshot(vmId, 'planning', {
+      programme: prog!,
+      lignes: (lignesData as Ligne[]) ?? [],
+      portefeuille: (clientsData ?? []).filter((client) => {
+        if (prog!.mode_pharmacie_uniquement) return idsPortefeuille.has(client.id) && client.specialite === 'PHARMACIE'
+        if (!idsPortefeuille.has(client.id) && !zoneLibre) return false
+        return zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || !prog!.secteur || client.secteur === prog!.secteur
+      }),
+      zone: zoneLibre, potentiel: potentielLibre, generaliste: generalisteLibre
+    })
     setLoading(false)
   }, [session, profile?.secteur, profile?.id])
 
