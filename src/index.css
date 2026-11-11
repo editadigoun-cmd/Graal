@@ -7,70 +7,121 @@
   color-scheme: light;
   --safe-top: env(safe-area-inset-top);
   --safe-bottom: env(safe-area-inset-bottom);
+  --pv-blue: #20589A;
+  --pv-blue-deep: #163F70;
+  --pv-green: #35B27A;
+  --pv-green-deep: #21865A;
+  --pv-orange: #F39200;
+  --pv-teal: #15585A;
+  --pv-ink: #243647;
+  --pv-muted: #718294;
+  --pv-border: rgba(32, 88, 154, .12);
+  --pv-surface: #FFFFFF;
+  --pv-canvas: #F4F8FB;
+  --pv-shadow: 0 12px 34px rgba(22, 63, 112, .07);
 }
 
-html.dark {
-  color-scheme: dark;
-}
+html.dark { color-scheme: dark; }
 
 @layer base {
-  html, body, #root {
-    height: 100%;
-  }
+  html, body, #root { min-height: 100%; height: 100%; }
   body {
-    @apply font-body text-ink-800 antialiased;
-    background: linear-gradient(180deg, #F8FAFC 0%, #F2F6F9 100%);
+    @apply font-body antialiased;
+    color: var(--pv-ink);
+    background: var(--pv-canvas);
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
   }
-  html.dark body {
-    @apply bg-ink-900 text-ink-100;
-  }
-  h1, h2, h3, h4 {
-    @apply font-display;
-  }
-  ::selection {
-    @apply bg-royal-200/60;
-  }
+  html.dark body { @apply bg-ink-900 text-ink-100; }
+  h1, h2, h3, h4 { @apply font-display; }
+  ::selection { background: rgba(53,178,122,.22); color: var(--pv-teal); }
 }
 
 @layer components {
-  /* GRAAL exclusive watermark background — replaces empty space app-wide */
   .graal-surface {
-    background-color: theme('colors.ink.50');
-    background-image: radial-gradient(circle at 8% 4%, rgba(31,163,122,.055), transparent 28%), radial-gradient(circle at 92% 20%, rgba(22,62,99,.055), transparent 30%);
-    background-repeat: repeat;
-    background-size: 260px 260px;
+    background-color: var(--pv-canvas);
+    background-image:
+      radial-gradient(ellipse at 5% 0%, rgba(53,178,122,.075), transparent 32%),
+      radial-gradient(ellipse at 96% 8%, rgba(32,88,154,.07), transparent 30%),
+      linear-gradient(180deg, #F8FBFD 0%, #F1F6F9 100%);
+    background-attachment: fixed;
   }
   html.dark .graal-surface {
     background-color: theme('colors.ink.900');
     background-image: url('/patterns/graal-watermark-dark.svg');
   }
 
-  .glass-panel {
-    @apply bg-white/70 backdrop-blur-xl border border-white/60 shadow-glass;
-  }
-  html.dark .glass-panel {
-    @apply bg-ink-800/60 border-white/10;
-  }
+  .glass-panel { @apply bg-white/75 backdrop-blur-xl border border-white/70; box-shadow: var(--pv-shadow); }
+  html.dark .glass-panel { @apply bg-ink-800/60 border-white/10; }
+  .glass-nav { @apply bg-white/85 backdrop-blur-2xl border border-white/70; box-shadow: 0 10px 32px rgba(22,63,112,.08); }
+  html.dark .glass-nav { @apply bg-ink-800/70 border-white/10; }
+  .card-premium { @apply rounded-2xl border bg-white; border-color: var(--pv-border); box-shadow: var(--pv-shadow); }
+  html.dark .card-premium { @apply bg-ink-800 border-white/5; }
 
-  .glass-nav {
-    @apply bg-white/75 backdrop-blur-2xl border border-white/50 shadow-glow;
-  }
-  html.dark .glass-nav {
-    @apply bg-ink-800/70 border-white/10;
-  }
+  .provisit-page-title { @apply text-xl sm:text-2xl font-extrabold tracking-tight; color: var(--pv-blue-deep); }
+  .provisit-page-subtitle { @apply mt-1 text-sm leading-6; color: var(--pv-muted); }
+  .provisit-section { @apply rounded-2xl bg-white p-4 sm:p-5; border: 1px solid var(--pv-border); box-shadow: var(--pv-shadow); }
+  .provisit-chip { @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold; color: var(--pv-green-deep); background: rgba(53,178,122,.10); border: 1px solid rgba(53,178,122,.22); }
+  .provisit-table-wrap { @apply overflow-x-auto rounded-2xl bg-white; border: 1px solid var(--pv-border); box-shadow: var(--pv-shadow); }
+  .provisit-table-wrap table { @apply w-full border-collapse text-sm; }
+  .provisit-table-wrap thead { background: #F0F5F8; color: #526779; }
+  .provisit-table-wrap th { @apply px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-[.07em]; }
+  .provisit-table-wrap td { @apply px-4 py-3; color: #43576A; border-top: 1px solid rgba(32,88,154,.07); }
+  .provisit-table-wrap tbody tr { @apply transition-colors; }
+  .provisit-table-wrap tbody tr:hover { background: rgba(53,178,122,.045); }
 
-  .card-premium {
-    @apply rounded-xl3 border border-ink-100/80 bg-white shadow-soft;
+  input:not([type=checkbox]):not([type=radio]), select, textarea {
+    @apply rounded-xl bg-white outline-none transition;
+    color: var(--pv-ink);
+    border: 1px solid rgba(32,88,154,.18);
   }
-  html.dark .card-premium {
-    @apply bg-ink-800 border-white/5;
+  input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus {
+    border-color: var(--pv-green);
+    box-shadow: 0 0 0 4px rgba(53,178,122,.12);
   }
+  button:focus-visible, a:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(53,178,122,.22); }
 
-  .provisit-page-title { @apply text-xl sm:text-2xl font-extrabold tracking-tight text-[#163E63]; }\n  .provisit-page-subtitle { @apply mt-1 text-sm leading-6 text-[#647789]; }\n  .provisit-section { @apply rounded-2xl border border-[#163E63]/[.07] bg-white p-4 shadow-[0_8px_26px_rgba(22,62,99,.045)] sm:p-5; }\n  .provisit-chip { @apply inline-flex items-center gap-1.5 rounded-full border border-[#1FA37A]/20 bg-[#1FA37A]/[.08] px-3 py-1 text-xs font-semibold text-[#147A5C]; }\n  .provisit-table-wrap { @apply overflow-x-auto rounded-2xl border border-[#163E63]/[.08] bg-white shadow-[0_8px_26px_rgba(22,62,99,.045)]; }\n  .provisit-table-wrap table { @apply w-full border-collapse text-sm; }\n  .provisit-table-wrap thead { @apply bg-[#F3F7FA] text-[#526476]; }\n  .provisit-table-wrap th { @apply px-4 py-3 text-left text-[11px] font-extrabold uppercase tracking-[.07em]; }\n  .provisit-table-wrap td { @apply border-t border-[#163E63]/[.06] px-4 py-3 text-[#43576A]; }\n  .provisit-table-wrap tbody tr { @apply transition-colors; }\n  .provisit-table-wrap tbody tr:hover { @apply bg-[#F5FAF8]; }\n  input:not([type=checkbox]):not([type=radio]), select, textarea { @apply rounded-xl border border-[#163E63]/15 bg-white text-[#263D52] outline-none transition placeholder:text-[#9AA8B4]; }\n  input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus { @apply border-[#1FA37A] ring-4 ring-[#1FA37A]/10; }\n  button:focus-visible, a:focus-visible { @apply outline-none ring-4 ring-[#1FA37A]/20; }\n  .skeleton {
-    @apply relative overflow-hidden bg-ink-100 rounded-xl2;
-    background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+  .pv-shell-sidebar {
+    background: rgba(255,255,255,.94);
+    border-color: rgba(32,88,154,.10);
+    box-shadow: 10px 0 36px rgba(22,63,112,.045);
+  }
+  .pv-shell-header {
+    background: rgba(255,255,255,.91);
+    border-color: rgba(32,88,154,.10);
+    box-shadow: 0 5px 24px rgba(22,63,112,.045);
+  }
+  .pv-nav-item {
+    @apply flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all duration-200;
+    color: #627487;
+  }
+  .pv-nav-item:hover { background: rgba(53,178,122,.075); color: var(--pv-teal); transform: translateX(2px); }
+  .pv-nav-item[aria-current="page"] {
+    color: white;
+    background: linear-gradient(115deg, var(--pv-blue) 0%, var(--pv-teal) 100%);
+    box-shadow: 0 7px 18px rgba(32,88,154,.20);
+  }
+  .pv-nav-group {
+    @apply w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-bold transition-all duration-200;
+    color: #627487;
+  }
+  .pv-nav-group:hover { background: rgba(53,178,122,.075); color: var(--pv-teal); }
+  .pv-nav-group.is-active { color: var(--pv-teal); background: rgba(53,178,122,.09); }
+  .pv-nav-subitem {
+    @apply flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200;
+    color: #65788A;
+  }
+  .pv-nav-subitem:hover { color: var(--pv-teal); background: rgba(53,178,122,.07); }
+  .pv-nav-subitem.is-active {
+    color: white;
+    background: linear-gradient(115deg, var(--pv-blue) 0%, var(--pv-teal) 100%);
+    box-shadow: 0 5px 14px rgba(32,88,154,.16);
+  }
+  .pv-brand-accent { background: linear-gradient(90deg, var(--pv-green), var(--pv-orange), var(--pv-blue)); }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-xl2 bg-ink-100;
+    background-image: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
     background-size: 200% 100%;
     animation: shimmer 1.6s infinite;
   }
@@ -79,13 +130,11 @@ html.dark {
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-  .styled-scrollbar { scrollbar-width: thin; scrollbar-color: theme('colors.ink.200') transparent; }
+  .styled-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(32,88,154,.22) transparent; }
   .styled-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
   .styled-scrollbar::-webkit-scrollbar-track { background: transparent; }
-  .styled-scrollbar::-webkit-scrollbar-thumb { background-color: theme('colors.ink.200'); border-radius: 999px; }
-  .styled-scrollbar::-webkit-scrollbar-thumb:hover { background-color: theme('colors.royal.300'); }
+  .styled-scrollbar::-webkit-scrollbar-thumb { background: rgba(32,88,154,.20); border-radius: 999px; }
+  .styled-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(53,178,122,.55); }
   html.dark .styled-scrollbar { scrollbar-color: theme('colors.ink.600') transparent; }
-  html.dark .styled-scrollbar::-webkit-scrollbar-thumb { background-color: theme('colors.ink.600'); }
-  html.dark .styled-scrollbar::-webkit-scrollbar-thumb:hover { background-color: theme('colors.royal.500'); }
+  html.dark .styled-scrollbar::-webkit-scrollbar-thumb { background: theme('colors.ink.600'); }
 }
