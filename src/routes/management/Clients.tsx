@@ -202,15 +202,17 @@ export default function ManagementClients() {
       popup.document.close()
       return
     }
+    const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char))
     const csv = [headers, ...rows].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(';')).join('\r\n')
-    const mime = format === 'excel' ? 'application/vnd.ms-excel;charset=utf-8' : 'text/csv;charset=utf-8'
-    const blob = new Blob(['\ufeff', csv], { type: mime })
+    const blob = format === 'excel'
+      ? new Blob([`<html><head><meta charset="utf-8"></head><body><table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`], { type: 'application/vnd.ms-excel;charset=utf-8' })
+      : new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     link.download = format === 'excel' ? 'provisit-portefeuille-clients.xls' : 'provisit-portefeuille-clients.csv'
     link.click()
-    URL.revokeObjectURL(url)
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }
 
   function toggleSelection(id: string) {
