@@ -26,7 +26,15 @@ function writeAll(items: VisiteEnAttente[]) {
 
 export function enqueueVisite(payload: Record<string, unknown>, produits: string[]) {
   const items = readAll()
-  items.push({ localId: crypto.randomUUID(), createdAt: new Date().toISOString(), payload, produits })
+  // Capturer l'heure de réalisation sur le téléphone au moment exact de la mise en attente.
+  // Elle sera envoyée comme horodatage métier, jamais remplacée par l'heure de synchronisation.
+  const createdAt = new Date().toISOString()
+  items.push({
+    localId: crypto.randomUUID(),
+    createdAt,
+    payload: { ...payload, horodatage: payload.horodatage ?? createdAt },
+    produits
+  })
   writeAll(items)
 }
 
