@@ -37,7 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(null)
       return
     }
-    setProfile(data ?? null)
+    if (data) {
+      setProfile(data)
+      await saveOfflineSnapshot(userId, 'profile', data)
+    } else if (error) {
+      const cached = await getOfflineSnapshot<Profile>(userId, 'profile')
+      setProfile(cached?.data ?? null)
+    } else {
+      setProfile(null)
+    }
   }
 
   useEffect(() => {
@@ -73,7 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    const userId = session?.user.id
     await supabase.auth.signOut()
+    if (userId) await clearOfflineSnapshots(userId)
   }
 
   async function refreshProfile() {

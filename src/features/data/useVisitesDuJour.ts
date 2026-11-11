@@ -15,13 +15,44 @@ export function useVisitesDuJour() {
   const load = useCallback(async () => {
     if (!session) return
     setLoading(true)
-    const { data } = await supabase
+    const day = todayBenin().format('YYYY-MM-DD')
+    const cacheKey = `visites-du-jour:${day}`
+
+    if (!navigator.onLine) {
+      const cached = await getOfflineSnapshot<LigneStatut[]>(session.user.id, cacheKey)
+      setLignes(cached?.data ?? [])
+      setLoading(false)
+      return
+    }
+
+    const { data, error } = await supabase
       .from('v_lignes_avec_statut')
       .select('*')
       .eq('vm_id', session.user.id)
-      .eq('date_visite', todayBenin().format('YYYY-MM-DD'))
+      .eq('date_visite', day)
       .order('jour')
-    setLignes(data ?? [])
+
+    if (error) {
+      const cached = await getOfflineSnapshot<LigneStatut[]>(session.user.id, cacheKey)
+      if (cached) setLignes(cached.data)
+    } else {
+      const rows = data ?? []
+      setLignes(rows)
+      await saveOfflineSnapshot(session.user.id, cacheKey, rows)
+
+      // Précharger les fiches détaillées de toutes les visites du jour pour pouvoir
+      // ouvrir une visite programmée même si le réseau est coupé ensuite.
+      const lineIds = rows.map((row) => row.programme_ligne_id).filter(Boolean)
+      if (lineIds.length > 0) {
+        const { data: details } = await supabase
+          .from('programme_lignes').select('*, clients(*)').in('id', lineIds)
+        if (details) {
+          await Promise.all(details.map((line) =>
+            saveOfflineSnapshot(session.user.id, `programme-ligne:${line.id}`, line)
+          ))
+        }
+      }
+    }
     setLoading(false)
   }, [session])
 
