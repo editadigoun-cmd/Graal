@@ -196,14 +196,14 @@ function HorsProgrammeForm() {
       if (!navigator.onLine) {
         const [cachedClients, cachedCounts] = await Promise.all([
           getOfflineSnapshot<ClientRow[]>(userId, clientsKey),
-          getOfflineSnapshot<{ jour: number; semaine: number }>(userId, countsKey)
+          getOfflineSnapshot<{ jour: number; semaine: number; jourDate: string }>(userId, countsKey)
         ])
         const pending = (await import('@/lib/offlineQueue')).peekQueue()
           .filter((item) => item.payload.vm_id === userId && item.payload.hors_programme === true)
         const pendingToday = pending.filter((item) => item.payload.jour === today).length
         if (cachedClients) setClients(cachedClients.data)
         else setError('Portefeuille non disponible hors connexion. Connectez-vous une première fois pour le télécharger.')
-        setOccasionnelsJour((cachedCounts?.data.jour ?? 0) + pendingToday)
+        setOccasionnelsJour((cachedCounts?.data.jourDate === today ? cachedCounts.data.jour : 0) + pendingToday)
         setOccasionnelsSemaine((cachedCounts?.data.semaine ?? 0) + pending.length)
         return
       }
@@ -230,7 +230,7 @@ function HorsProgrammeForm() {
         const jour = list.filter((v) => v.jour === today).length
         setOccasionnelsJour(jour)
         setOccasionnelsSemaine(list.length)
-        await saveOfflineSnapshot(userId, countsKey, { jour, semaine: list.length })
+        await saveOfflineSnapshot(userId, countsKey, { jour, semaine: list.length, jourDate: today })
       }
     }
     void loadData()
