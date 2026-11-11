@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { todayBenin } from '@/lib/time'
-import type { Database } from '@/types/database'\nimport { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
+import type { Database } from '@/types/database'
+import { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
 
 export type LigneStatut = Database['public']['Views']['v_lignes_avec_statut']['Row']
 
@@ -24,7 +25,11 @@ export function useVisitesDuJour() {
     setLoading(false)
   }, [session])
 
-  useEffect(() => {\n    void load()\n    window.addEventListener('online', load)\n    return () => window.removeEventListener('online', load)\n  }, [load])
+  useEffect(() => {
+    void load()
+    window.addEventListener('online', load)
+    return () => window.removeEventListener('online', load)
+  }, [load])
 
   return { lignes, loading, reload: load }
 }
