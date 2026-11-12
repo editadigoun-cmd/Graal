@@ -1,15 +1,47 @@
-import { useEffect } from 'react'\nimport { Outlet, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { TopBar } from '@/components/ui/TopBar'
 import { BottomNav } from '@/components/ui/BottomNav'
 import { Watermark } from '@/components/ui/Watermark'
-import { useAuth } from '@/features/auth/AuthProvider'\nimport { prechargerDonneesHorsLigne } from '@/lib/offlinePrefetch'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { prechargerDonneesHorsLigne } from '@/lib/offlinePrefetch'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 import { useOfflineSync } from '@/hooks/useOfflineSync'
 import { useOfflineClotureSync } from '@/hooks/useOfflineClotureSync'
 
 export function VmShell() {
-  const { profile, session } = useAuth()\n\n  useEffect(() => {\n    const vmId = session?.user.id\n    if (!vmId) return\n    let actif = true\n    let enCours = false\n    const precharger = async () => {\n      if (!actif || !navigator.onLine || enCours) return\n      enCours = true\n      try {\n        await prechargerDonneesHorsLigne(vmId)\n      } catch (error) {\n        console.warn('Préchargement hors connexion interrompu :', error)\n      } finally {\n        enCours = false\n      }\n    }\n    void precharger()\n    window.addEventListener('online', precharger)\n    return () => {\n      actif = false\n      window.removeEventListener('online', precharger)\n    }\n  }, [session?.user.id])
+  const { profile, session } = useAuth()
+
+  useEffect(() => {
+    const vmId = session?.user.id
+    if (!vmId) return
+
+    let actif = true
+    let prechargementEnCours = false
+
+    const precharger = async () => {
+      if (!actif || !navigator.onLine || prechargementEnCours) return
+
+      prechargementEnCours = true
+      try {
+        await prechargerDonneesHorsLigne(vmId)
+      } catch (error) {
+        console.warn('Préchargement hors connexion interrompu :', error)
+      } finally {
+        prechargementEnCours = false
+      }
+    }
+
+    void precharger()
+    window.addEventListener('online', precharger)
+
+    return () => {
+      actif = false
+      window.removeEventListener('online', precharger)
+    }
+  }, [session?.user.id])
+
   const unread = useUnreadNotifications()
   const location = useLocation()
   const { online, pending, syncing } = useOfflineSync()
