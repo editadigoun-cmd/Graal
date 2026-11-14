@@ -11,6 +11,8 @@ on:
       - main
     paths:
       - 'assets/**'
+      - 'src/**'
+      - 'supabase/migrations/**'
       - 'android/**'
       - 'capacitor.config.ts'
       - 'package.json'
