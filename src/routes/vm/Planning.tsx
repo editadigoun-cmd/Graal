@@ -289,41 +289,24 @@ export default function Planning() {
 
   const parJour = Object.fromEntries(joursAffiches.map((j) => {
     const ljour = lignes.filter((l) => l.jour === j)
-    const medical = ljour.filter((l) => l.type_visite === 'MEDICAL')
-    const medicalMoyenReduit = JOURS_DEROGATION_MOYEN.includes(j)
-      ? medical.filter((l) => l.clients?.potentiel === 'MOYEN').length
-      : 0
     return [j, {
-      medical: medical.length,
-      medicalMoyenReduit,
+      medical: ljour.filter((l) => l.type_visite === 'MEDICAL').length,
       pharmacie: ljour.filter((l) => l.type_visite === 'PHARMACIE').length
     }]
-  })) as Record<Jour, { medical: number; medicalMoyenReduit: number; pharmacie: number }>
+  })) as Record<Jour, { medical: number; pharmacie: number }>
 
-  // Quota quotidien pondéré (miroir de soumettre_programme_hebdomadaire, migration 043) : les
-  // visites "médecin moyen" lundi/mardi/mercredi comptent pour un poids réduit, pas 1 visite pleine.
+  // Chaque visite médicale compte à poids plein, quel que soit le potentiel du prescripteur.
   const poidsNormal = seuils.minMedical > 0 ? 100 / seuils.minMedical : 0
-  const pointsMedical = (j: Jour) => {
-    const { medical, medicalMoyenReduit } = parJour[j]
-    return (medical - medicalMoyenReduit) * poidsNormal + medicalMoyenReduit * seuils.poidsMoyenReduit
-  }
+  const pointsMedical = (j: Jour) => parJour[j].medical * poidsNormal
 
-  // En mode "pharmacie uniquement", le serveur (soumettre_programme_hebdomadaire) n'exige ni
-  // couverture des 5 jours ni minimums quotidiens — seulement un programme non vide et le
-  // ratio FAIBLE du jeudi. Le checklist client doit refléter exactement cette règle pour ne
-  // pas bloquer une soumission que le serveur accepterait.
+  // En mode pharmacie uniquement, les règles de minimums médicaux et pharmaceutiques sont désactivées.
   const jourOk = (j: Jour) => pharmacieUniquement
     ? true
     : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
-  const jeudiRatioOk = true
-  // Au moins une pharmacie de potentiel GROS chacun des trois premiers jours.
-  const grosPharmacieParJourOk = (['LUNDI', 'MARDI', 'MERCREDI'] as Jour[]).every((j) =>
-    lignes.some((l) => l.jour === j && l.type_visite === 'PHARMACIE' && l.clients?.potentiel === 'GROS')
-  )
   const prêtPourSoumission = pharmacieUniquement
-    ? lignes.length > 0 && jeudiRatioOk && grosPharmacieParJourOk
-    : joursCouverts === 5 && JOURS.every(jourOk) && jeudiRatioOk && grosPharmacieParJourOk
+    ? lignes.length > 0
+    : joursCouverts === 5 && JOURS.every(jourOk)
 
   function ouvrirPicker(type: TypeVisite) {
     setPicking(type)
@@ -591,14 +574,12 @@ export default function Planning() {
                     )}
                     {JOURS.filter((j) => !jourOk(j)).map((j) => (
                       <li key={j} className="text-xs text-flame-700">
-                        • {JOUR_LABEL[j]} : {Math.round(pointsMedical(j))}%/100% médical, {parJour[j].pharmacie}/{seuils.minPharmacie} pharmacie
+                        • {JOUR_LABEL[j]} : {parJour[j].medical}/{seuils.minMedical} médical, {parJour[j].pharmacie}/{seuils.minPharmacie} pharmacie
                       </li>
                     ))}
                   </>
                 )}
-                {!grosPharmacieParJourOk && (
-                  <li className="text-xs text-flame-700">• Programmer au moins une pharmacie GROS le lundi, le mardi et le mercredi.</li>
-                )}
+
               </ul>
             </Card>
           )}
