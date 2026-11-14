@@ -374,7 +374,8 @@ export default function ManagementClients() {
         <select value={potentielFilter} onChange={(e) => setPotentielFilter(e.target.value)}
           className="rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
           <option value="">Tous les potentiels</option>
-          <option value="GROS">Gros</option>
+          <option value="G+">G+</option>
+                 <option value="GROS">Gros</option>
           <option value="MOYEN">Moyen</option>
           <option value="FAIBLE">Faible</option>
         </select>
@@ -639,7 +640,8 @@ export default function ManagementClients() {
               <label className="mb-1.5 block text-xs font-semibold text-ink-500">Potentiel</label>
               <select value={form.potentiel} onChange={(e) => setForm((f) => ({ ...f, potentiel: e.target.value as Potentiel }))}
                 className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100">
-                <option value="GROS">Gros</option>
+                <option value="G+">G+</option>
+                 <option value="GROS">Gros</option>
                 <option value="MOYEN">Moyen</option>
                 <option value="FAIBLE">Faible</option>
               </select>
