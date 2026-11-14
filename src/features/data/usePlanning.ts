@@ -21,6 +21,7 @@ export function usePlanning() {
   const estFawaz = profile?.id === 'e86efe52-ed01-4d04-8eec-e539fd1e4b30'
   // Fagbede est autorisé à programmer des clients de tous les secteurs.
   const estFagbede = profile?.id === '96388406-e88e-4146-a372-1df07481c8e4'
+  const estOdypharm2 = profile?.equipe_id === 'd8e7f5d2-0d77-4c0b-8a01-000000000002'
   const [programme, setProgramme] = useState<Programme | null>(null)
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [portefeuille, setPortefeuille] = useState<ClientRow[]>([])
@@ -208,5 +209,5 @@ export function usePlanning() {
     return () => window.removeEventListener('online', load)
   }, [load])
 
-  return { programme, lignes, portefeuille, loading, error, setError, reload: load, estFawaz, estFagbede, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive }
+  return { programme, lignes, portefeuille, loading, error, setError, reload: load, estFawaz, estFagbede, estOdypharm2, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive }
 }
