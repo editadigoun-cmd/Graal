@@ -33,9 +33,16 @@ export function usePlanning() {
   const hasLoaded = useRef(false)
 
   const retirerLigne = useCallback(async (id: string) => {
+    let ligneSupprimee: Ligne | undefined
+    setLignes((current) => {
+      ligneSupprimee = current.find((ligne) => ligne.id === id)
+      return current.filter((ligne) => ligne.id !== id)
+    })
     const { error } = await supabase.from('programme_lignes').delete().eq('id', id)
-    if (error) throw error
-    setLignes((current) => current.filter((ligne) => ligne.id !== id))
+    if (error) {
+      if (ligneSupprimee) setLignes((current) => [...current, ligneSupprimee!].sort((a, b) => a.ordre - b.ordre))
+      throw error
+    }
   }, [])
 
   const load = useCallback(async () => {
