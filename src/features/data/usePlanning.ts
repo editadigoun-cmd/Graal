@@ -86,9 +86,11 @@ export function usePlanning() {
       new Date(programmeActuel.delai_supplementaire_jusqu_a).getTime() > Date.now()
     const semaineDebut = programmeActuel && delaiActif && !statutTermine ? semaineActuelle : semaineSuivante
     // Alterner le secteur uniquement lors de la préparation de la semaine suivante.
-    const secteurProgramme = semaineDebut === semaineSuivante
-      ? (profile?.secteur === 'A' ? 'B' : profile?.secteur === 'B' ? 'A' : null)
-      : profile?.secteur ?? null
+    const secteurProgramme = profile?.secteur === 'MONO' || profile?.secteur === 'COUFFOU'
+      ? profile.secteur
+      : semaineDebut === semaineSuivante
+        ? (profile?.secteur === 'A' ? 'B' : profile?.secteur === 'B' ? 'A' : null)
+        : profile?.secteur ?? null
 
     let { data: prog, error: programmeError } = await supabase
       .from('programmes_hebdomadaires').select('*')
