@@ -468,9 +468,9 @@ export default function Planning() {
 
       {lignes.length > 0 && (
         <Card>
-          <div className="flex items-center justify-between mb-3 gap-3">
-            <p className="text-xs font-bold text-ink-600">Récapitulatif de la semaine — par spécialité</p>
-            <p className="text-sm font-extrabold text-royal-600 whitespace-nowrap">{estOdypharm2 ? `${lignes.filter((l) => l.type_visite === 'PHARMACIE').length} / 75 pharmacies · ${lignes.filter((l) => l.type_visite === 'MEDICAL').length} centres en plus` : `${lignes.length} / ${totalObjectifSpecialites || '—'} visites`}</p>
+          <div className="mb-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="min-w-0 text-xs font-bold text-ink-600">Récapitulatif de la semaine — par spécialité</p>
+            <p className="max-w-full min-w-0 break-words text-left text-sm font-extrabold text-royal-600 sm:text-right">{estOdypharm2 ? `${lignes.filter((l) => l.type_visite === 'PHARMACIE').length} / 75 pharmacies · ${lignes.filter((l) => l.type_visite === 'MEDICAL').length} centres en plus` : `${lignes.length} / ${totalObjectifSpecialites || '—'} visites`}</p>
           </div>
           <div className="space-y-2">
             {ciblesRecap.map((item) => (
