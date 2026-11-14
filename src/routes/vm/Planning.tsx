@@ -490,11 +490,6 @@ export default function Planning() {
                   <div className={`h-full rounded-full ${pointsMedical(jourActif) >= 100 - 0.01 ? 'bg-emerald-500' : 'bg-royal-400'}`}
                     style={{ width: `${Math.min(100, pointsMedical(jourActif))}%` }} />
                 </div>
-                {JOURS_DEROGATION_MOYEN.includes(jourActif) && (
-                  <p className="mt-1 text-[10px] text-ink-400">
-                    dont {parJour[jourActif].medicalMoyenReduit}/{seuils.maxMoyenLunMarMer} médecin(s) "moyen" (poids réduit {seuils.poidsMoyenReduit}%)
-                  </p>
-                )}
               </div>
             )}
             <div>
