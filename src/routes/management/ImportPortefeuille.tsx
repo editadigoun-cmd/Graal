@@ -47,7 +47,7 @@ const SPECIALITE_LABELS: Record<string, string> = {
   "PSYCHOLOGUE": "Psychologue"
 }
 const SPECIALITES: string[] = Object.keys(SPECIALITE_LABELS) satisfies Specialite[]
-const POTENTIELS: string[] = ['GROS', 'MOYEN', 'FAIBLE'] satisfies Potentiel[]
+const POTENTIELS: string[] = ['G+', 'GROS', 'MOYEN', 'FAIBLE'] satisfies Potentiel[]
 const SECTEURS: string[] = ['A', 'B'] satisfies Secteur[]
 
 // Les libellés et codes des spécialités sont acceptés, avec ou sans accents.
@@ -86,7 +86,7 @@ const CHAMPS = [
   { key: 'nom', label: 'Nom du client', requis: true },
   { key: 'centre', label: 'Centre', requis: false },
   { key: 'specialite', label: 'Spécialité', requis: true },
-  { key: 'potentiel', label: 'Potentiel (GROS/MOYEN/FAIBLE)', requis: true },
+  { key: 'potentiel', label: 'Potentiel (G+/GROS/MOYEN/FAIBLE)', requis: true },
   { key: 'categorie', label: 'Catégorie', requis: false },
   { key: 'secteur', label: 'Secteur (A/B)', requis: true },
   { key: 'jour_heure', label: 'Jour / heure habituel', requis: false },
@@ -246,7 +246,7 @@ export default function ImportPortefeuilleAssistant({ onImported }: ImportPortef
               </p>
               <p className="text-[11px] text-ink-400 mt-1">
                 specialite : {SPECIALITES.map((s) => SPECIALITE_LABELS[s]).join(' / ')} (avec ou sans accents) ·
-                potentiel : GROS/MOYEN/FAIBLE · secteur : A/B ·
+                potentiel : G+/GROS/MOYEN/FAIBLE · secteur : A/B ·
                 email_vm (optionnel) affecte directement le client à ce visiteur médical.
                 Depuis Excel : Fichier → Enregistrer sous → CSV.
               </p>
