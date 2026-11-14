@@ -86,7 +86,7 @@ export function usePlanning() {
 
     if (!prog) {
       const { data: created, error: createError } = await supabase
-        .from('programmes_hebdomadaires').insert({ vm_id: vmId, semaine_debut: semaineDebut, ...(secteurProgramme ? { secteur: secteurProgramme } : {}) }).select('*').maybeSingle()
+        .from('programmes_hebdomadaires').insert({ vm_id: vmId, semaine_debut: semaineDebut, ...(estOdypharm2 ? { secteur: null } : secteurProgramme ? { secteur: secteurProgramme } : {}) }).select('*').maybeSingle()
       if (createError) {
         if (createError.code === '23505') {
           const { data: existing, error: refetchError } = await supabase
@@ -117,9 +117,9 @@ export function usePlanning() {
         prog = existing
       }
     }
-    if (secteurProgramme && prog!.secteur !== secteurProgramme && prog!.statut === 'BROUILLON') {
+    if ((estOdypharm2 && prog!.secteur !== null || !!secteurProgramme && prog!.secteur !== secteurProgramme) && prog!.statut === 'BROUILLON') {
       const { data: secteurCorrige, error: erreurSecteur } = await supabase
-        .from('programmes_hebdomadaires').update({ secteur: secteurProgramme }).eq('id', prog!.id).select('*').maybeSingle()
+        .from('programmes_hebdomadaires').update({ secteur: estOdypharm2 ? null : secteurProgramme }).eq('id', prog!.id).select('*').maybeSingle()
       if (erreurSecteur) {
         setError(erreurSecteur.message)
         setLoading(false)
