@@ -201,7 +201,7 @@ export function usePlanning() {
       zone: zoneLibre, potentiel: potentielLibre, generaliste: generalisteLibre
     })
     setLoading(false)
-  }, [session, profile?.secteur, profile?.id])
+  }, [session, profile?.secteur, profile?.equipe_id, profile?.id])
 
   useEffect(() => {
     void load()
