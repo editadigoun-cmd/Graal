@@ -417,7 +417,7 @@ export default function ManagementClients() {
                 </>
               ) : filter.field === 'potentiel' ? (
                 <select value={filter.value} onChange={(e) => modifierFiltre(filter.id, { value: e.target.value })} className="mt-1.5 w-full px-3 py-2.5 text-sm">
-                  <option value="">Tous les potentiels</option><option value="GROS">Gros</option><option value="MOYEN">Moyen</option><option value="FAIBLE">Faible</option>
+                  <option value="">Tous les potentiels</option><option value="G+">G+</option><option value="GROS">Gros</option><option value="MOYEN">Moyen</option><option value="FAIBLE">Faible</option>
                 </select>
               ) : filter.field === 'secteur' ? (
                 <select value={filter.value} onChange={(e) => modifierFiltre(filter.id, { value: e.target.value })} className="mt-1.5 w-full px-3 py-2.5 text-sm">
