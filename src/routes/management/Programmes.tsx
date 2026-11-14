@@ -57,8 +57,8 @@ interface DerogationPlanningRow {
   actif: boolean
 }
 
-type Potentiel = 'GROS' | 'MOYEN' | 'FAIBLE'
-const POTENTIELS: Potentiel[] = ['GROS', 'MOYEN', 'FAIBLE']
+type Potentiel = 'G+' | 'GROS' | 'MOYEN' | 'FAIBLE'
+const POTENTIELS: Potentiel[] = ['G+', 'GROS', 'MOYEN', 'FAIBLE']
 
 export default function ManagementProgrammes() {
   const { profile } = useAuth()
@@ -483,7 +483,7 @@ export default function ManagementProgrammes() {
         {detail.programme_conformite?.length > 0 && <div className="mb-4 flex flex-wrap gap-1.5">{detail.programme_conformite.map((x) => <Badge key={x.cible} tone={x.statut === 'CONFORME' ? 'success' : x.statut === 'SOUS_COUVERT' ? 'warning' : 'info'}>{x.cible.replace(/_/g, ' ')} : {x.quantite_programmee}/{x.quota_attendu}</Badge>)}</div>}
         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-500">Répartition par potentiel</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {detailPotentiels.map((x) => <div key={x.potentiel} className="rounded-xl border border-ink-100 p-3"><p className="text-xs text-ink-500">{x.potentiel === 'GROS' ? 'Gros potentiel' : x.potentiel === 'MOYEN' ? 'Potentiel moyen' : 'Faible potentiel'}</p><p className="mt-1 text-xl font-extrabold text-ink-800">{x.total}</p><p className="text-[11px] text-ink-400">clients programmés</p></div>)}
+          {detailPotentiels.map((x) => <div key={x.potentiel} className="rounded-xl border border-ink-100 p-3"><p className="text-xs text-ink-500">{x.potentiel === 'G+' ? 'Très gros potentiel (G+)' : x.potentiel === 'GROS' ? 'Gros potentiel' : x.potentiel === 'MOYEN' ? 'Potentiel moyen' : 'Faible potentiel'}</p><p className="mt-1 text-xl font-extrabold text-ink-800">{x.total}</p><p className="text-[11px] text-ink-400">clients programmés</p></div>)}
         </div>
         <div className="mt-4 mb-2 flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-bold uppercase tracking-wide text-ink-500">Programmé / objectif par spécialité</p>{detailEquipeNom && <span className="rounded-full bg-royal-50 px-2.5 py-1 text-[10px] font-semibold text-royal-700">Équipe {detailEquipeNom}</span>}</div>
         {detailQuotas.length > 0 ? <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{detailQuotas.map((q) => {
