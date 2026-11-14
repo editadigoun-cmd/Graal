@@ -93,7 +93,7 @@ function selectionGrosCountSafe(selection: Set<string>, portefeuille: Database['
 }
 
 export default function Planning() {
-  const { programme, lignes, portefeuille, loading, error, setError, reload, estFawaz, estFagbede, estOdypharm2, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive } = usePlanning()
+  const { programme, lignes, portefeuille, loading, error, setError, reload, estFawaz, estFagbede, estOdypharm2, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive, retirerLigne } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
   const [picking, setPicking] = useState<TypeVisite | null>(null)
   const [recherche, setRecherche] = useState('')
@@ -366,9 +366,13 @@ export default function Planning() {
     else { setPicking(null); reload() }
   }
 
-  async function retirerLigne(id: string) {
-    await supabase.from('programme_lignes').delete().eq('id', id)
-    reload()
+  async function supprimerLigne(id: string) {
+    setError(null)
+    try {
+      await retirerLigne(id)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Impossible de supprimer cette ligne.')
+    }
   }
 
   async function soumettreJourActif() {
@@ -578,7 +582,7 @@ export default function Planning() {
                   </div>
                 </div>
                 {!verrouille && !jourVerrouille && (
-                  <button onClick={() => retirerLigne(l.id)} className="rounded-full p-1.5 text-ink-300 hover:bg-red-50 hover:text-red-500">
+                  <button onClick={() => supprimerLigne(l.id)} className="rounded-full p-1.5 text-ink-300 hover:bg-red-50 hover:text-red-500">
                     <IconX className="h-4 w-4" />
                   </button>
                 )}
