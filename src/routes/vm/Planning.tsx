@@ -30,7 +30,15 @@ const RECAP_CIBLES: Record<string, { cles: Specialite[]; label: string }> = {
   CARDIOLOGUES: { cles: ['CARDIOLOGUE'], label: 'Cardiologues' },
   PHARMACIES: { cles: ['PHARMACIE'], label: 'Pharmacies' }
 }
-const POTENTIEL_LABEL: Record<Potentiel, string> = { GROS: 'Gros', MOYEN: 'Moyens', FAIBLE: 'Faibles' }
+const POTENTIEL_LABEL: Record<Potentiel, string> = { 'G+': 'G+', GROS: 'Gros', MOYEN: 'Moyens', FAIBLE: 'Faibles' }
+
+const QUOTAS_PHARMACIE_ODY: Record<string, Record<string, number>> = {
+  LUNDI: { 'G+': 3, GROS: 4, MOYEN: 8 },
+  MARDI: { 'G+': 3, GROS: 4, MOYEN: 8 },
+  MERCREDI: { 'G+': 3, GROS: 4, MOYEN: 8 },
+  JEUDI: { GROS: 1, MOYEN: 9, FAIBLE: 5 },
+  VENDREDI: { MOYEN: 9, FAIBLE: 6 }
+}
 const SPECIALITE_LABEL: Record<string, string> = {
   "GENERALISTE": "Médecin généraliste",
   "GYNECOLOGUE": "Gynécologue",
@@ -85,7 +93,7 @@ function selectionGrosCountSafe(selection: Set<string>, portefeuille: Database['
 }
 
 export default function Planning() {
-  const { programme, lignes, portefeuille, loading, error, setError, reload, estFawaz, estFagbede, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive } = usePlanning()
+  const { programme, lignes, portefeuille, loading, error, setError, reload, estFawaz, estFagbede, estOdypharm2, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
   const [picking, setPicking] = useState<TypeVisite | null>(null)
   const [recherche, setRecherche] = useState('')
@@ -207,6 +215,15 @@ export default function Planning() {
   }, [programme?.id])
   const clientIdsUtilises = new Set(lignes.map((l) => l.client_id))
   const pharmacieUniquement = !!programme?.mode_pharmacie_uniquement
+  const quotasPharmacieJour = QUOTAS_PHARMACIE_ODY[jourActif] ?? {}
+  const pharmaciesDuJour = lignesJour.filter((l) => l.type_visite === 'PHARMACIE')
+  const quotaPharmacieRespecte = (jour: Jour) => {
+    const quotas = QUOTAS_PHARMACIE_ODY[jour] ?? {}
+    const pharmacies = lignes.filter((l) => l.jour === jour && l.type_visite === 'PHARMACIE')
+    return pharmacies.length === 15 && Object.entries(quotas).every(([potentiel, quota]) =>
+      pharmacies.filter((l) => l.clients?.potentiel === potentiel).length === quota
+    )
+  }
 
   const candidats = portefeuille.filter((c) => {
     if (!picking) return false
@@ -246,6 +263,13 @@ export default function Planning() {
 
   function quotaPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId)) return false
+    if (estOdypharm2) {
+      if (picking !== 'PHARMACIE') return false
+      const quota = quotasPharmacieJour[potentiel] ?? 0
+      const deja = pharmaciesDuJour.filter((l) => l.clients?.potentiel === potentiel).length
+      const selectionnes = selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === potentiel).length
+      return quota <= 0 || deja + selectionnes >= quota || pharmaciesDuJour.length + selection.size >= 15
+    }
     if (totalJourProjete >= seuils.maxVisitesJour) return true
     if (jourActif === 'SAMEDI') return false
     if (derogationPotentielActive || estFawaz || estFagbede) return false
@@ -264,7 +288,7 @@ export default function Planning() {
 
   // Récapitulatif hebdomadaire par spécialité et potentiel, tous jours confondus.
   const specialiteCounts: Partial<Record<Specialite, number>> = {}
-  const potentielCounts: Record<Potentiel, number> = { GROS: 0, MOYEN: 0, FAIBLE: 0 }
+  const potentielCounts: Record<Potentiel, number> = { 'G+': 0, GROS: 0, MOYEN: 0, FAIBLE: 0 }
   for (const l of lignes) {
     const s = l.clients?.specialite
     if (s) specialiteCounts[s] = (specialiteCounts[s] ?? 0) + 1
@@ -300,13 +324,17 @@ export default function Planning() {
   const pointsMedical = (j: Jour) => parJour[j].medical * poidsNormal
 
   // En mode pharmacie uniquement, les règles de minimums médicaux et pharmaceutiques sont désactivées.
-  const jourOk = (j: Jour) => pharmacieUniquement
-    ? true
-    : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
+  const jourOk = (j: Jour) => estOdypharm2
+    ? quotaPharmacieRespecte(j)
+    : pharmacieUniquement
+      ? true
+      : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
-  const prêtPourSoumission = pharmacieUniquement
-    ? lignes.length > 0
-    : joursCouverts === 5 && JOURS.every(jourOk)
+  const prêtPourSoumission = estOdypharm2
+    ? JOURS.every(quotaPharmacieRespecte)
+    : pharmacieUniquement
+      ? lignes.length > 0
+      : joursCouverts === 5 && JOURS.every(jourOk)
 
   function ouvrirPicker(type: TypeVisite) {
     setPicking(type)
@@ -442,7 +470,7 @@ export default function Planning() {
         <Card>
           <div className="flex items-center justify-between mb-3 gap-3">
             <p className="text-xs font-bold text-ink-600">Récapitulatif de la semaine — par spécialité</p>
-            <p className="text-sm font-extrabold text-royal-600 whitespace-nowrap">{lignes.length} / {totalObjectifSpecialites || '—'} visites</p>
+            <p className="text-sm font-extrabold text-royal-600 whitespace-nowrap">{estOdypharm2 ? `${lignes.filter((l) => l.type_visite === 'PHARMACIE').length} / 75 pharmacies · ${lignes.filter((l) => l.type_visite === 'MEDICAL').length} centres en plus` : `${lignes.length} / ${totalObjectifSpecialites || '—'} visites`}</p>
           </div>
           <div className="space-y-2">
             {ciblesRecap.map((item) => (
@@ -477,34 +505,53 @@ export default function Planning() {
             <p className="text-xs font-bold text-ink-600">Progression — {JOUR_LABEL[jourActif]}</p>
             <p className="text-[11px] text-ink-400">{joursCouverts}/5 jours couverts</p>
           </div>
-          <div className={`grid ${pharmacieUniquement ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
-            {!pharmacieUniquement && (
+          {estOdypharm2 ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-ink-600">Pharmacies programmées</span>
+                <span className={pharmaciesDuJour.length === 15 ? 'font-bold text-emerald-600' : 'font-bold text-ink-700'}>{pharmaciesDuJour.length}/15</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(quotasPharmacieJour).map(([potentiel, quota]) => {
+                  const n = pharmaciesDuJour.filter((l) => l.clients?.potentiel === potentiel).length
+                  return <div key={potentiel} className="rounded-xl bg-ink-50 px-2 py-2 text-center">
+                    <p className="text-[10px] text-ink-500">{potentiel}</p>
+                    <p className="text-sm font-bold text-ink-800">{n}/{quota}</p>
+                  </div>
+                })}
+              </div>
+              <p className="text-[11px] text-ink-400">Centres ajoutés : {lignesJour.filter((l) => l.type_visite === 'MEDICAL').length} · en supplément des 15 pharmacies</p>
+            </div>
+          ) : (
+            <div className={`grid ${pharmacieUniquement ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
+              {!pharmacieUniquement && (
+                <div>
+                  <div className="flex items-center justify-between text-[11px] mb-1">
+                    <span className="text-ink-500">Médical</span>
+                    <span className={pointsMedical(jourActif) >= 100 - 0.01 ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
+                      {Math.round(pointsMedical(jourActif))}% (min 100%)
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                    <div className={`h-full rounded-full ${pointsMedical(jourActif) >= 100 - 0.01 ? 'bg-emerald-500' : 'bg-royal-400'}`}
+                      style={{ width: `${Math.min(100, pointsMedical(jourActif))}%` }} />
+                  </div>
+                </div>
+              )}
               <div>
                 <div className="flex items-center justify-between text-[11px] mb-1">
-                  <span className="text-ink-500">Médical</span>
-                  <span className={pointsMedical(jourActif) >= 100 - 0.01 ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
-                    {Math.round(pointsMedical(jourActif))}% (min 100%)
+                  <span className="text-ink-500">Pharmacie</span>
+                  <span className={parJour[jourActif].pharmacie >= seuils.minPharmacie ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
+                    {parJour[jourActif].pharmacie}/{seuils.minPharmacie}
                   </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
-                  <div className={`h-full rounded-full ${pointsMedical(jourActif) >= 100 - 0.01 ? 'bg-emerald-500' : 'bg-royal-400'}`}
-                    style={{ width: `${Math.min(100, pointsMedical(jourActif))}%` }} />
+                  <div className={`h-full rounded-full ${parJour[jourActif].pharmacie >= seuils.minPharmacie ? 'bg-emerald-500' : 'bg-royal-400'}`}
+                    style={{ width: `${Math.min(100, (parJour[jourActif].pharmacie / seuils.minPharmacie) * 100)}%` }} />
                 </div>
               </div>
-            )}
-            <div>
-              <div className="flex items-center justify-between text-[11px] mb-1">
-                <span className="text-ink-500">Pharmacie</span>
-                <span className={parJour[jourActif].pharmacie >= seuils.minPharmacie ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
-                  {parJour[jourActif].pharmacie}/{seuils.minPharmacie}
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
-                <div className={`h-full rounded-full ${parJour[jourActif].pharmacie >= seuils.minPharmacie ? 'bg-emerald-500' : 'bg-royal-400'}`}
-                  style={{ width: `${Math.min(100, (parJour[jourActif].pharmacie / seuils.minPharmacie) * 100)}%` }} />
-              </div>
             </div>
-          </div>
+          )}
         </Card>
       )}
 
@@ -558,7 +605,11 @@ export default function Planning() {
             <Card className="bg-flame-50/60 border border-flame-200">
               <p className="text-xs font-bold text-flame-700 mb-2">À compléter avant de soumettre :</p>
               <ul className="space-y-1">
-                {pharmacieUniquement ? (
+                {estOdypharm2 ? (
+                  JOURS.filter((j) => !quotaPharmacieRespecte(j)).map((j) => (
+                    <li key={j} className="text-xs text-flame-700">• {JOUR_LABEL[j]} : compléter les quotas de 15 pharmacies ({Object.entries(QUOTAS_PHARMACIE_ODY[j]).map(([p, q]) => `${p} ${q}`).join(' / ')})</li>
+                  ))
+                ) : pharmacieUniquement ? (
                   lignes.length === 0 && (
                     <li className="text-xs text-flame-700">• Programmer au moins une pharmacie</li>
                   )
@@ -622,7 +673,7 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
-                  const potentielIndisponible = !pharmacieUniquement && !derogationPotentielActive && !estFawaz && !estFagbede && !potentielAutorise(jourActif, c.potentiel, picking!)
+                  const potentielIndisponible = !estOdypharm2 && !pharmacieUniquement && !derogationPotentielActive && !estFawaz && !estFagbede && !potentielAutorise(jourActif, c.potentiel, picking!)
                   const bloqueQuota = quotaPotentielBloque(c.id, c.potentiel)
                   const bloque = potentielIndisponible || bloqueQuota
                   return (
