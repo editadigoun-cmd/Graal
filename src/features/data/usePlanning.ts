@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { isoWeekMonday } from '@/lib/time'
@@ -30,10 +30,17 @@ export function usePlanning() {
   const [derogationGeneralisteActive, setDerogationGeneralisteActive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const hasLoaded = useRef(false)
+
+  const retirerLigne = useCallback(async (id: string) => {
+    const { error } = await supabase.from('programme_lignes').delete().eq('id', id)
+    if (error) throw error
+    setLignes((current) => current.filter((ligne) => ligne.id !== id))
+  }, [])
 
   const load = useCallback(async () => {
     if (!session) return
-    setLoading(true)
+    if (!hasLoaded.current) setLoading(true)
     setError(null)
     const vmId = session.user.id
     if (!navigator.onLine) {
@@ -49,6 +56,7 @@ export function usePlanning() {
       } else {
         setError('Aucun planning enregistré sur ce téléphone. Connectez-vous à Internet pour le télécharger avant de passer hors connexion.')
       }
+      hasLoaded.current = true
       setLoading(false)
       return
     }
@@ -157,27 +165,34 @@ export function usePlanning() {
     setDerogationPotentielActive(potentielLibre)
     setDerogationGeneralisteActive(generalisteLibre)
 
-    // Supabase limite chaque réponse à 1 000 lignes par défaut. La table clients
-    // contient plus de 2 000 fiches : charger toutes les pages évite de masquer
-    // des pharmacies situées après la première tranche alphabétique.
-    const clientsData: ClientRow[] = []
-    const pageSize = 1000
-    for (let from = 0; ; from += pageSize) {
-      const { data: page, error: clientsError } = await supabase
-        .from('clients').select('*').eq('actif', true).order('nom').range(from, from + pageSize - 1)
+    // Charger uniquement les fiches utiles au VM. Le scan complet de la table
+    // clients n'est utile qu'en cas de dérogation de zone hors portefeuille.
+    const idsPortefeuille = new Set((portefeuilleData ?? []).map((item) => item.client_id))
+    let clientsData: ClientRow[] = []
+    if (zoneLibre && !prog!.mode_pharmacie_uniquement) {
+      const { data, error: clientsError } = await supabase
+        .from('clients').select('*').eq('actif', true).order('nom')
       if (clientsError) {
         setError(clientsError.message)
+        hasLoaded.current = true
         setLoading(false)
         return
       }
-      clientsData.push(...(page ?? []))
-      if (!page || page.length < pageSize) break
+      clientsData = data ?? []
+    } else if (idsPortefeuille.size > 0) {
+      const { data, error: clientsError } = await supabase
+        .from('clients').select('*').eq('actif', true).in('id', Array.from(idsPortefeuille)).order('nom')
+      if (clientsError) {
+        setError(clientsError.message)
+        hasLoaded.current = true
+        setLoading(false)
+        return
+      }
+      clientsData = data ?? []
     }
 
     // Ne proposer que les clients actifs du portefeuille appartenant au secteur
-    // du programme de la semaine. Le filtrage est fait dès le chargement des données,
-    // pas seulement dans le composant d'affichage, pour éviter tout mélange A/B.
-    const idsPortefeuille = new Set((portefeuilleData ?? []).map((item) => item.client_id))
+    // du programme de la semaine.
     setPortefeuille((clientsData ?? []).filter((client) => {
       // En mode « pharmacie uniquement », la liste est strictement limitée aux
       // pharmacies assignées à CE VM, tous secteurs et potentiels confondus.
@@ -200,6 +215,7 @@ export function usePlanning() {
       }),
       zone: zoneLibre, potentiel: potentielLibre, generaliste: generalisteLibre
     })
+    hasLoaded.current = true
     setLoading(false)
   }, [session, profile?.secteur, profile?.equipe_id, profile?.id])
 
@@ -209,5 +225,5 @@ export function usePlanning() {
     return () => window.removeEventListener('online', load)
   }, [load])
 
-  return { programme, lignes, portefeuille, loading, error, setError, reload: load, estFawaz, estFagbede, estOdypharm2, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive }
+  return { programme, lignes, portefeuille, loading, error, setError, reload: load, retirerLigne, estFawaz, estFagbede, estOdypharm2, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive }
 }
