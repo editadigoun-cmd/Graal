@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { IconAlert, IconCheckCircle, IconChevronLeft, IconSparkles } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
+import { analyserFichierLocal, scoreCorrespondance } from '@/lib/importGrossistes/analyseLocale'
 
 interface RefItem { id: string; nom: string }
 interface ImportRow { id: string; grossiste_id: string; laboratoire_id: string; fichier_nom: string; fichier_path: string; fichier_sha256: string | null; mois_reference: string | null; statut: string; resume: string | null; avertissements: string[]; created_at: string }
@@ -55,10 +56,8 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
   async function ouvrirImport(item: ImportRow) {
     setErreur(''); setMessage(''); setSelection(item); setMois(item.mois_reference?.slice(0, 7) ?? '')
     setResume(item.resume ?? ''); setAvertissements(item.avertissements ?? [])
-    const [{ data: rows, error: lineError }] = await Promise.all([
-      db.from('lignes_import_ventes_ia').select('*').eq('import_id', item.id).order('numero_ligne')
-    ])
-    if (lineError) setErreur(lineError.message)
+    const { data: rows, error } = await db.from('lignes_import_ventes_ia').select('*').eq('import_id', item.id).order('numero_ligne')
+    if (error) setErreur(error.message)
     setLignes((rows ?? []) as ImportLine[])
     setGrossisteId(item.grossiste_id); setLaboratoireId(item.laboratoire_id)
   }
@@ -66,39 +65,77 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
   async function analyser() {
     if (!fichier || !grossisteId || !laboratoireId) { setErreur('Choisissez un fichier, un grossiste et un laboratoire.'); return }
     if (fichier.size > 20 * 1024 * 1024) { setErreur('Le fichier dépasse la limite de 20 Mo.'); return }
-    const ext = fichier.name.toLowerCase().split('.').pop()
-    if (!['csv','pdf','xls','xlsx'].includes(ext ?? '')) { setErreur('Formats acceptés : CSV, PDF, XLS et XLSX.'); return }
-    setBusy(true); setErreur(''); setMessage('Calcul de l’empreinte du fichier…')
+    if (!['csv', 'pdf'].includes(fichier.name.toLowerCase().split('.').pop() ?? '')) {
+      setErreur('Le moteur local accepte actuellement les fichiers CSV et PDF.'); return
+    }
+    setBusy(true); setErreur(''); setMessage('Lecture du document sur cet appareil…')
     try {
+      const grossiste = grossistes.find((g) => g.id === grossisteId)
+      const parsed = await analyserFichierLocal(fichier, grossiste?.nom ?? '')
+      if (!parsed.lignes.length) throw new Error(parsed.avertissements[0] ?? 'Aucune ligne produit exploitable détectée.')
+
+      const [{ data: userData }, { data: mappings, error: mappingError }] = await Promise.all([
+        supabase.auth.getUser(),
+        db.from('mappings_produits_grossistes').select('code_externe,produit_id').eq('grossiste_id', grossisteId)
+      ])
+      if (mappingError) throw mappingError
+      if (!userData.user) throw new Error('Session expirée. Reconnectez-vous.')
+
+      const mappingsParCode = new Map<string, string>((mappings ?? []).map((m: any) => [String(m.code_externe), m.produit_id]))
+      const catalogueParId = new Map(produits.map((p) => [p.id, p]))
+      const lignesPreparees = parsed.lignes.map((line, index) => {
+        const mappedId = mappingsParCode.get(line.codeExterne)
+        const mappedProduct = mappedId ? catalogueParId.get(mappedId) : undefined
+        const scores = produits.map((p) => ({ produit: p, score: scoreCorrespondance(line.designation, p.nom) })).sort((a, b) => b.score - a.score)
+        const best = scores[0]
+        const produit = mappedProduct ?? (best && best.score >= 0.9 ? best.produit : null)
+        const confidence = mappedProduct ? 1 : (best?.score ?? 0)
+        const warning = mappedProduct ? null : produit ? null : best && best.score >= 0.62
+          ? `Correspondance possible avec « ${best.produit.nom} » : vérification requise.`
+          : 'Aucune correspondance suffisamment fiable : choisissez le produit manuellement.'
+        return {
+          import_id: '',
+          numero_ligne: index + 1,
+          designation_source: line.designation,
+          code_externe: line.codeExterne || null,
+          produit_id: produit?.id ?? null,
+          ventes: line.ventesPeriode,
+          stock: line.stock,
+          confiance: Math.round(confidence * 10000) / 10000,
+          avertissement: warning
+        }
+      })
+
       const bytes = await fichier.arrayBuffer()
       const digest = await crypto.subtle.digest('SHA-256', bytes)
       const hash = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) throw new Error('Session expirée. Reconnectez-vous.')
       const safeName = fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')
       const path = `${userData.user.id}/${crypto.randomUUID()}-${safeName}`
       const { error: uploadError } = await supabase.storage.from('imports-ventes-ia').upload(path, fichier, { contentType: fichier.type || 'application/octet-stream', upsert: false })
       if (uploadError) throw uploadError
       const { data: record, error: insertError } = await db.from('imports_ventes_ia').insert({
         grossiste_id: grossisteId, laboratoire_id: laboratoireId, fichier_nom: fichier.name,
-        fichier_path: path, fichier_sha256: hash, created_by: userData.user.id, statut: 'en_attente'
+        fichier_path: path, fichier_sha256: hash, created_by: userData.user.id,
+        statut: 'a_verifier', mois_reference: parsed.moisReference || null,
+        resume: `${lignesPreparees.length} lignes lues localement. ${lignesPreparees.filter((l) => l.produit_id).length} correspondances automatiques.`,
+        avertissements: parsed.avertissements
       }).select('*').single()
       if (insertError) {
         await supabase.storage.from('imports-ventes-ia').remove([path])
         if (insertError.code === '23505') throw new Error('Ce relevé a déjà été importé pour ce grossiste.')
         throw insertError
       }
-      setMessage('Fichier sécurisé. Analyse IA en cours…')
-      const { data, error: invokeError } = await supabase.functions.invoke('analyse-ventes-ia', { body: { import_id: record.id } })
-      if (invokeError) throw new Error(invokeError.message || 'Échec de l’analyse IA.')
-      if (data?.error) throw new Error(data.error)
+      const rows = lignesPreparees.map((line) => ({ ...line, import_id: record.id }))
+      const { error: linesError } = await db.from('lignes_import_ventes_ia').insert(rows)
+      if (linesError) throw linesError
       setFichier(null)
       await chargerImports()
-      const { data: freshImport } = await db.from('imports_ventes_ia').select('*').eq('id', record.id).single()
-      await ouvrirImport((freshImport ?? record) as ImportRow)
-      setMessage(`${data.lignes} ligne(s) détectée(s). Vérifiez chaque correspondance avant validation.`)
+      await ouvrirImport(record as ImportRow)
+      setMois(parsed.moisReference?.slice(0, 7) ?? '')
+      setAvertissements(parsed.avertissements)
+      setMessage(`${rows.length} ligne(s) lue(s) localement. ${rows.filter((l) => l.produit_id).length} produit(s) rapproché(s). Vérifiez les résultats avant validation.`)
     } catch (e) {
-      setErreur(e instanceof Error ? e.message : 'Erreur pendant l’import.')
+      setErreur(e instanceof Error ? e.message : 'Erreur pendant la lecture du document.')
       await chargerImports()
     } finally { setBusy(false) }
   }
@@ -126,24 +163,14 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
     finally { setBusy(false) }
   }
 
-  async function relancerAnalyse() {
-    if (!selection) return
-    setBusy(true); setErreur(''); setMessage('Nouvelle tentative d’analyse IA…')
-    try {
-      const { data, error } = await supabase.functions.invoke('analyse-ventes-ia', { body: { import_id: selection.id } })
-      if (error) throw new Error((data as any)?.error || error.message)
-      const { data: fresh } = await db.from('imports_ventes_ia').select('*').eq('id', selection.id).single()
-      if (fresh) await ouvrirImport(fresh as ImportRow)
-      await chargerImports()
-      setMessage(`${data.lignes} ligne(s) détectée(s). Vérifiez les données avant validation.`)
-    } catch (e) { setErreur(e instanceof Error ? e.message : 'La nouvelle analyse a échoué.'); await chargerImports() }
-    finally { setBusy(false) }
-  }
-
   async function valider() {
     if (!selection) return
     if (!mois) { setErreur('Confirmez le mois du relevé avant validation.'); return }
-    const debutSemaine = new Date(semaine + 'T00:00:00Z'); const finSemaine = new Date(debutSemaine); finSemaine.setUTCDate(finSemaine.getUTCDate() + 6); const debutMois = new Date(mois + '-01T00:00:00Z'); const finMois = new Date(Date.UTC(debutMois.getUTCFullYear(), debutMois.getUTCMonth() + 1, 0)); if (debutSemaine > finMois || finSemaine < debutMois) { setErreur('La semaine choisie doit chevaucher le mois du relevé.'); return }
+    const debutSemaine = new Date(semaine + 'T00:00:00Z')
+    const finSemaine = new Date(debutSemaine); finSemaine.setUTCDate(finSemaine.getUTCDate() + 6)
+    const debutMois = new Date(mois + '-01T00:00:00Z')
+    const finMois = new Date(Date.UTC(debutMois.getUTCFullYear(), debutMois.getUTCMonth() + 1, 0))
+    if (debutSemaine > finMois || finSemaine < debutMois) { setErreur('La semaine choisie doit chevaucher le mois du relevé.'); return }
     if (!lignes.some((l) => l.produit_id && (l.ventes !== null || l.stock !== null))) { setErreur('Associez au moins une ligne à un produit avec une vente ou un stock.'); return }
     setBusy(true); setErreur(''); setMessage('')
     try {
@@ -169,14 +196,14 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
 
   return <div className="space-y-4">
     <div className="rounded-2xl border border-royal-100 bg-gradient-to-br from-royal-50 to-white p-4">
-      <div className="flex items-center gap-2"><span className="rounded-xl bg-white p-2 text-royal-600 shadow-sm"><IconSparkles className="h-5 w-5" /></span><div><p className="text-sm font-bold text-ink-800">Analyse intelligente des relevés</p><p className="text-xs text-ink-500">Détection des produits, codes, ventes et stocks. Rien n’est intégré sans votre validation.</p></div></div>
+      <div className="flex items-center gap-2"><span className="rounded-xl bg-white p-2 text-royal-600 shadow-sm"><IconSparkles className="h-5 w-5" /></span><div><p className="text-sm font-bold text-ink-800">Moteur local de lecture des relevés</p><p className="text-xs text-ink-500">Les fichiers sont analysés sur cet appareil. Aucun appel à une API d'IA externe. Rien n'est intégré sans validation.</p></div></div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="text-xs font-semibold text-ink-600">Grossiste<select value={grossisteId} onChange={(e) => setGrossisteId(e.target.value)} className="mt-1 w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm"><option value="">Choisir…</option>{grossistes.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}</select></label>
         <label className="text-xs font-semibold text-ink-600">Laboratoire<select value={laboratoireId} onChange={(e) => setLaboratoireId(e.target.value)} className="mt-1 w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm"><option value="">Choisir…</option>{laboratoires.map((l) => <option key={l.id} value={l.id}>{l.nom}</option>)}</select></label>
       </div>
-      <div className="mt-3"><label className="text-xs font-semibold text-ink-600">Fichier de ventes / stock</label><input type="file" accept=".csv,.pdf,.xls,.xlsx" onChange={(e) => setFichier(e.target.files?.[0] ?? null)} className="mt-1 block w-full text-xs text-ink-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-xs file:font-semibold file:text-royal-700" /><p className="mt-1 text-[10px] text-ink-400">CSV, PDF ou Excel · 20 Mo maximum · stockage privé</p></div>
+      <div className="mt-3"><label className="text-xs font-semibold text-ink-600">Fichier de ventes / stock</label><input type="file" accept=".csv,.pdf" onChange={(e) => setFichier(e.target.files?.[0] ?? null)} className="mt-1 block w-full text-xs text-ink-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-xs file:font-semibold file:text-royal-700" /><p className="mt-1 text-[10px] text-ink-400">CSV et PDF · 20 Mo maximum · lecture locale · stockage privé pour conserver l'historique</p></div>
       {fichier && <p className="mt-2 text-xs text-ink-600">{fichier.name} · {(fichier.size / 1024 / 1024).toFixed(2)} Mo</p>}
-      <div className="mt-3 flex justify-end"><Button onClick={analyser} disabled={busy || !fichier}>{busy ? 'Analyse en cours…' : 'Analyser le fichier'}</Button></div>
+      <div className="mt-3 flex justify-end"><Button onClick={analyser} disabled={busy || !fichier}>{busy ? 'Lecture en cours…' : 'Analyser le fichier'}</Button></div>
       {message && <p className="mt-3 text-xs text-emerald-700">{message}</p>}
       {erreur && <div className="mt-3 flex gap-2 rounded-xl bg-red-50 p-3 text-xs text-red-600"><IconAlert className="h-4 w-4 flex-shrink-0" />{erreur}</div>}
     </div>
@@ -199,7 +226,6 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
         <div className="flex flex-wrap justify-end gap-2"><Button variant="ghost" onClick={enregistrerCorrections} disabled={busy}>Enregistrer les corrections</Button><Button onClick={valider} disabled={busy}>{busy ? 'Validation…' : 'Valider et intégrer les données'}</Button></div>
       </>}
       {selection.statut === 'valide' && <div className="flex items-center gap-2 text-xs text-emerald-700"><IconCheckCircle className="h-4 w-4" /> Les données ont été intégrées au Pilotage des ventes.</div>}
-      {selection.statut === 'erreur' && <div className="space-y-2"><p className="text-xs text-red-600">L’analyse n’a pas abouti. Après correction de la configuration du moteur IA, vous pouvez réessayer ce même fichier.</p><div className="flex justify-end"><Button onClick={relancerAnalyse} disabled={busy}>{busy ? 'Nouvelle analyse…' : 'Relancer l’analyse'}</Button></div></div>}
     </Card>}
 
     {!selection && <div><p className="mb-2 text-xs font-bold text-ink-700">Imports récents</p>{imports.length === 0 ? <p className="rounded-xl border border-dashed border-ink-200 p-5 text-center text-xs text-ink-400">Aucun fichier analysé pour le moment.</p> : <div className="space-y-2">{imports.map((item) => <button key={item.id} onClick={() => ouvrirImport(item)} className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink-100 bg-white p-3 text-left hover:border-royal-200"><span className="min-w-0"><span className="block truncate text-xs font-semibold text-ink-700">{item.fichier_nom}</span><span className="text-[10px] text-ink-400">{grossistes.find((g) => g.id === item.grossiste_id)?.nom ?? 'Grossiste'} · {fmtDate(item.created_at)}</span></span><Badge tone={item.statut === 'valide' ? 'success' : item.statut === 'erreur' ? 'danger' : 'warning'}>{item.statut.replace('_',' ')}</Badge></button>)}</div>}</div>}
