@@ -151,3 +151,7 @@ export const IconGift = (p: IconProps) => (
 export const IconTruck = (p: IconProps) => (
   <svg {...base} {...p}><path d="M3 6h11v10H3z" /><path d="M14 10h4l3 3v3h-7z" /><circle cx="7" cy="18" r="2" /><circle cx="18" cy="18" r="2" /></svg>
 )
+
+export const IconSparkles = (p: IconProps) => (
+  <svg {...base} {...p}><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" /><path d="m19 14 .9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14Z" /><path d="m5 3 .7 1.3L7 5l-1.3.7L5 7l-.7-1.3L3 5l1.3-.7L5 3Z" /></svg>
+)
