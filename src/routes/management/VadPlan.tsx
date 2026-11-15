@@ -13,17 +13,6 @@ type Session = { id: string; vm_id: string; jour: string; mode: string; statut: 
 
 const SUD_VM_IDS = new Set(['62cdc900-5544-470a-94bf-ef30c9c8fb2f','f7c8b228-1978-4b68-bca8-8e745866b0b8','d53c31c1-5adb-4549-82ca-0fff2a6692dd','d73bdceb-4bb3-496c-9d74-d24f6907c3b0','34deced5-26da-44c4-9bd5-7950e13552a9','180dedac-597a-47c9-97d5-8b5d93109f25','db3b946a-165e-4a20-91e0-073c2e170a72','a0436f11-d425-4014-9733-5c7cc4271189'])
 
-const SUD_QUOTAS: Record<string, number> = {
-  'SOSSAVILYDIE': 5,
-  'IDOSSA Melchior': 3,
-  'DOSSOU JOËL': 3,
-  'AMOUSSOU ÉMELINE': 3,
-  'FANOU JEREMY': 3,
-  'WATCHINOU PRECIEUX': 3,
-  'Bongo Sylvestre': 3,
-  'AGONMA RAOUL': 3
-}
-
 function getPosition(): Promise<{ latitude: number; longitude: number } | null> {
   return new Promise(resolve => {
     if (!navigator.geolocation) return resolve(null)
@@ -48,6 +37,7 @@ export default function VadPlan() {
   const [observations, setObservations] = useState('')
   const [compteRendu, setCompteRendu] = useState('')
   const [sessionsMois, setSessionsMois] = useState<Session[]>([])
+  const [approvedQuota, setApprovedQuota] = useState<number | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -73,10 +63,11 @@ export default function VadPlan() {
     if (!vmId) return
     async function loadDay() {
       setNotice('')
-      const [{ data: program }, { data: current }, { data: monthly }] = await Promise.all([
+      const [{ data: program }, { data: current }, { data: monthly }, { data: quotaRow }] = await Promise.all([
         supabase.from('v_lignes_avec_statut').select('*').eq('vm_id', vmId).eq('date_visite', jour).order('type_visite'),
         (supabase.from('vad_duo_journaliers' as any).select('*').eq('superviseur_id', profile?.id).eq('vm_id', vmId).eq('jour', jour).maybeSingle() as any),
-        (supabase.from('vad_duo_journaliers' as any).select('*').eq('superviseur_id', profile?.id).eq('vm_id', vmId).gte('jour', dayjs(jour).startOf('month').format('YYYY-MM-DD')).lte('jour', dayjs(jour).endOf('month').format('YYYY-MM-DD')) as any)
+        (supabase.from('vad_duo_journaliers' as any).select('*').eq('superviseur_id', profile?.id).eq('vm_id', vmId).gte('jour', dayjs(jour).startOf('month').format('YYYY-MM-DD')).lte('jour', dayjs(jour).endOf('month').format('YYYY-MM-DD')) as any),
+        (supabase.from('vad_duo_quotas_mensuels' as any).select('jours').eq('superviseur_id', profile?.id).eq('vm_id', vmId).eq('mois', dayjs(jour).startOf('month').format('YYYY-MM-DD')).eq('statut', 'VALIDE').maybeSingle() as any)
       ])
       const medicalLines = ((program ?? []) as unknown as Ligne[]).filter(l => l.type_visite === 'MEDICAL' && l.client_id)
       setLignes(medicalLines)
@@ -91,6 +82,7 @@ export default function VadPlan() {
       setObservations(found?.observations ?? '')
       setCompteRendu(found?.compte_rendu ?? '')
       setSessionsMois((monthly ?? []) as Session[])
+      setApprovedQuota(quotaRow?.jours ?? null)
       if (found?.statut === 'EN_COURS' && found.started_at) {
         setElapsed(Math.max(0, Math.floor((Date.now() - new Date(found.started_at).getTime()) / 1000)))
       } else setElapsed(0)
@@ -105,10 +97,10 @@ export default function VadPlan() {
   }, [session?.id, session?.statut, session?.started_at])
 
   const selectedVm = vms.find(v => v.id === vmId)
-  const quotaEntry = selectedVm ? Object.entries(SUD_QUOTAS).find(([name]) => name.trim().toLocaleLowerCase('fr') === selectedVm.full_name.trim().toLocaleLowerCase('fr')) : undefined
-  const quota = quotaEntry?.[1] ?? 3
+  const isMarc = profile?.id === '847d0024-7def-45d1-a669-d7276502ca32'
+  const quota = isMarc ? (approvedQuota ?? 0) : 3
   const quotaCount = sessionsMois.filter(s => s.statut === 'TERMINE' || s.statut === 'EN_COURS').length
-  const quotaLabel = quotaEntry ? 'Quota Sud' : 'Quota de référence'
+  const quotaLabel = isMarc ? 'Quota validé' : 'Quota de référence'
   const clientMap = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients])
   const formatDuration = (n: number) => [Math.floor(n / 3600), Math.floor(n % 3600 / 60), n % 60].map(x => String(x).padStart(2, '0')).join(':')
 
@@ -162,7 +154,7 @@ export default function VadPlan() {
         <button type="button" onClick={() => setMode('COTONOU')} className={`rounded-xl px-3 py-3 text-sm font-bold ${mode === 'COTONOU' ? 'bg-royal-700 text-white' : 'bg-ink-100 text-ink-600'}`}>Duo à Cotonou</button>
         <button type="button" onClick={() => setMode('HORS_COTONOU')} className={`rounded-xl px-3 py-3 text-sm font-bold ${mode === 'HORS_COTONOU' ? 'bg-royal-700 text-white' : 'bg-ink-100 text-ink-600'}`}>VAD hors Cotonou</button>
       </div>
-      {selectedVm && <div className="rounded-xl bg-ink-50 p-3 text-xs text-ink-600"><strong>{quotaLabel} : {quota} jour(s) par mois</strong><span className="ml-2 text-ink-400">· {quotaCount}/{quota} réalisé(s) ou en cours</span>{quotaCount >= quota && !session && <p className="mt-1 font-semibold text-red-600">Quota mensuel atteint : aucun nouveau VAD ne peut être démarré.</p>}</div>}
+      {selectedVm && <div className="rounded-xl bg-ink-50 p-3 text-xs text-ink-600"><strong>{quotaLabel} : {isMarc && approvedQuota === null ? 'non validé' : `${quota} jour(s) par mois`}</strong><span className="ml-2 text-ink-400">· {quotaCount}/{quota} réalisé(s) ou en cours</span>{quotaCount >= quota && !session && <p className="mt-1 font-semibold text-red-600">Quota mensuel atteint : aucun nouveau VAD ne peut être démarré.</p>}</div>}
     </Card>
     {vmId && <Card className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold text-ink-800">{mode === 'COTONOU' ? 'Médecins du programme du jour' : 'Chronomètre VAD'}</p><p className="text-xs text-ink-400">{mode === 'COTONOU' ? 'Cochez uniquement les médecins effectivement vus ensemble.' : 'Démarrez le matin et clôturez en fin de journée.'}</p></div><div className="text-right"><p className="font-mono text-2xl font-extrabold text-royal-700">{formatDuration(elapsed)}</p><p className="text-[10px] text-ink-400">{session?.statut === 'EN_COURS' ? 'Chronomètre actif' : session?.statut === 'TERMINE' ? 'VAD terminé' : 'Non démarré'}</p></div></div>
