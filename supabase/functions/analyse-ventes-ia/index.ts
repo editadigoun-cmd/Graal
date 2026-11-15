@@ -43,9 +43,12 @@ Deno.serve(async (req) => {
 
     const { data: blob, error: downloadError } = await db.storage.from("imports-ventes-ia").download(imp.fichier_path);
     if (downloadError || !blob) throw new Error("Impossible de récupérer le fichier source.");
-    const { data: catalogueRows, error: catError } = await db.from("produits_pilotage").select("produit_id, produits:produits!inner(id,nom)").eq("laboratoire_id", imp.laboratoire_id);
+    const { data: catalogueRows, error: catError } = await db.from("produits_pilotage").select("produit_id").eq("laboratoire_id", imp.laboratoire_id);
     if (catError) throw catError;
-    const catalogue = (catalogueRows ?? []).map((r: any) => ({ id: r.produit_id, nom: r.produits?.nom ?? "" }));
+    const productIds = (catalogueRows ?? []).map((r: any) => r.produit_id);
+    const { data: productRows, error: productError } = productIds.length ? await db.from("produits").select("id,nom").in("id", productIds) : { data: [], error: null };
+    if (productError) throw productError;
+    const catalogue = (productRows ?? []).map((r: any) => ({ id: r.id, nom: r.nom }));
     const fileForm = new FormData();
     fileForm.append("purpose", "user_data");
     fileForm.append("file", blob, imp.fichier_nom);
