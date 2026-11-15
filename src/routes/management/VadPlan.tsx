@@ -103,9 +103,10 @@ export default function VadPlan() {
   }, [session?.id, session?.statut, session?.started_at])
 
   const selectedVm = vms.find(v => v.id === vmId)
-  const quota = selectedVm ? (SUD_QUOTAS[selectedVm.full_name] ?? 3) : 3
+  const quotaEntry = selectedVm ? Object.entries(SUD_QUOTAS).find(([name]) => name.trim().toLocaleLowerCase('fr') === selectedVm.full_name.trim().toLocaleLowerCase('fr')) : undefined
+  const quota = quotaEntry?.[1] ?? 3
   const quotaCount = sessionsMois.filter(s => s.statut === 'TERMINE' || s.statut === 'EN_COURS').length
-  const quotaLabel = selectedVm && SUD_QUOTAS[selectedVm.full_name] ? 'Quota Sud' : 'Quota de référence'
+  const quotaLabel = quotaEntry ? 'Quota Sud' : 'Quota de référence'
   const clientMap = useMemo(() => Object.fromEntries(clients.map(c => [c.id, c])), [clients])
   const formatDuration = (n: number) => [Math.floor(n / 3600), Math.floor(n % 3600 / 60), n % 60].map(x => String(x).padStart(2, '0')).join(':')
 
