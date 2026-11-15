@@ -220,7 +220,8 @@ export function usePlanning() {
       // Toute dérogation de spécialité reste limitée aux clients du portefeuille du VM.
       // La dérogation GENERALISTE autorise les deux secteurs, mais n'ajoute aucun client externe.
       if (!idsPortefeuille.has(client.id) && !zoneLibre) return false
-      return client.specialite === 'PHARMACIE' || zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || !prog!.secteur || client.secteur === prog!.secteur
+      const estBongoSylvestre = vmId === 'db3b946a-165e-4a20-91e0-073c2e170a72'
+      return estBongoSylvestre || client.specialite === 'PHARMACIE' || zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || !prog!.secteur || client.secteur === prog!.secteur
     })
     setPortefeuille(clientsPourPlanning)
     setLignes((lignesData as Ligne[]) ?? [])
