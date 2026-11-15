@@ -511,7 +511,7 @@ export default function Planning() {
             ))}
           </div>
           <div className="mt-3 pt-3 border-t border-ink-100 flex items-center gap-2 flex-wrap">
-            {(Object.keys(POTENTIEL_LABEL) as Potentiel[]).map((p) => (
+            {(Object.keys(POTENTIEL_LABEL) as Potentiel[]).filter((p) => p !== 'G+' || portefeuille.some((c) => c.potentiel === 'G+')).map((p) => (
               <span key={p} className="inline-flex items-center gap-1 rounded-full bg-ink-50 px-2.5 py-1 text-[11px] font-semibold text-ink-600">
                 {POTENTIEL_LABEL[p]} <span className="text-ink-800">{potentielCounts[p]}</span>
               </span>
