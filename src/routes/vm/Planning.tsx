@@ -274,12 +274,16 @@ export default function Planning() {
     if (totalJourProjete >= seuils.maxVisitesJour) return true
     if (jourActif === 'SAMEDI') return false
     if (derogationPotentielActive || estFawaz || estFagbede) return false
-    if (quotasPersonnalisesLydieSylvestre && ['LUNDI','MARDI','MERCREDI'].includes(jourActif)) {
-      if (picking !== 'MEDICAL') return false
-      const moyenMedicalProjete = lignesJour.filter((l) => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'MOYEN').length + (picking === 'MEDICAL' ? countSelection('MOYEN') : 0)
-      const faibleMedicalProjete = lignesJour.filter((l) => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'FAIBLE').length + (picking === 'MEDICAL' ? countSelection('FAIBLE') : 0)
-      if (potentiel === 'MOYEN' && moyenMedicalProjete >= 7) return true
-      if (potentiel === 'FAIBLE' && faibleMedicalProjete >= 2) return true
+    if (quotasPersonnalisesLydieSylvestre) {
+      if (['LUNDI','MARDI','MERCREDI'].includes(jourActif)) {
+        if (picking !== 'MEDICAL') return false
+        const moyenMedicalProjete = lignesJour.filter((l) => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'MOYEN').length + countSelection('MOYEN')
+        const faibleMedicalProjete = lignesJour.filter((l) => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'FAIBLE').length + countSelection('FAIBLE')
+        if (potentiel === 'MOYEN' && moyenMedicalProjete >= 7) return true
+        if (potentiel === 'FAIBLE' && faibleMedicalProjete >= 2) return true
+      }
+      // Jeudi et vendredi : pas de plafond spécifique par potentiel ; seuls les minima
+      // sont contrôlés à la soumission. Le plafond global quotidien reste applicable.
       return false
     }
     if (JOURS_DEROGATION_MOYEN.includes(jourActif)) {
@@ -333,20 +337,22 @@ export default function Planning() {
   const pointsMedical = (j: Jour) => parJour[j].medical * poidsNormal
 
   // En mode pharmacie uniquement, les règles de minimums médicaux et pharmaceutiques sont désactivées.
+  const comptePotentielMedical = (j: Jour, potentiel: Potentiel) =>
+    lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === potentiel).length
   const jourOk = (j: Jour) => estOdypharm2
     ? quotaPharmacieRespecte(j)
     : pharmacieUniquement
       ? true
-      : quotasPersonnalisesLydieSylvestre && ['LUNDI','MARDI','MERCREDI'].includes(j)
-        ? lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'GROS').length >= 7
-          && parJour[j].pharmacie >= 2
-          && lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'MOYEN').length <= 7
-          && lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'FAIBLE').length <= 2
-        : quotasPersonnalisesLydieSylvestre && ['JEUDI','VENDREDI'].includes(j)
-          ? parJour[j].medical >= 16
-            && lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'GROS').length >= 2
+      : quotasPersonnalisesLydieSylvestre
+        ? ['LUNDI','MARDI','MERCREDI'].includes(j)
+          ? comptePotentielMedical(j, 'GROS') >= 7
             && parJour[j].pharmacie >= 2
-          : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
+            && comptePotentielMedical(j, 'MOYEN') <= 7
+            && comptePotentielMedical(j, 'FAIBLE') <= 2
+          : parJour[j].medical >= 16
+            && comptePotentielMedical(j, 'GROS') >= 2
+            && parJour[j].pharmacie >= 2
+        : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
   const prêtPourSoumission = estOdypharm2
     ? JOURS.every(quotaPharmacieRespecte)
@@ -550,21 +556,25 @@ export default function Planning() {
                 <div>
                   <div className="flex items-center justify-between text-[11px] mb-1">
                     <span className="text-ink-500">Médical</span>
-                    <span className={pointsMedical(jourActif) >= 100 - 0.01 ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
-                      {Math.round(pointsMedical(jourActif))}% (min 100%)
+                    <span className={quotasPersonnalisesLydieSylvestre ? (jourOk(jourActif) ? 'text-emerald-600 font-semibold' : 'text-ink-500') : (pointsMedical(jourActif) >= 100 - 0.01 ? 'text-emerald-600 font-semibold' : 'text-ink-500')}>
+                      {quotasPersonnalisesLydieSylvestre
+                        ? ['LUNDI','MARDI','MERCREDI'].includes(jourActif)
+                          ? `GROS ${comptePotentielMedical(jourActif, 'GROS')}/7 min · MOYEN ${comptePotentielMedical(jourActif, 'MOYEN')}/7 max · FAIBLE ${comptePotentielMedical(jourActif, 'FAIBLE')}/2 max`
+                          : `${parJour[jourActif].medical}/16 médical · GROS ${comptePotentielMedical(jourActif, 'GROS')}/2 min`
+                        : `${Math.round(pointsMedical(jourActif))}% (min 100%)`}
                     </span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                  {!quotasPersonnalisesLydieSylvestre && <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
                     <div className={`h-full rounded-full ${pointsMedical(jourActif) >= 100 - 0.01 ? 'bg-emerald-500' : 'bg-royal-400'}`}
                       style={{ width: `${Math.min(100, pointsMedical(jourActif))}%` }} />
-                  </div>
+                  </div>}
                 </div>
               )}
               <div>
                 <div className="flex items-center justify-between text-[11px] mb-1">
                   <span className="text-ink-500">Pharmacie</span>
-                  <span className={parJour[jourActif].pharmacie >= seuils.minPharmacie ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
-                    {parJour[jourActif].pharmacie}/{seuils.minPharmacie}
+                  <span className={(parJour[jourActif].pharmacie >= (quotasPersonnalisesLydieSylvestre ? 2 : seuils.minPharmacie)) ? 'text-emerald-600 font-semibold' : 'text-ink-500'}>
+                    {parJour[jourActif].pharmacie}/{quotasPersonnalisesLydieSylvestre ? 2 : seuils.minPharmacie}
                   </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
@@ -642,7 +652,11 @@ export default function Planning() {
                     )}
                     {JOURS.filter((j) => !jourOk(j)).map((j) => (
                       <li key={j} className="text-xs text-flame-700">
-                        • {JOUR_LABEL[j]} : {parJour[j].medical}/{seuils.minMedical} médical, {parJour[j].pharmacie}/{seuils.minPharmacie} pharmacie
+                        • {JOUR_LABEL[j]} : {quotasPersonnalisesLydieSylvestre
+                          ? ['LUNDI','MARDI','MERCREDI'].includes(j)
+                            ? `GROS ${comptePotentielMedical(j, 'GROS')}/7 minimum, MOYEN ${comptePotentielMedical(j, 'MOYEN')}/7 maximum, FAIBLE ${comptePotentielMedical(j, 'FAIBLE')}/2 maximum, pharmacies ${parJour[j].pharmacie}/2 minimum`
+                            : `${parJour[j].medical}/16 médical minimum, GROS ${comptePotentielMedical(j, 'GROS')}/2 minimum, pharmacies ${parJour[j].pharmacie}/2 minimum`
+                          : `${parJour[j].medical}/${seuils.minMedical} médical, ${parJour[j].pharmacie}/${seuils.minPharmacie} pharmacie`}
                       </li>
                     ))}
                   </>
