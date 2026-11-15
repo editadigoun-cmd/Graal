@@ -54,6 +54,7 @@ const groups: NavGroup[] = [
       { to: '/admin/terrain', label: 'Vue terrain', icon: IconMapPin },
       { to: '/admin/suivi-terrain', label: 'Suivi terrain', icon: IconMapPin },
       { to: '/admin/vad-plan', label: 'VAD', icon: IconMapPin },
+      { to: '/admin/quotas-vad', label: 'Quotas mensuels VAD', icon: IconClipboard },
       { to: '/admin/rapport-activite-hebdo', label: 'Rapport hebdomadaire', icon: IconClipboard },
       { to: '/admin/controle-frequence', label: 'Fréquence clients', icon: IconUsers },
       { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconUsers },
@@ -100,7 +101,7 @@ export function ManagementShell() {
 
   const supervisorPaths = new Set([
     '/admin/programmes', '/admin/plan-activites', '/admin/reporting',
-    '/admin/terrain', '/admin/suivi-terrain', '/admin/vad-plan',
+    '/admin/terrain', '/admin/suivi-terrain', '/admin/vad-plan', '/admin/quotas-vad',
     '/admin/rapport-activite-hebdo', '/admin/controle-frequence',
     '/admin/rapports-duo', '/admin/animation-equipe', '/admin/equipes',
     '/admin/portefeuille', '/admin/activite', '/admin/anniversaires', '/admin/profil'
