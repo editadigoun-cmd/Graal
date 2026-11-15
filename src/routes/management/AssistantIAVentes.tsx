@@ -126,6 +126,20 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
     finally { setBusy(false) }
   }
 
+  async function relancerAnalyse() {
+    if (!selection) return
+    setBusy(true); setErreur(''); setMessage('Nouvelle tentative d’analyse IA…')
+    try {
+      const { data, error } = await supabase.functions.invoke('analyse-ventes-ia', { body: { import_id: selection.id } })
+      if (error) throw new Error((data as any)?.error || error.message)
+      const { data: fresh } = await db.from('imports_ventes_ia').select('*').eq('id', selection.id).single()
+      if (fresh) await ouvrirImport(fresh as ImportRow)
+      await chargerImports()
+      setMessage(`${data.lignes} ligne(s) détectée(s). Vérifiez les données avant validation.`)
+    } catch (e) { setErreur(e instanceof Error ? e.message : 'La nouvelle analyse a échoué.'); await chargerImports() }
+    finally { setBusy(false) }
+  }
+
   async function valider() {
     if (!selection) return
     if (!mois) { setErreur('Confirmez le mois du relevé avant validation.'); return }
@@ -185,7 +199,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
         <div className="flex flex-wrap justify-end gap-2"><Button variant="ghost" onClick={enregistrerCorrections} disabled={busy}>Enregistrer les corrections</Button><Button onClick={valider} disabled={busy}>{busy ? 'Validation…' : 'Valider et intégrer les données'}</Button></div>
       </>}
       {selection.statut === 'valide' && <div className="flex items-center gap-2 text-xs text-emerald-700"><IconCheckCircle className="h-4 w-4" /> Les données ont été intégrées au Pilotage des ventes.</div>}
-      {selection.statut === 'erreur' && <p className="text-xs text-red-600">L’analyse n’a pas abouti. Corrigez la configuration du moteur IA puis relancez un nouvel import.</p>}
+      {selection.statut === 'erreur' && <div className="space-y-2"><p className="text-xs text-red-600">L’analyse n’a pas abouti. Après correction de la configuration du moteur IA, vous pouvez réessayer ce même fichier.</p><div className="flex justify-end"><Button onClick={relancerAnalyse} disabled={busy}>{busy ? 'Nouvelle analyse…' : 'Relancer l’analyse'}</Button></div></div>}
     </Card>}
 
     {!selection && <div><p className="mb-2 text-xs font-bold text-ink-700">Imports récents</p>{imports.length === 0 ? <p className="rounded-xl border border-dashed border-ink-200 p-5 text-center text-xs text-ink-400">Aucun fichier analysé pour le moment.</p> : <div className="space-y-2">{imports.map((item) => <button key={item.id} onClick={() => ouvrirImport(item)} className="flex w-full items-center justify-between gap-3 rounded-xl border border-ink-100 bg-white p-3 text-left hover:border-royal-200"><span className="min-w-0"><span className="block truncate text-xs font-semibold text-ink-700">{item.fichier_nom}</span><span className="text-[10px] text-ink-400">{grossistes.find((g) => g.id === item.grossiste_id)?.nom ?? 'Grossiste'} · {fmtDate(item.created_at)}</span></span><Badge tone={item.statut === 'valide' ? 'success' : item.statut === 'erreur' ? 'danger' : 'warning'}>{item.statut.replace('_',' ')}</Badge></button>)}</div>}</div>}
