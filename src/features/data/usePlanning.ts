@@ -9,7 +9,7 @@ type Programme = Database['public']['Tables']['programmes_hebdomadaires']['Row']
 type Ligne = Database['public']['Tables']['programme_lignes']['Row'] & {
   clients: Pick<Database['public']['Tables']['clients']['Row'], 'id' | 'nom' | 'potentiel' | 'specialite' | 'centre'> | null
 }
-type ClientRow = Database['public']['Tables']['clients']['Row']
+type ClientRow = Pick<Database['public']['Tables']['clients']['Row'], 'id' | 'nom' | 'centre' | 'specialite' | 'potentiel' | 'secteur' | 'actif'>
 type PlanningSnapshot = { programme: Programme; lignes: Ligne[]; portefeuille: ClientRow[]; zone: boolean; potentiel: boolean; generaliste: boolean }
 
 export function targetSemaineDebut() {
@@ -50,17 +50,22 @@ export function usePlanning() {
     if (!hasLoaded.current) setLoading(true)
     setError(null)
     const vmId = session.user.id
+    // Afficher immédiatement le dernier planning local pendant que Supabase
+    // actualise les données en arrière-plan. Le cache est privé à ce VM.
+    const cached = await getOfflineSnapshot<PlanningSnapshot>(vmId, 'planning')
+    if (cached && !hasLoaded.current) {
+      setProgramme(cached.data.programme)
+      setLignes(cached.data.lignes)
+      setPortefeuille(cached.data.portefeuille)
+      setDerogationZoneActive(cached.data.zone)
+      setDerogationPotentielActive(cached.data.potentiel)
+      setDerogationGeneralisteActive(cached.data.generaliste)
+      setError(null)
+      hasLoaded.current = true
+      setLoading(false)
+    }
     if (!navigator.onLine) {
-      const cached = await getOfflineSnapshot<PlanningSnapshot>(vmId, 'planning')
-      if (cached) {
-        setProgramme(cached.data.programme)
-        setLignes(cached.data.lignes)
-        setPortefeuille(cached.data.portefeuille)
-        setDerogationZoneActive(cached.data.zone)
-        setDerogationPotentielActive(cached.data.potentiel)
-        setDerogationGeneralisteActive(cached.data.generaliste)
-        setError(null)
-      } else {
+      if (!cached) {
         setError('Aucun planning enregistré sur ce téléphone. Connectez-vous à Internet pour le télécharger avant de passer hors connexion.')
       }
       hasLoaded.current = true
@@ -73,11 +78,18 @@ export function usePlanning() {
     // Par défaut, cet écran prépare la semaine prochaine. Mais si un délai
     // supplémentaire est encore actif sur le programme de cette semaine, le VM
     // doit rester sur ce programme jusqu'à l'expiration du délai ou sa validation.
-    const { data: programmeActuel, error: erreurProgrammeActuel } = await supabase
-      .from('programmes_hebdomadaires').select('*')
-      .eq('vm_id', vmId).eq('semaine_debut', semaineActuelle).maybeSingle()
-    if (erreurProgrammeActuel) {
-      setError(erreurProgrammeActuel.message)
+    // Lire les deux semaines en parallèle : on évite deux allers-retours réseau successifs.
+    const [
+      { data: programmeActuel, error: erreurProgrammeActuel },
+      { data: programmeSuivant, error: erreurProgrammeSuivant }
+    ] = await Promise.all([
+      supabase.from('programmes_hebdomadaires').select('*')
+        .eq('vm_id', vmId).eq('semaine_debut', semaineActuelle).maybeSingle(),
+      supabase.from('programmes_hebdomadaires').select('*')
+        .eq('vm_id', vmId).eq('semaine_debut', semaineSuivante).maybeSingle()
+    ])
+    if (erreurProgrammeActuel || erreurProgrammeSuivant) {
+      setError(erreurProgrammeActuel?.message ?? erreurProgrammeSuivant?.message ?? 'Impossible de charger le programme.')
       setLoading(false)
       return
     }
@@ -92,14 +104,7 @@ export function usePlanning() {
         ? (profile?.secteur === 'A' ? 'B' : profile?.secteur === 'B' ? 'A' : null)
         : profile?.secteur ?? null
 
-    let { data: prog, error: programmeError } = await supabase
-      .from('programmes_hebdomadaires').select('*')
-      .eq('vm_id', vmId).eq('semaine_debut', semaineDebut).maybeSingle()
-    if (programmeError) {
-      setError(programmeError.message)
-      setLoading(false)
-      return
-    }
+    let prog = semaineDebut === semaineActuelle ? programmeActuel : programmeSuivant
 
     if (!prog) {
       const { data: created, error: createError } = await supabase
@@ -180,7 +185,7 @@ export function usePlanning() {
     let clientsData: ClientRow[] = []
     if (zoneLibre && !prog!.mode_pharmacie_uniquement) {
       const { data, error: clientsError } = await supabase
-        .from('clients').select('*').eq('actif', true).order('nom')
+        .from('clients').select('id, nom, centre, specialite, potentiel, secteur, actif').eq('actif', true).order('nom')
       if (clientsError) {
         setError(clientsError.message)
         hasLoaded.current = true
@@ -190,7 +195,7 @@ export function usePlanning() {
       clientsData = data ?? []
     } else if (idsPortefeuille.size > 0) {
       const { data, error: clientsError } = await supabase
-        .from('clients').select('*').eq('actif', true).in('id', Array.from(idsPortefeuille)).order('nom')
+        .from('clients').select('id, nom, centre, specialite, potentiel, secteur, actif').eq('actif', true).in('id', Array.from(idsPortefeuille)).order('nom')
       if (clientsError) {
         setError(clientsError.message)
         hasLoaded.current = true
@@ -214,7 +219,10 @@ export function usePlanning() {
       return zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || !prog!.secteur || client.secteur === prog!.secteur
     }))
     setLignes((lignesData as Ligne[]) ?? [])
-    await saveOfflineSnapshot(vmId, 'planning', {
+    hasLoaded.current = true
+    setLoading(false)
+    // L'écriture IndexedDB ne doit pas retarder l'affichage du planning.
+    void saveOfflineSnapshot(vmId, 'planning', {
       programme: prog!,
       lignes: (lignesData as Ligne[]) ?? [],
       portefeuille: (clientsData ?? []).filter((client) => {
@@ -224,8 +232,6 @@ export function usePlanning() {
       }),
       zone: zoneLibre, potentiel: potentielLibre, generaliste: generalisteLibre
     })
-    hasLoaded.current = true
-    setLoading(false)
   }, [session, profile?.secteur, profile?.equipe_id, profile?.id])
 
   useEffect(() => {
