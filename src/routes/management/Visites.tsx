@@ -70,6 +70,8 @@ export default function SupervisorVisites() {
 
   async function save(fields: Record<string, unknown>, products: string[]) {
     if (!profile?.id || !selected) { setError('Sélectionnez un client de votre portefeuille.'); return }
+    if (type === 'MEDICAL' && medicalCount >= 8) { setError('Quota quotidien atteint : 8 visites médicales maximum.'); return }
+    if (type === 'PHARMACIE' && pharmacyCount >= 2) { setError('Quota quotidien atteint : 2 visites pharmacie maximum.'); return }
     if (geo.status !== 'ok' || geo.latitude === null || geo.longitude === null) {
       setError('La géolocalisation est obligatoire. Autorisez la position GPS et attendez son acquisition avant l’enregistrement.')
       return
