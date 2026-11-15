@@ -215,6 +215,7 @@ export default function Planning() {
   }, [programme?.id])
   const clientIdsUtilises = new Set(lignes.map((l) => l.client_id))
   const pharmacieUniquement = !!programme?.mode_pharmacie_uniquement
+  const quotasPersonnalisesLydieSylvestre = ['62cdc900-5544-470a-94bf-ef30c9c8fb2f', 'db3b946a-165e-4a20-91e0-073c2e170a72'].includes(programme?.vm_id ?? '')
   const quotasPharmacieJour = QUOTAS_PHARMACIE_ODY[jourActif] ?? {}
   const pharmaciesDuJour = lignesJour.filter((l) => l.type_visite === 'PHARMACIE')
   const quotaPharmacieRespecte = (jour: Jour) => {
@@ -273,6 +274,11 @@ export default function Planning() {
     if (totalJourProjete >= seuils.maxVisitesJour) return true
     if (jourActif === 'SAMEDI') return false
     if (derogationPotentielActive || estFawaz || estFagbede) return false
+    if (quotasPersonnalisesLydieSylvestre && ['LUNDI','MARDI','MERCREDI'].includes(jourActif)) {
+      if (potentiel === 'MOYEN' && moyenJourProjete >= 7) return true
+      if (potentiel === 'FAIBLE' && faibleJourProjete >= 2) return true
+      return false
+    }
     if (JOURS_DEROGATION_MOYEN.includes(jourActif)) {
       if (potentiel === 'FAIBLE') return true
       if (potentiel === 'MOYEN' && moyenJourProjete >= seuils.maxMoyenLunMarMer) return true
@@ -328,7 +334,12 @@ export default function Planning() {
     ? quotaPharmacieRespecte(j)
     : pharmacieUniquement
       ? true
-      : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
+      : quotasPersonnalisesLydieSylvestre && ['LUNDI','MARDI','MERCREDI'].includes(j)
+        ? lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'GROS').length >= 7
+          && parJour[j].pharmacie >= 2
+          && lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'MOYEN').length <= 7
+          && lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'FAIBLE').length <= 2
+        : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
   const prêtPourSoumission = estOdypharm2
     ? JOURS.every(quotaPharmacieRespecte)
