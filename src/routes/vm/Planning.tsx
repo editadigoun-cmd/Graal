@@ -275,8 +275,11 @@ export default function Planning() {
     if (jourActif === 'SAMEDI') return false
     if (derogationPotentielActive || estFawaz || estFagbede) return false
     if (quotasPersonnalisesLydieSylvestre && ['LUNDI','MARDI','MERCREDI'].includes(jourActif)) {
-      if (potentiel === 'MOYEN' && moyenJourProjete >= 7) return true
-      if (potentiel === 'FAIBLE' && faibleJourProjete >= 2) return true
+      if (picking !== 'MEDICAL') return false
+      const moyenMedicalProjete = lignesJour.filter((l) => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'MOYEN').length + (picking === 'MEDICAL' ? countSelection('MOYEN') : 0)
+      const faibleMedicalProjete = lignesJour.filter((l) => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'FAIBLE').length + (picking === 'MEDICAL' ? countSelection('FAIBLE') : 0)
+      if (potentiel === 'MOYEN' && moyenMedicalProjete >= 7) return true
+      if (potentiel === 'FAIBLE' && faibleMedicalProjete >= 2) return true
       return false
     }
     if (JOURS_DEROGATION_MOYEN.includes(jourActif)) {
