@@ -129,7 +129,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
   async function valider() {
     if (!selection) return
     if (!mois) { setErreur('Confirmez le mois du relevé avant validation.'); return }
-    if (new Date(semaine + 'T00:00:00').toISOString().slice(0, 7) !== mois) { setErreur('La semaine choisie doit appartenir au mois du relevé.'); return }
+    const debutSemaine = new Date(semaine + 'T00:00:00Z'); const finSemaine = new Date(debutSemaine); finSemaine.setUTCDate(finSemaine.getUTCDate() + 6); const debutMois = new Date(mois + '-01T00:00:00Z'); const finMois = new Date(Date.UTC(debutMois.getUTCFullYear(), debutMois.getUTCMonth() + 1, 0)); if (debutSemaine > finMois || finSemaine < debutMois) { setErreur('La semaine choisie doit chevaucher le mois du relevé.'); return }
     if (!lignes.some((l) => l.produit_id && (l.ventes !== null || l.stock !== null))) { setErreur('Associez au moins une ligne à un produit avec une vente ou un stock.'); return }
     setBusy(true); setErreur(''); setMessage('')
     try {
