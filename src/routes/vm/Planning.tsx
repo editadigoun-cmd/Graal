@@ -235,7 +235,7 @@ export default function Planning() {
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
     // Le programme fixe le secteur autorisé pour cette semaine : secteur courant cette semaine,
     // secteur opposé pour la semaine suivante. Le serveur applique la même règle.
-    if (c.specialite !== 'PHARMACIE' && !pharmacieUniquement && !derogationZoneActive && !(derogationGeneralisteActive && c.specialite === 'GENERALISTE') && !estFawaz && !estFagbede && programme?.secteur && c.secteur !== programme.secteur) return false
+    if (programme?.vm_id !== 'db3b946a-165e-4a20-91e0-073c2e170a72' && c.specialite !== 'PHARMACIE' && !pharmacieUniquement && !derogationZoneActive && !(derogationGeneralisteActive && c.specialite === 'GENERALISTE') && !estFawaz && !estFagbede && programme?.secteur && c.secteur !== programme.secteur) return false
     // Afficher les clients du secteur autorisé même si leur potentiel ne permet pas de les
     // programmer le jour sélectionné ; les règles de potentiel restent appliquées plus bas.
     if (clientIdsUtilises.has(c.id)) return false
