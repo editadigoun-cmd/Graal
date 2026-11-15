@@ -106,3 +106,51 @@ for update to authenticated using (
   )
   or exists (select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='admin')
 );
+
+-- Enforce the agreed TIL Sud monthly quotas at database level.
+create or replace function public.enforce_til_sud_vad_quota()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+declare
+  v_quota integer;
+  v_used integer;
+begin
+  if new.superviseur_id <> '847d0024-7def-45d1-a669-d7276502ca32'::uuid
+     or new.statut not in ('EN_COURS','TERMINE') then
+    return new;
+  end if;
+  v_quota := case new.vm_id
+    when '62cdc900-5544-470a-94bf-ef30c9c8fb2f'::uuid then 5
+    when 'f7c8b228-1978-4b68-bca8-8e745866b0b8'::uuid then 3
+    when 'd53c31c1-5adb-4549-82ca-0fff2a6692dd'::uuid then 3
+    when 'd73bdceb-4bb3-496c-9d74-d24f6907c3b0'::uuid then 3
+    when '34deced5-26da-44c4-9bd5-7950e13552a9'::uuid then 3
+    when '180dedac-597a-47c9-97d5-8b5d93109f25'::uuid then 3
+    when 'db3b946a-165e-4a20-91e0-073c2e170a72'::uuid then 3
+    when 'a0436f11-5544-470a-94bf-ef30c9c8fb2f'::uuid then 3
+    else null
+  end;
+  if v_quota is null then
+    raise exception 'Ce VM ne fait pas partie du périmètre TIL Sud de Marc.';
+  end if;
+  select count(*) into v_used
+  from public.vad_duo_journaliers d
+  where d.superviseur_id = new.superviseur_id
+    and d.vm_id = new.vm_id
+    and date_trunc('month', d.jour) = date_trunc('month', new.jour)
+    and d.statut in ('EN_COURS','TERMINE')
+    and d.id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000'::uuid);
+  if v_used >= v_quota then
+    raise exception 'Quota VAD mensuel atteint pour ce VM (% jours).', v_quota;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_enforce_til_sud_vad_quota on public.vad_duo_journaliers;
+create trigger trg_enforce_til_sud_vad_quota
+before insert or update of superviseur_id, vm_id, jour, statut
+on public.vad_duo_journaliers
+for each row execute function public.enforce_til_sud_vad_quota();
+revoke all on function public.enforce_til_sud_vad_quota() from public, anon, authenticated;
