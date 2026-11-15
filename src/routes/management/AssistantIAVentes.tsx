@@ -74,19 +74,28 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
       const parsed = await analyserFichierLocal(fichier, grossiste?.nom ?? '')
       if (!parsed.lignes.length) throw new Error(parsed.avertissements[0] ?? 'Aucune ligne produit exploitable détectée.')
 
-      const [{ data: userData }, { data: mappings, error: mappingError }] = await Promise.all([
+      const [{ data: userData }, { data: mappings, error: mappingError }, { data: refs, error: refsError }] = await Promise.all([
         supabase.auth.getUser(),
-        db.from('mappings_produits_grossistes').select('code_externe,produit_id').eq('grossiste_id', grossisteId)
+        db.from('mappings_produits_grossistes').select('code_externe,produit_id').eq('grossiste_id', grossisteId),
+        db.from('produits_pilotage').select('produit_id').eq('laboratoire_id', laboratoireId)
       ])
       if (mappingError) throw mappingError
+      if (refsError) throw refsError
       if (!userData.user) throw new Error('Session expirée. Reconnectez-vous.')
+      const productIds = (refs ?? []).map((r: any) => r.produit_id)
+      const { data: catalogueRows, error: catalogueError } = productIds.length
+        ? await db.from('produits').select('id,nom').in('id', productIds).order('nom')
+        : { data: [], error: null }
+      if (catalogueError) throw catalogueError
+      const catalogueAnalyse = (catalogueRows ?? []) as Product[]
+      setProduits(catalogueAnalyse)
 
       const mappingsParCode = new Map<string, string>((mappings ?? []).map((m: any) => [String(m.code_externe), m.produit_id]))
-      const catalogueParId = new Map(produits.map((p) => [p.id, p]))
+      const catalogueParId = new Map(catalogueAnalyse.map((p) => [p.id, p]))
       const lignesPreparees = parsed.lignes.map((line, index) => {
         const mappedId = mappingsParCode.get(line.codeExterne)
         const mappedProduct = mappedId ? catalogueParId.get(mappedId) : undefined
-        const scores = produits.map((p) => ({ produit: p, score: scoreCorrespondance(line.designation, p.nom) })).sort((a, b) => b.score - a.score)
+        const scores = catalogueAnalyse.map((p) => ({ produit: p, score: scoreCorrespondance(line.designation, p.nom) })).sort((a, b) => b.score - a.score)
         const best = scores[0]
         const produit = mappedProduct ?? (best && best.score >= 0.9 ? best.produit : null)
         const confidence = mappedProduct ? 1 : (best?.score ?? 0)
