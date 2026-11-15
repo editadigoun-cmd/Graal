@@ -11,7 +11,9 @@ type Ligne = { programme_ligne_id: string; client_id: string; date_visite: strin
 type Client = { id: string; nom: string; centre: string | null; specialite: string | null }
 type Session = { id: string; vm_id: string; jour: string; mode: string; statut: string; started_at: string | null; ended_at: string | null; medecins_vus_ids: string[]; observations: string | null; compte_rendu: string | null }
 
-const SUD_VM_IDS = new Set(['62cdc900-5544-470a-94bf-ef30c9c8fb2f','f7c8b228-1978-4b68-bca8-8e745866b0b8','d53c31c1-5adb-4549-82ca-0fff2a6692dd','d73bdceb-4bb3-496c-9d74-d24f6907c3b0','34deced5-26da-44c4-9bd5-7950e13552a9','180dedac-597a-47c9-97d5-8b5d93109f25','db3b946a-165e-4a20-91e0-073c2e170a72','a0436f11-d425-4014-9733-5c7cc4271189'])\n\nconst SUD_QUOTAS: Record<string, number> = {
+const SUD_VM_IDS = new Set(['62cdc900-5544-470a-94bf-ef30c9c8fb2f','f7c8b228-1978-4b68-bca8-8e745866b0b8','d53c31c1-5adb-4549-82ca-0fff2a6692dd','d73bdceb-4bb3-496c-9d74-d24f6907c3b0','34deced5-26da-44c4-9bd5-7950e13552a9','180dedac-597a-47c9-97d5-8b5d93109f25','db3b946a-165e-4a20-91e0-073c2e170a72','a0436f11-d425-4014-9733-5c7cc4271189'])
+
+const SUD_QUOTAS: Record<string, number> = {
   'SOSSAVILYDIE': 5,
   'IDOSSA Melchior': 3,
   'DOSSOU JOËL': 3,
