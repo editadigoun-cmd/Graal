@@ -207,7 +207,11 @@ export function usePlanning() {
 
     // Ne proposer que les clients actifs du portefeuille appartenant au secteur
     // du programme de la semaine.
-    setPortefeuille((clientsData ?? []).filter((client) => {
+    const clientsPourPlanning = (clientsData ?? []).filter((client) => {
+      // Le potentiel G+ n'est visible que si au moins une fiche G+ appartient
+      // réellement au portefeuille du VM, même lorsqu'une dérogation de zone
+      // lui permet de consulter des clients d'autres secteurs.
+      if (client.potentiel === 'G+' && !idsPortefeuille.has(client.id)) return false
       // En mode « pharmacie uniquement », la liste est strictement limitée aux
       // pharmacies assignées à CE VM, tous secteurs et potentiels confondus.
       if (prog!.mode_pharmacie_uniquement) {
@@ -217,7 +221,8 @@ export function usePlanning() {
       // La dérogation GENERALISTE autorise les deux secteurs, mais n'ajoute aucun client externe.
       if (!idsPortefeuille.has(client.id) && !zoneLibre) return false
       return zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || !prog!.secteur || client.secteur === prog!.secteur
-    }))
+    })
+    setPortefeuille(clientsPourPlanning)
     setLignes((lignesData as Ligne[]) ?? [])
     hasLoaded.current = true
     setLoading(false)
@@ -225,11 +230,7 @@ export function usePlanning() {
     void saveOfflineSnapshot(vmId, 'planning', {
       programme: prog!,
       lignes: (lignesData as Ligne[]) ?? [],
-      portefeuille: (clientsData ?? []).filter((client) => {
-        if (prog!.mode_pharmacie_uniquement) return idsPortefeuille.has(client.id) && client.specialite === 'PHARMACIE'
-        if (!idsPortefeuille.has(client.id) && !zoneLibre) return false
-        return zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || !prog!.secteur || client.secteur === prog!.secteur
-      }),
+      portefeuille: clientsPourPlanning,
       zone: zoneLibre, potentiel: potentielLibre, generaliste: generalisteLibre
     })
   }, [session, profile?.secteur, profile?.equipe_id, profile?.id])
