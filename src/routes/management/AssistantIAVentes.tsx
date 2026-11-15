@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { IconAlert, IconCheckCircle, IconChevronLeft, IconDownload, IconSparkles } from '@/components/ui/icons'
+import { IconAlert, IconCheckCircle, IconChevronLeft, IconSparkles } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 
 interface RefItem { id: string; nom: string }
@@ -94,7 +94,8 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
       if (data?.error) throw new Error(data.error)
       setFichier(null)
       await chargerImports()
-      await ouvrirImport(record as ImportRow)
+      const { data: freshImport } = await db.from('imports_ventes_ia').select('*').eq('id', record.id).single()
+      await ouvrirImport((freshImport ?? record) as ImportRow)
       setMessage(`${data.lignes} ligne(s) détectée(s). Vérifiez chaque correspondance avant validation.`)
     } catch (e) {
       setErreur(e instanceof Error ? e.message : 'Erreur pendant l’import.')
