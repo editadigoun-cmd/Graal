@@ -342,7 +342,11 @@ export default function Planning() {
           && parJour[j].pharmacie >= 2
           && lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'MOYEN').length <= 7
           && lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'FAIBLE').length <= 2
-        : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
+        : quotasPersonnalisesLydieSylvestre && ['JEUDI','VENDREDI'].includes(j)
+          ? parJour[j].medical >= 16
+            && lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'GROS').length >= 2
+            && parJour[j].pharmacie >= 2
+          : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
   const prêtPourSoumission = estOdypharm2
     ? JOURS.every(quotaPharmacieRespecte)
