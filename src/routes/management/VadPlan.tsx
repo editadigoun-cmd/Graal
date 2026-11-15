@@ -7,11 +7,11 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { todayBenin } from '@/lib/time'
 
 type Vm = { id: string; full_name: string; equipe_id: string | null }
-type Ligne = { programme_ligne_id: string; client_id: string; date_visite: string; nom?: string; potentiel?: string; type_visite?: string }
+type Ligne = { programme_ligne_id: string; client_id: string; date_visite: string; client_nom?: string; potentiel?: string; type_visite?: string }
 type Client = { id: string; nom: string; centre: string | null; specialite: string | null }
 type Session = { id: string; vm_id: string; jour: string; mode: string; statut: string; started_at: string | null; ended_at: string | null; medecins_vus_ids: string[]; observations: string | null; compte_rendu: string | null }
 
-const SUD_QUOTAS: Record<string, number> = {
+const SUD_VM_IDS = new Set(['62cdc900-5544-470a-94bf-ef30c9c8fb2f','f7c8b228-1978-4b68-bca8-8e745866b0b8','d53c31c1-5adb-4549-82ca-0fff2a6692dd','d73bdceb-4bb3-496c-9d74-d24f6907c3b0','34deced5-26da-44c4-9bd5-7950e13552a9','180dedac-597a-47c9-97d5-8b5d93109f25','db3b946a-165e-4a20-91e0-073c2e170a72','a0436f11-d425-4014-9733-5c7cc4271189'])\n\nconst SUD_QUOTAS: Record<string, number> = {
   'SOSSAVILYDIE': 5,
   'IDOSSA Melchior': 3,
   'DOSSOU JOËL': 3,
@@ -59,7 +59,7 @@ export default function VadPlan() {
         supabase.from('superviseur_equipes').select('equipe_id').eq('superviseur_id', profile.id)
       ])
       const teamIds = (teamRows ?? []).map(x => x.equipe_id)
-      const visible = (vmRows ?? []).filter(v => profile.role === 'admin' || (v.equipe_id && teamIds.includes(v.equipe_id))) as Vm[]
+      const visible = (vmRows ?? []).filter(v => profile.role === 'admin' || (v.equipe_id && teamIds.includes(v.equipe_id) && (profile.id !== '847d0024-7def-45d1-a669-d7276502ca32' || SUD_VM_IDS.has(v.id)))) as Vm[]
       setVms(visible)
       if (visible.length) setVmId(current => current || visible[0].id)
       setLoading(false)
@@ -164,7 +164,7 @@ export default function VadPlan() {
     </Card>
     {vmId && <Card className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold text-ink-800">{mode === 'COTONOU' ? 'Médecins du programme du jour' : 'Chronomètre VAD'}</p><p className="text-xs text-ink-400">{mode === 'COTONOU' ? 'Cochez uniquement les médecins effectivement vus ensemble.' : 'Démarrez le matin et clôturez en fin de journée.'}</p></div><div className="text-right"><p className="font-mono text-2xl font-extrabold text-royal-700">{formatDuration(elapsed)}</p><p className="text-[10px] text-ink-400">{session?.statut === 'EN_COURS' ? 'Chronomètre actif' : session?.statut === 'TERMINE' ? 'VAD terminé' : 'Non démarré'}</p></div></div>
-      {mode === 'COTONOU' && <div className="space-y-2">{lignes.length === 0 ? <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-700">Aucune visite médicale n’est programmée pour ce VM à cette date. Aucun médecin hors programme ne peut être ajouté au Duo.</p> : lignes.map(l => { const c = clientMap[l.client_id]; return <label key={l.programme_ligne_id} className="flex items-center gap-3 rounded-xl border border-ink-100 p-3 text-sm"><input type="checkbox" checked={selection.includes(l.client_id)} disabled={session?.statut === 'TERMINE'} onChange={e => setSelection(old => e.target.checked ? [...old, l.client_id] : old.filter(id => id !== l.client_id))} /><span className="min-w-0 flex-1"><strong>{c?.nom ?? l.nom ?? 'Client'}</strong><span className="block text-xs text-ink-400">{c?.specialite ?? 'Spécialité non renseignée'} · {c?.centre ?? 'Centre non renseigné'}</span></span></label> })}<p className="text-xs font-semibold text-royal-700">{selection.length} médecin(s) sélectionné(s)</p></div>}
+      {mode === 'COTONOU' && <div className="space-y-2">{lignes.length === 0 ? <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-700">Aucune visite médicale n’est programmée pour ce VM à cette date. Aucun médecin hors programme ne peut être ajouté au Duo.</p> : lignes.map(l => { const c = clientMap[l.client_id]; return <label key={l.programme_ligne_id} className="flex items-center gap-3 rounded-xl border border-ink-100 p-3 text-sm"><input type="checkbox" checked={selection.includes(l.client_id)} disabled={session?.statut === 'TERMINE'} onChange={e => setSelection(old => e.target.checked ? [...old, l.client_id] : old.filter(id => id !== l.client_id))} /><span className="min-w-0 flex-1"><strong>{c?.nom ?? l.client_nom ?? 'Client'}</strong><span className="block text-xs text-ink-400">{c?.specialite ?? 'Spécialité non renseignée'} · {c?.centre ?? 'Centre non renseigné'}</span></span></label> })}<p className="text-xs font-semibold text-royal-700">{selection.length} médecin(s) sélectionné(s)</p></div>}
       <div><label className="mb-1 block text-xs font-semibold text-ink-500">Observations terrain</label><textarea value={observations} disabled={session?.statut === 'TERMINE'} onChange={e => setObservations(e.target.value)} rows={3} className="w-full rounded-xl border border-ink-200 px-3 py-2.5 text-sm" placeholder="Observations sur le VM, les médecins, les échanges…" /></div>
       <div><label className="mb-1 block text-xs font-semibold text-ink-500">Compte rendu de fin de journée</label><textarea value={compteRendu} disabled={session?.statut === 'TERMINE'} onChange={e => setCompteRendu(e.target.value)} rows={4} className="w-full rounded-xl border border-ink-200 px-3 py-2.5 text-sm" placeholder="Activités réalisées, difficultés, décisions et actions de suivi…" /></div>
       <div className="flex flex-wrap gap-2">{!session || session.statut === 'PROGRAMME' ? <Button onClick={start} loading={saving} disabled={!vmId || quotaCount >= quota}>Démarrer le VAD</Button> : session.statut === 'EN_COURS' ? <Button onClick={finish} loading={saving}>Clôturer le VAD</Button> : <span className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">Compte rendu enregistré</span>}</div>
