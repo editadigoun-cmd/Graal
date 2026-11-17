@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PotentielBadge } from '@/components/ui/Badge'
@@ -240,8 +240,6 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
-
   useEffect(() => () => {
     if (photoPreview) URL.revokeObjectURL(photoPreview)
   }, [photoPreview])
@@ -297,21 +295,18 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
           <p className="text-sm font-bold text-ink-800">Photo de fin de garde</p>
           <span className="text-xs text-ink-400">{photo ? '1 photo' : '0 photo'}</span>
         </div>
-        <input key={photo ? '1' : '0'} ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onClick={(e) => { e.currentTarget.value = '' }} onChange={handlePhoto} />
+        
         {photoPreview && (
           <div className="mb-3">
             <img src={photoPreview} alt="Photo de fin de garde" className="h-36 w-full rounded-xl object-cover" />
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-6 text-royal-600"
-        >
+        <label className="relative flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-6 text-royal-600">
           <IconCamera className="h-7 w-7" />
           <span className="text-sm font-semibold">{photo ? 'Reprendre la photo' : 'Ouvrir la caméra et prendre une photo'}</span>
-          <span className="text-[11px] text-ink-400">Même fonctionnement que la clôture de journée</span>
-        </button>
+          <span className="text-[11px] text-ink-400">Touchez ici pour joindre directement la photo</span>
+          <input type="file" accept="image/*" capture="environment" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={handlePhoto} aria-label="Prendre une photo de fin de garde" />
+        </label>
       </Card>
 
       <Button fullWidth loading={saving} onClick={valider} disabled={!photo}>Confirmer la fin de garde</Button>
