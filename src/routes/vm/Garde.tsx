@@ -248,16 +248,30 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.currentTarget
-    const f = input.files?.[0]
-    if (!f) return
-    if (!f.type.startsWith('image/')) {
+    const file = input.files?.item(0) ?? null
+    // Android peut renvoyer un type MIME vide selon l'application caméra utilisée.
+    // On accepte alors les extensions d'image courantes au lieu de jeter la photo.
+    const extensionImage = /\\.(jpe?g|png|webp|heic|heif)$/i.test(file?.name ?? '')
+    if (!file) {
+      setError('Aucune photo reçue du téléphone. Réessayez ou choisissez une photo dans la galerie.')
+      return
+    }
+    if (!file.type.startsWith('image/') && !extensionImage) {
       setError('Le fichier sélectionné n’est pas une image. Réessayez avec une photo.')
       input.value = ''
       return
     }
+    if (file.size === 0) {
+      setError('La photo reçue est vide. Reprenez la photo.')
+      input.value = ''
+      return
+    }
+
     setError(null)
-    setPhoto(f)
-    setPhotoPreview(URL.createObjectURL(f))
+    setPhoto(file)
+    setPhotoPreview(URL.createObjectURL(file))
+    // Permet de reprendre exactement la même photo si nécessaire.
+    input.value = ''
   }
 
   async function valider() {
@@ -299,20 +313,19 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
       <Card>
         <p className="text-sm font-bold text-ink-800 mb-3">Photo de fin de garde</p>
         {photoPreview ? (
-          <div className="relative">
-            <img src={photoPreview} alt="Aperçu de la fiche de garde" className="w-full rounded-2xl object-cover max-h-64" />
-            <label className="absolute bottom-3 right-3 cursor-pointer rounded-full bg-white/95 px-3 py-2 text-xs font-semibold shadow">
+          <div className="space-y-3">
+            <img src={photoPreview} alt="Aperçu de la fiche de garde" className="w-full rounded-2xl object-contain max-h-72 bg-ink-50" />
+            <button type="button" onClick={() => fileRef.current?.click()} className="w-full rounded-xl border border-royal-200 px-4 py-3 text-sm font-semibold text-royal-700">
               Reprendre la photo
-              <input ref={fileRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={handlePhoto} />
-            </label>
+            </button>
           </div>
         ) : (
-          <label className="relative flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-10 text-royal-600">
+          <button type="button" onClick={() => fileRef.current?.click()} className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-10 text-royal-600">
             <IconCamera className="h-8 w-8" />
             <span className="text-sm font-semibold">Prendre en photo la fiche de garde</span>
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" onChange={handlePhoto} />
-          </label>
+          </button>
         )}
+        <input ref={fileRef} type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif" capture="environment" className="hidden" onChange={handlePhoto} />
       </Card>
 
       <Button fullWidth loading={saving} onClick={valider} disabled={!photo}>Confirmer la fin de garde</Button>
