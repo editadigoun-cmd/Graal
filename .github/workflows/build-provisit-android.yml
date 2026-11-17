@@ -43,7 +43,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Install dependencies
-        run: npm ci
+        run: npm install
       - name: Generate Android icons from repository artwork
         run: npx capacitor-assets generate --android
       - name: Verify Supabase build configuration
