@@ -14,7 +14,7 @@ type RapportDuo = Database['public']['Tables']['rapports_duo']['Row'] & { profil
 type EquipeOption = { id: string; nom: string }
 type Session = { id: string; vm_id: string; jour: string; statut: string; profiles: { full_name: string } | null }
 type CriterionKey = 'preparation_visite' | 'utilisation_argumentaire' | 'gestion_objections' | 'obtention_engagement' | 'posture_professionnelle' | 'presence_terrain'
-type Form = Record<CriterionKey, number> & { vm_id: string; vad_session_id: string; commentaire: string }
+type Form = Record<CriterionKey, number> & { vm_id: string; duo_session_id: string; commentaire: string }
 
 const CRITERES: { key: CriterionKey; label: string; help: string }[] = [
   { key: 'preparation_visite', label: 'Préparation de la visite', help: "Le VM connaît son secteur, sa cible, ses historiques de visites précédentes et l'objectif du jour." },
@@ -25,7 +25,7 @@ const CRITERES: { key: CriterionKey; label: string; help: string }[] = [
   { key: 'presence_terrain', label: 'Présence terrain', help: 'Reconnaissance du VM sur le terrain et connaissance des produits par les PDS.' }
 ]
 
-const EMPTY_FORM: Form = { vm_id: '', vad_session_id: '', preparation_visite: 3, utilisation_argumentaire: 3, gestion_objections: 3, obtention_engagement: 3, posture_professionnelle: 3, presence_terrain: 3, commentaire: '' }
+const EMPTY_FORM: Form = { vm_id: '', duo_session_id: '', preparation_visite: 3, utilisation_argumentaire: 3, gestion_objections: 3, obtention_engagement: 3, posture_professionnelle: 3, presence_terrain: 3, commentaire: '' }
 
 export default function ManagementRapportsDuo() {
   const { profile } = useAuth()
