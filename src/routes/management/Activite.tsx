@@ -38,11 +38,32 @@ export default function ManagementActivite() {
   const [entityFilter, setEntityFilter] = useState('')
 
   useEffect(() => {
-    supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(200)
-      .then(({ data }: { data: ActivityRow[] | null }) => {
-        setRows(data ?? [])
-        setLoading(false)
-      })
+    let active = true
+    async function load() {
+      const { data: authData } = await supabase.auth.getUser()
+      const userId = authData.user?.id
+      if (!userId) { setRows([]); setLoading(false); return }
+      const { data: me } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
+      let query = supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(500)
+      if (me?.role === 'superviseur') {
+        const { data: teamIds, error: teamError } = await supabase.rpc('supervised_equipe_ids')
+        if (teamError || !teamIds?.length) {
+          if (active) { setRows([]); setLoading(false) }
+          return
+        }
+        const { data: members, error: membersError } = await supabase
+          .from('profiles').select('id').eq('role', 'vm').in('equipe_id', teamIds)
+        if (membersError || !members?.length) {
+          if (active) { setRows([]); setLoading(false) }
+          return
+        }
+        query = query.in('actor_id', members.map(member => member.id))
+      }
+      const { data } = await query
+      if (active) { setRows((data ?? []) as ActivityRow[]); setLoading(false) }
+    }
+    void load()
+    return () => { active = false }
   }, [])
 
   const entityTypes = useMemo(() => Array.from(new Set(rows.map((r) => r.entity_type))), [rows])
@@ -62,7 +83,7 @@ export default function ManagementActivite() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-ink-800 font-display">Journal d'activité</h1>
-        <p className="text-sm text-ink-400">Historique de toutes les actions menées sur la plateforme</p>
+        <p className="text-sm text-ink-400">Historique des actions menées sur votre périmètre</p>
       </div>
 
       <Card className="flex flex-col sm:flex-row gap-3 sm:items-center">
