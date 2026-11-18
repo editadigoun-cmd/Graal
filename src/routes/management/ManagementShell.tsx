@@ -119,7 +119,7 @@ export function ManagementShell() {
     }
     return []
   }, [profile?.role])
-  const visibleTopItems: NavItem[] = profile?.role === 'superviseur' ? [...topItems, { to: '/admin/visites', label: 'Visites', icon: IconMapPin }] : topItems
+  const visibleTopItems: NavItem[] = profile?.role === 'superviseur' ? [...topItems, { to: '/admin/planning-visites-superviseurs', label: 'Planning hebdomadaire', icon: IconClipboard }, { to: '/admin/visites', label: 'Saisir une visite', icon: IconMapPin }] : profile?.role === 'admin' ? [...topItems, { to: '/admin/planning-visites-superviseurs', label: 'Plannings superviseurs', icon: IconClipboard }] : topItems
   const currentPage = [...visibleTopItems, ...visibleGroups.flatMap((g) => g.children)].find((item) => isPathActive(location.pathname, location.search, item.to))
 
   function toggleGroup(label: string) {
