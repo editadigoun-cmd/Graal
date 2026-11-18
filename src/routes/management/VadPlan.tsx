@@ -142,8 +142,8 @@ export default function VadPlan() {
   return <div className="space-y-5 pb-8">
     <div>
       <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-royal-600">Terrain · TIL</p>
-      <h1 className="mt-1 text-xl font-extrabold text-ink-800 font-display">VAD & Duo quotidien</h1>
-      <p className="mt-1 text-sm text-ink-400">Suivi du duo, présence terrain, chronométrage et compte rendu de fin de journée.</p>
+      <h1 className="mt-1 text-xl font-extrabold text-ink-800 font-display">VAD quotidien</h1>
+      <p className="mt-1 text-sm text-ink-400">Suivi du VAD, présence terrain, chronométrage et compte rendu de fin de journée.</p>
     </div>
     <Card className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
