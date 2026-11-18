@@ -184,7 +184,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
     try {
       for (const line of lignes) {
         const { error } = await db.from('lignes_import_ventes_ia').update({
-          produit_id: line.produit_id, ventes: line.ventes, stock: line.stock, code_externe: line.code_externe
+          produit_id: line.produit_id, ventes: line.ventes, code_externe: line.code_externe
         }).eq('id', line.id)
         if (error) throw error
       }
@@ -192,7 +192,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
       if (monthError) throw monthError
       const { data, error } = await db.rpc('valider_import_ventes_ia' as any, { p_import_id: selection.id, p_semaine_debut: semaine } as any)
       if (error) throw error
-      setMessage(`Import validé : ${data.ventes} ligne(s) de ventes et ${data.stocks} ligne(s) de stock intégrées au Pilotage.`)
+      setMessage(`Import validé : ${data.ventes} ligne(s) de ventes intégrées au Pilotage.`)
       setSelection({ ...selection, statut: 'valide', mois_reference: `${mois}-01` })
       await chargerImports(); onImported()
     } catch (e) { setErreur(e instanceof Error ? e.message : 'La validation a échoué.') }
