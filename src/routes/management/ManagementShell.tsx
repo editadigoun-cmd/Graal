@@ -104,7 +104,7 @@ export function ManagementShell() {
     '/admin/terrain', '/admin/suivi-terrain', '/admin/vad-plan', '/admin/quotas-vad',
     '/admin/rapport-activite-hebdo', '/admin/controle-frequence',
     '/admin/rapports-duo', '/admin/animation-equipe', '/admin/equipes',
-    '/admin/portefeuille', '/admin/activite', '/admin/anniversaires', '/admin/profil'
+    '/admin/portefeuille', '/admin/activite', '/admin/profil'
   ])
   const visibleGroups = useMemo(() => {
     if (profile?.role === 'admin') {
