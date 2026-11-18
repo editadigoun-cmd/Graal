@@ -14,7 +14,7 @@ type RapportDuo = Database['public']['Tables']['rapports_duo']['Row'] & { profil
 type EquipeOption = { id: string; nom: string }
 type Session = { id: string; vm_id: string; jour: string; statut: string; profiles: { full_name: string } | null }
 type CriterionKey = 'preparation_visite' | 'utilisation_argumentaire' | 'gestion_objections' | 'obtention_engagement' | 'posture_professionnelle' | 'presence_terrain'
-type Form = Record<CriterionKey, number> & { vm_id: string; duo_session_id: string; commentaire: string }
+type Form = Record<CriterionKey, number> & { vm_id: string; vad_session_id: string; commentaire: string }
 
 const CRITERES: { key: CriterionKey; label: string; help: string }[] = [
   { key: 'preparation_visite', label: 'Préparation de la visite', help: "Le VM connaît son secteur, sa cible, ses historiques de visites précédentes et l'objectif du jour." },
@@ -25,7 +25,7 @@ const CRITERES: { key: CriterionKey; label: string; help: string }[] = [
   { key: 'presence_terrain', label: 'Présence terrain', help: 'Reconnaissance du VM sur le terrain et connaissance des produits par les PDS.' }
 ]
 
-const EMPTY_FORM: Form = { vm_id: '', duo_session_id: '', preparation_visite: 3, utilisation_argumentaire: 3, gestion_objections: 3, obtention_engagement: 3, posture_professionnelle: 3, presence_terrain: 3, commentaire: '' }
+const EMPTY_FORM: Form = { vm_id: '', vad_session_id: '', preparation_visite: 3, utilisation_argumentaire: 3, gestion_objections: 3, obtention_engagement: 3, posture_professionnelle: 3, presence_terrain: 3, commentaire: '' }
 
 export default function ManagementRapportsDuo() {
   const { profile } = useAuth()
@@ -110,13 +110,13 @@ export default function ManagementRapportsDuo() {
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h1 className="text-xl font-bold text-ink-800 font-display">Évaluation des VAD</h1><p className="text-sm text-ink-400">Évaluation du visiteur médical selon la grille officielle du duo</p></div>
+      <div><h1 className="text-xl font-bold text-ink-800 font-display">Évaluation des VAD</h1><p className="text-sm text-ink-400">Évaluation du visiteur médical selon la grille officielle VAD</p></div>
       {equipes.length > 0 && <select value={equipeFilter} onChange={e => { setEquipeFilter(e.target.value); setForm(f => ({ ...f, vm_id: (e.target.value ? vms.filter(v => v.equipe_id === e.target.value) : vms)[0]?.id ?? '', duo_session_id: '' })) }} className="rounded-xl border border-ink-200 px-3.5 py-2 text-sm"><option value="">Toutes les équipes</option>{equipes.map(e => <option key={e.id} value={e.id}>{e.nom}</option>)}</select>}
     </div>
 
-    <Card className="border-royal-100 bg-royal-50/50"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold text-ink-800">Grille d'évaluation VAD</p><p className="text-xs text-ink-500">6 critères · notation de 1 à 5 · à renseigner après le duo</p></div><Button size="sm" onClick={openForm} disabled={!sessions.length}>Évaluer un VAD</Button></div>{!sessions.length && <p className="mt-3 text-xs text-ink-400">Aucun VAD terminé n'est disponible pour le moment.</p>}</Card>
+    <Card className="border-royal-100 bg-royal-50/50"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold text-ink-800">Grille d'évaluation VAD</p><p className="text-xs text-ink-500">6 critères · notation de 1 à 5 · à renseigner après le VAD</p></div><Button size="sm" onClick={openForm} disabled={!sessions.length}>Évaluer un VAD</Button></div>{!sessions.length && <p className="mt-3 text-xs text-ink-400">Aucun VAD terminé n'est disponible pour le moment.</p>}</Card>
 
-    <Modal open={formOpen} onClose={() => setFormOpen(false)} title="Évaluation du VAD" description="Renseignez les six critères observés pendant le duo." maxWidth="max-w-2xl">
+    <Modal open={formOpen} onClose={() => setFormOpen(false)} title="Évaluation du VAD" description="Renseignez les six critères observés pendant le VAD." maxWidth="max-w-2xl">
       <form onSubmit={soumettre} className="space-y-4">
         <div><label className="mb-1.5 block text-xs font-semibold text-ink-500">Visiteur médical</label><select value={form.vm_id} onChange={e => { const vm = e.target.value; setForm(f => ({ ...f, vm_id: vm, duo_session_id: sessions.find(s => s.vm_id === vm)?.id ?? '' })) }} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm">{vmsFiltres.map(v => <option key={v.id} value={v.id}>{v.full_name}</option>)}</select></div>
         <div><label className="mb-1.5 block text-xs font-semibold text-ink-500">VAD réalisé</label><select required value={form.duo_session_id} onChange={e => setForm(f => ({ ...f, duo_session_id: e.target.value }))} className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm"><option value="">Sélectionner le VAD…</option>{sessionsFiltrees.map(s => <option key={s.id} value={s.id}>{dayjs(s.jour).format('DD/MM/YYYY')} · {s.profiles?.full_name ?? 'VM'}</option>)}</select></div>
