@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/repair-npm-lockfile.yml'
+      - 'package.json'
 
 permissions:
   contents: write
