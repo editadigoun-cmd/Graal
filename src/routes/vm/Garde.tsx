@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PotentielBadge } from '@/components/ui/Badge'
@@ -241,44 +240,47 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => () => {
     if (photoPreview) URL.revokeObjectURL(photoPreview)
   }, [photoPreview])
 
-  // Capture via l'API native Android Capacitor, sans input HTML/WebView.
-  async function handlePhoto() {
+  // Même mécanisme HTML que la clôture normale : compatible navigateur et Android WebView.
+  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    setPhoto(f)
+    setPhotoPreview(URL.createObjectURL(f))
     setError(null)
-    try {
-      const capture = await Camera.getPhoto({ quality: 85, allowEditing: false, resultType: CameraResultType.Uri, source: CameraSource.Camera })
-      if (!capture.webPath) throw new Error('La caméra n’a retourné aucun fichier photo.')
-      const response = await fetch(capture.webPath)
-      if (!response.ok) throw new Error('Impossible de lire la photo capturée.')
-      const blob = await response.blob()
-      const file = new File([blob], 'garde-' + Date.now() + '.jpg', { type: blob.type || 'image/jpeg' })
-      setPhoto(file)
-      setPhotoPreview(URL.createObjectURL(file))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'La capture photo a échoué.')
-    }
   }
 
   async function valider() {
-    if (!session) return
+    if (!session) { setError('Session utilisateur introuvable.'); return }
     if (!photo) { setError('La photo de fin de garde est obligatoire.'); return }
     if (geo.status !== 'ok' || geo.latitude === null || geo.longitude === null) { setError('Position GPS requise pour terminer la garde.'); return }
     setSaving(true)
     setError(null)
 
-    const path = session.user.id + '/garde-' + todayBenin().format('YYYY-MM-DD') + '-' + Date.now() + '.jpg'
-    const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: photo.type || 'image/jpeg' })
-    if (uploadError) { setError(uploadError.message); setSaving(false); return }
+    try {
+      const jour = todayBenin().format('YYYY-MM-DD')
+      const extension = photo.type.includes('png') ? 'png' : photo.type.includes('webp') ? 'webp' : 'jpg'
+      const path = session.user.id + '/garde-' + jour + '-' + Date.now() + '.' + extension
+      const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: photo.type || 'image/jpeg' })
+      if (uploadError) throw new Error('Envoi de la photo impossible : ' + uploadError.message)
 
-    const { error: rpcError } = await supabase.rpc('terminer_garde', {
-      p_photo_path: path, p_photo_latitude: geo.latitude, p_photo_longitude: geo.longitude
-    })
-    setSaving(false)
-    if (rpcError) { setError(rpcError.message); return }
-    onDone()
+      const { error: rpcError } = await supabase.rpc('terminer_garde', {
+        p_photo_path: path, p_photo_latitude: geo.latitude, p_photo_longitude: geo.longitude
+      })
+      if (rpcError) throw new Error('Photo envoyée, mais enregistrement de la fin de garde impossible : ' + rpcError.message)
+
+      setSaving(false)
+      onDone()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'La clôture de garde a échoué.')
+      setSaving(false)
+    }
   }
 
   return (
@@ -303,20 +305,33 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
           <p className="text-sm font-bold text-ink-800">Photo de fin de garde</p>
           <span className="text-xs text-ink-400">{photo ? '1 photo' : '0 photo'}</span>
         </div>
-        
+        <input
+          key={photoPreview ?? 'empty'}
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onClick={(e) => { e.currentTarget.value = '' }}
+          onChange={handlePhoto}
+        />
         {photoPreview && (
           <div className="mb-3">
             <img src={photoPreview} alt="Photo de fin de garde" className="h-36 w-full rounded-xl object-cover" />
           </div>
         )}
-        <button type="button" onClick={handlePhoto} className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-6 text-royal-600">
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-6 text-royal-600"
+        >
           <IconCamera className="h-7 w-7" />
           <span className="text-sm font-semibold">{photo ? 'Reprendre la photo' : 'Ouvrir la caméra et prendre une photo'}</span>
           <span className="text-[11px] text-ink-400">Touchez ici pour ouvrir la caméra</span>
         </button>
       </Card>
 
-      <Button fullWidth loading={saving} onClick={valider} disabled={!photo}>Confirmer la fin de garde</Button>
+      <Button fullWidth loading={saving} onClick={valider} disabled={!photo || saving}>Confirmer la fin de garde</Button>
     </div>
   )
 }
