@@ -8,7 +8,7 @@ import { analyserFichierLocal, scoreCorrespondance } from '@/lib/importGrossiste
 
 interface RefItem { id: string; nom: string }
 interface ImportRow { id: string; grossiste_id: string; laboratoire_id: string; fichier_nom: string; fichier_path: string; fichier_sha256: string | null; mois_reference: string | null; statut: string; resume: string | null; avertissements: string[]; created_at: string }
-interface ImportLine { id: string; numero_ligne: number; designation_source: string; code_externe: string | null; produit_id: string | null; ventes: number | null; stock: number | null; confiance: number | null; avertissement: string | null }
+interface ImportLine { id: string; numero_ligne: number; designation_source: string; code_externe: string | null; produit_id: string | null; ventes: number | null; confiance: number | null; avertissement: string | null }
 interface Product { id: string; nom: string }
 
 export default function AssistantIAVentes({ grossistes, laboratoires, semaineDebut, onImported }: {
@@ -109,7 +109,6 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
           code_externe: line.codeExterne || null,
           produit_id: produit?.id ?? null,
           ventes: line.ventesPeriode,
-          stock: line.stock,
           confiance: Math.round(confidence * 10000) / 10000,
           avertissement: warning
         }
@@ -159,7 +158,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
     try {
       for (const line of lignes) {
         const { error } = await db.from('lignes_import_ventes_ia').update({
-          produit_id: line.produit_id, ventes: line.ventes, stock: line.stock, code_externe: line.code_externe
+          produit_id: line.produit_id, ventes: line.ventes, code_externe: line.code_externe
         }).eq('id', line.id)
         if (error) throw error
       }
@@ -180,7 +179,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
     const debutMois = new Date(mois + '-01T00:00:00Z')
     const finMois = new Date(Date.UTC(debutMois.getUTCFullYear(), debutMois.getUTCMonth() + 1, 0))
     if (debutSemaine > finMois || finSemaine < debutMois) { setErreur('La semaine choisie doit chevaucher le mois du relevé.'); return }
-    if (!lignes.some((l) => l.produit_id && (l.ventes !== null || l.stock !== null))) { setErreur('Associez au moins une ligne à un produit avec une vente ou un stock.'); return }
+    if (!lignes.some((l) => l.produit_id && l.ventes !== null)) { setErreur('Associez au moins une ligne à un produit avec une quantité vendue.'); return }
     setBusy(true); setErreur(''); setMessage('')
     try {
       for (const line of lignes) {
@@ -210,7 +209,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
         <label className="text-xs font-semibold text-ink-600">Grossiste<select value={grossisteId} onChange={(e) => setGrossisteId(e.target.value)} className="mt-1 w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm"><option value="">Choisir…</option>{grossistes.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}</select></label>
         <label className="text-xs font-semibold text-ink-600">Laboratoire<select value={laboratoireId} onChange={(e) => setLaboratoireId(e.target.value)} className="mt-1 w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm"><option value="">Choisir…</option>{laboratoires.map((l) => <option key={l.id} value={l.id}>{l.nom}</option>)}</select></label>
       </div>
-      <div className="mt-3"><label className="text-xs font-semibold text-ink-600">Fichier de ventes / stock</label><input type="file" accept=".csv,.pdf" onChange={(e) => setFichier(e.target.files?.[0] ?? null)} className="mt-1 block w-full text-xs text-ink-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-xs file:font-semibold file:text-royal-700" /><p className="mt-1 text-[10px] text-ink-400">CSV et PDF · 20 Mo maximum · lecture locale · stockage privé pour conserver l'historique</p></div>
+      <div className="mt-3"><label className="text-xs font-semibold text-ink-600">Fichier de ventes</label><input type="file" accept=".csv,.pdf" onChange={(e) => setFichier(e.target.files?.[0] ?? null)} className="mt-1 block w-full text-xs text-ink-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-xs file:font-semibold file:text-royal-700" /><p className="mt-1 text-[10px] text-ink-400">CSV et PDF · 20 Mo maximum · lecture locale · stockage privé pour conserver l'historique</p></div>
       {fichier && <p className="mt-2 text-xs text-ink-600">{fichier.name} · {(fichier.size / 1024 / 1024).toFixed(2)} Mo</p>}
       <div className="mt-3 flex justify-end"><Button onClick={analyser} disabled={busy || !fichier}>{busy ? 'Lecture en cours…' : 'Analyser le fichier'}</Button></div>
       {message && <p className="mt-3 text-xs text-emerald-700">{message}</p>}
@@ -225,11 +224,11 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
         <div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-semibold text-ink-600">Mois du relevé<input type="month" value={mois} onChange={(e) => setMois(e.target.value)} className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm" /></label><label className="text-xs font-semibold text-ink-600">Semaine de destination<input type="date" value={semaine} onChange={(e) => setSemaine(e.target.value)} className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm" /></label></div>
         <div className="flex flex-wrap items-center gap-2 text-[11px]"><Badge tone="success">{lignes.length - nonAssociees} associé(s)</Badge>{nonAssociees > 0 && <Badge tone="warning">{nonAssociees} à associer</Badge>}<span className="text-ink-400">Contrôlez les valeurs et corrigez les correspondances.</span></div>
         <div className="max-h-[360px] space-y-2 overflow-y-auto">
-          {lignes.map((l) => <div key={l.id} className="grid gap-2 rounded-xl border border-ink-100 p-2 sm:grid-cols-[1.3fr_1fr_90px_90px] sm:items-center">
+          {lignes.map((l) => <div key={l.id} className="grid gap-2 rounded-xl border border-ink-100 p-2 sm:grid-cols-[1.3fr_1fr_90px] sm:items-center">
             <div className="min-w-0"><p className="truncate text-xs font-semibold text-ink-700">{l.designation_source}</p><p className="truncate text-[10px] text-ink-400">{l.code_externe ?? 'Sans code'} · confiance {Math.round((l.confiance ?? 0) * 100)}%{l.avertissement ? ` · ${l.avertissement}` : ''}</p></div>
             <select value={l.produit_id ?? ''} onChange={(e) => modifierLigne(l.id, { produit_id: e.target.value || null })} className="w-full rounded-lg border border-ink-200 bg-white px-2 py-2 text-xs"><option value="">— Associer au produit —</option>{produits.map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}</select>
             <label className="text-[10px] text-ink-400">Ventes<input type="number" min="0" step="any" value={l.ventes ?? ''} onChange={(e) => modifierLigne(l.id, { ventes: e.target.value === '' ? null : Number(e.target.value) })} className="mt-1 w-full rounded-lg border border-ink-200 px-2 py-2 text-xs text-ink-700" /></label>
-            <label className="text-[10px] text-ink-400">Stock<input type="number" min="0" step="any" value={l.stock ?? ''} onChange={(e) => modifierLigne(l.id, { stock: e.target.value === '' ? null : Number(e.target.value) })} className="mt-1 w-full rounded-lg border border-ink-200 px-2 py-2 text-xs text-ink-700" /></label>
+            <label className="text-[10px] text-ink-400"></label>
           </div>)}
         </div>
         <div className="flex flex-wrap justify-end gap-2"><Button variant="ghost" onClick={enregistrerCorrections} disabled={busy}>Enregistrer les corrections</Button><Button onClick={valider} disabled={busy}>{busy ? 'Validation…' : 'Valider et intégrer les données'}</Button></div>
