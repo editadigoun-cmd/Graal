@@ -57,7 +57,7 @@ const groups: NavGroup[] = [
       { to: '/admin/quotas-vad', label: 'Quotas mensuels VAD', icon: IconClipboard },
       { to: '/admin/rapport-activite-hebdo', label: 'Rapport hebdomadaire', icon: IconClipboard },
       { to: '/admin/controle-frequence', label: 'Fréquence clients', icon: IconUsers },
-      { to: '/admin/rapports-duo', label: 'Duo terrain', icon: IconUsers },
+      { to: '/admin/rapports-duo', label: 'VAD terrain', icon: IconUsers },
       { to: '/admin/animation-equipe', label: "Animation d'équipe", icon: IconTrendingUp },
       { to: '/admin/indicateurs-animation', label: "Indicateurs d'animation", icon: IconBarChart, adminOnly: true },
     ],
