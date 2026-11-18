@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -69,7 +68,7 @@ export default function ManagementNotifications() {
     const unread = rows.filter(row => !row.lue)
     if (!unread.length) return
     setBusy(true)
-    const { error } = await supabase.from('notifications').update({ lue: true }).eq('lue', false)
+    const { error } = await supabase.from('notifications').update({ lue: true }).eq('lue', false).in('id', unread.map(row => row.id))
     if (error) setError(error.message)
     else setRows(current => current.map(row => ({ ...row, lue: true })))
     setBusy(false)
@@ -92,7 +91,6 @@ export default function ManagementNotifications() {
     {loading ? <Card><p className="text-sm text-ink-400">Chargement des notifications…</p></Card>
       : rows.length === 0 ? <Card className="flex flex-col items-center py-12 text-center"><IconBell className="h-8 w-8 text-ink-300"/><p className="mt-3 text-sm font-semibold text-ink-600">Aucune notification</p><p className="mt-1 text-xs text-ink-400">Les alertes importantes apparaîtront ici.</p></Card>
       : <div className="space-y-3">{rows.map(row => {
-        const birthday = row.type === 'ANNIVERSAIRE_J2'
         return <Card key={row.id} className={!row.lue ? 'border border-royal-200' : ''}>
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-700"><IconBell className="h-5 w-5"/></div>
@@ -101,7 +99,6 @@ export default function ManagementNotifications() {
               {row.corps && <p className="mt-1 text-sm leading-relaxed text-ink-600">{row.corps}</p>}
               <p className="mt-2 text-[11px] text-ink-400">{new Date(row.created_at).toLocaleString('fr-FR', { timeZone: 'Africa/Porto-Novo' })}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {birthday && <Link to="/admin/anniversaires" className="inline-flex items-center gap-1.5 rounded-xl bg-royal-600 px-3 py-2 text-xs font-semibold text-white"><IconGift className="h-3.5 w-3.5"/> Ouvrir les anniversaires</Link>}
                 {!row.lue && <Button size="sm" variant="secondary" onClick={() => markRead(row.id)} disabled={busy}><IconCheckCircle className="h-4 w-4"/> Marquer comme lue</Button>}
               </div>
             </div>
