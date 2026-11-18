@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { IconBell, IconCheckCircle, IconGift } from '@/components/ui/icons'
+import { IconBell, IconCheckCircle } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 
@@ -27,14 +27,31 @@ export default function ManagementNotifications() {
   const load = useCallback(async () => {
     if (!profile?.id) return
     setLoading(true)
+    const { data: me } = await supabase.from('profiles').select('role').eq('id', profile.id).maybeSingle()
     const { data, error } = await supabase
       .from('notifications')
       .select('id,type,titre,corps,lue,metadata,created_at')
       .eq('profile_id', profile.id)
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(200)
     if (error) setError(error.message)
-    else { setRows((data ?? []) as NotificationRow[]); setError('') }
+    else if (me?.role === 'superviseur') {
+      const { data: teamIds, error: teamError } = await supabase.rpc('supervised_equipe_ids')
+      if (teamError || !teamIds?.length) setRows([])
+      else {
+        const { data: members } = await supabase.from('profiles').select('id').eq('role', 'vm').in('equipe_id', teamIds)
+        const memberIds = new Set((members ?? []).map(member => member.id))
+        const allowed = (data ?? []).filter((row: NotificationRow) => {
+          if (row.type === 'ANNIVERSAIRE_J2') return false
+          const meta = row.metadata ?? {}
+          const equipeId = String(meta.equipe_id ?? meta.team_id ?? '')
+          const memberId = String(meta.vm_id ?? meta.profile_id ?? meta.collaborateur_id ?? meta.actor_id ?? '')
+          return teamIds.includes(equipeId) || memberIds.has(memberId)
+        })
+        setRows(allowed as NotificationRow[])
+      }
+      setError('')
+    } else { setRows((data ?? []) as NotificationRow[]); setError('') }
     setLoading(false)
   }, [profile?.id])
 
@@ -78,7 +95,7 @@ export default function ManagementNotifications() {
         const birthday = row.type === 'ANNIVERSAIRE_J2'
         return <Card key={row.id} className={!row.lue ? 'border border-royal-200' : ''}>
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-700">{birthday ? <IconGift className="h-5 w-5"/> : <IconBell className="h-5 w-5"/>}</div>
+            <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-700"><IconBell className="h-5 w-5"/></div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-bold text-ink-800">{row.titre}</p>{!row.lue && <Badge tone="info">Nouvelle</Badge>}</div>
               {row.corps && <p className="mt-1 text-sm leading-relaxed text-ink-600">{row.corps}</p>}
