@@ -424,16 +424,25 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
   const [activitesMenees, setActivitesMenees] = useState('')
 
   useEffect(() => {
-    if (!profile?.equipe_id) return
+    if (!profile?.id) return
     let active = true
-    const key = `produits:${profile.equipe_id}`
+    async function getTeamIds() {
+      if (profile.role === 'superviseur') {
+        const { data } = await supabase.from('superviseur_equipes').select('equipe_id').eq('superviseur_id', profile.id)
+        return (data ?? []).map((x: { equipe_id: string }) => x.equipe_id)
+      }
+      return profile.equipe_id ? [profile.equipe_id] : []
+    }
     async function loadProducts() {
+      const teamIds = await getTeamIds()
+      if (!teamIds.length) { if (active) setProduitsCatalogue([]); return }
+      const key = `produits-equipes:${teamIds.slice().sort().join(',')}`
       if (!navigator.onLine) {
         const cached = await getOfflineSnapshot<Produit[]>(profile.id, key)
         if (active) setProduitsCatalogue(cached?.data ?? [])
         return
       }
-      const { data, error } = await supabase.from('produits').select('*').eq('actif', true).eq('equipe_id', profile.equipe_id).order('nom')
+      const { data, error } = await supabase.from('produits').select('*').eq('actif', true).in('equipe_id', teamIds).order('nom')
       if (data) {
         if (active) setProduitsCatalogue(data)
         await saveOfflineSnapshot(profile.id, key, data)
@@ -445,7 +454,7 @@ export function MedicalFields({ onSubmit, saving, hideCard }: {
     void loadProducts()
     window.addEventListener('online', loadProducts)
     return () => { active = false; window.removeEventListener('online', loadProducts) }
-  }, [profile?.equipe_id])
+  }, [profile?.id, profile?.equipe_id, profile?.role])
 
   const toggleProduit = (id: string) => setProduits((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
 
@@ -528,10 +537,19 @@ export function PharmacieFields({ onSubmit, saving, hideCard }: {
   const [activitesMenees, setActivitesMenees] = useState('')
 
   useEffect(() => {
-    if (!profile?.equipe_id) return
-    supabase.from('produits').select('*').eq('actif', true).eq('equipe_id', profile.equipe_id).order('nom')
-      .then(({ data }) => setProduitsCatalogue(data ?? []))
-  }, [profile?.equipe_id])
+    if (!profile?.id) return
+    async function loadProducts() {
+      let teamIds: string[] = []
+      if (profile.role === 'superviseur') {
+        const { data } = await supabase.from('superviseur_equipes').select('equipe_id').eq('superviseur_id', profile.id)
+        teamIds = (data ?? []).map((x: { equipe_id: string }) => x.equipe_id)
+      } else if (profile.equipe_id) teamIds = [profile.equipe_id]
+      if (!teamIds.length) { setProduitsCatalogue([]); return }
+      const { data } = await supabase.from('produits').select('*').eq('actif', true).in('equipe_id', teamIds).order('nom')
+      setProduitsCatalogue(data ?? [])
+    }
+    void loadProducts()
+  }, [profile?.id, profile?.equipe_id, profile?.role])
 
   const toggleProduit = (id: string) => setProduits((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
 
