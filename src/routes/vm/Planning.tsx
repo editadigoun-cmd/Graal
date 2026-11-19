@@ -539,6 +539,10 @@ export default function Planning() {
         </div>
         {jourComplet(jourActif) ? (
           <p className="mt-2 text-xs text-emerald-700">Quota atteint. Le jour suivant est accessible.</p>
+        ) : lignes.filter((l) => l.jour === jourActif).length >= minimumVisitesJour(jourActif) ? (
+          <p className="mt-2 text-xs font-medium text-amber-800">
+            Le nombre total est atteint, mais la répartition des visites ou les règles de potentiel du jour ne sont pas encore respectées.
+          </p>
         ) : (
           <p className="mt-2 text-xs font-medium text-amber-800">
             Il manque {Math.max(0, minimumVisitesJour(jourActif) - lignes.filter((l) => l.jour === jourActif).length)} visite(s).
