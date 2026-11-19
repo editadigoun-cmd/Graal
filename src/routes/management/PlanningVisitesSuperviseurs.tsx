@@ -28,7 +28,13 @@ export default function PlanningVisitesSuperviseurs(){
  const [loading,setLoading]=useState(true)
  const [busy,setBusy]=useState(false)
  const [notice,setNotice]=useState('')
- const [motifRejet,setMotifRejet]=useState<Record<string,string>>({})\n const [clock,setClock]=useState(Date.now())\n useEffect(()=>{const t=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(t)},[])\n const deadline=new Date(new Date(semaine+'T00:00:00+01:00').getTime()-2*86400000+14*3600000)\n const deadlineLeft=Math.max(0,deadline.getTime()-clock)\n const deadlineText=deadlineLeft>0?`${Math.floor(deadlineLeft/86400000)} j ${Math.floor(deadlineLeft%86400000/3600000)} h ${Math.floor(deadlineLeft%3600000/60000)} min ${Math.floor(deadlineLeft%60000/1000)} s`:'Délai dépassé'\n const deadlineExpired=clock>deadline.getTime()
+ const [motifRejet,setMotifRejet]=useState<Record<string,string>>({})
+ const [clock,setClock]=useState(Date.now())
+ useEffect(()=>{const t=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(t)},[])
+ const deadline=new Date(new Date(semaine+'T00:00:00+01:00').getTime()-2*86400000+14*3600000)
+ const deadlineLeft=Math.max(0,deadline.getTime()-clock)
+ const deadlineText=deadlineLeft>0?`${Math.floor(deadlineLeft/86400000)} j ${Math.floor(deadlineLeft%86400000/3600000)} h ${Math.floor(deadlineLeft%3600000/60000)} min ${Math.floor(deadlineLeft%60000/1000)} s`:'Délai dépassé'
+ const deadlineExpired=clock>deadline.getTime()
 
  async function load(){
   if(!profile?.id)return
@@ -83,7 +89,11 @@ export default function PlanningVisitesSuperviseurs(){
  }
  async function soumettre(){
   if(!programme)return
-  const parJour=JOURS.map(d=>({jour:d,medical:lignes.filter(l=>l.jour===d&&l.type_visite==='MEDICAL').length,pharma:lignes.filter(l=>l.jour===d&&l.type_visite==='PHARMACIE').length}))\n  const jourVide=parJour.find(x=>x.medical+x.pharma===0)\n  if(jourVide){setNotice(`Le quota de programmation n’est pas couvert : ajoutez au moins une visite pour ${LABELS[jourVide.jour].toLowerCase()}.`);return}\n  const depasse=parJour.find(x=>x.medical>8||x.pharma>2)\n  if(depasse){setNotice(`Quota dépassé le ${LABELS[depasse.jour]} : maximum 8 visites médicales et 2 pharmacies.`);return}
+  const parJour=JOURS.map(d=>({jour:d,medical:lignes.filter(l=>l.jour===d&&l.type_visite==='MEDICAL').length,pharma:lignes.filter(l=>l.jour===d&&l.type_visite==='PHARMACIE').length}))
+  const jourVide=parJour.find(x=>x.medical+x.pharma===0)
+  if(jourVide){setNotice(`Le quota de programmation n’est pas couvert : ajoutez au moins une visite pour ${LABELS[jourVide.jour].toLowerCase()}.`);return}
+  const depasse=parJour.find(x=>x.medical>8||x.pharma>2)
+  if(depasse){setNotice(`Quota dépassé le ${LABELS[depasse.jour]} : maximum 8 visites médicales et 2 pharmacies.`);return}
   setBusy(true);const {data,error}=await (supabase as any).from('programmes_visites_superviseurs').update({statut:'SOUMIS',soumis_at:new Date().toISOString()}).eq('id',programme.id).select('*').single();setBusy(false)
   if(error){setNotice(error.message);return}setProgramme(data as Programme);setNotice('Planning hebdomadaire soumis à l’administration.')
  }
