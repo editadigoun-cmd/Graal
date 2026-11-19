@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { AuthProvider, useAuth } from '@/features/auth/AuthProvider'\nimport { GlobalFeedbackPopup } from '@/components/ui/GlobalFeedbackPopup'
+import { AuthProvider, useAuth } from '@/features/auth/AuthProvider'
+import { GlobalFeedbackPopup } from '@/components/ui/GlobalFeedbackPopup'
 import Splash from '@/routes/Splash'
 import Login from '@/routes/Login'
 import { VmShell } from '@/routes/vm/VmShell'
