@@ -77,7 +77,7 @@ export default function PlanningVisitesSuperviseurs(){
   return !q||(c.nom.toLocaleLowerCase('fr').includes(q)||(c.centre??'').toLocaleLowerCase('fr').includes(q)||(c.specialite??'').toLocaleLowerCase('fr').includes(q))
  }),[clients,type,search,clientsProgrammes])
  const candidats=filtered
- function toggleSelection(id:string){setSelection(old=>{const next=new Set(old);if(next.has(id)){next.delete(id);return next}const restant=type==='MEDICAL'?8-med-next.size:2-pharma-next.size;if(next.size>=restant)return next;next.add(id);return next})}
+ function toggleSelection(id:string){setSelection(old=>{const next=new Set(old);if(next.has(id)){next.delete(id);return next}const plafond=type==='MEDICAL'?8-med:2-pharma;if(next.size>=plafond)return next;next.add(id);return next})}
  const jourLignes=lignes.filter(l=>l.jour===jour)
  const med=jourLignes.filter(l=>l.type_visite==='MEDICAL').length
  const pharma=jourLignes.filter(l=>l.type_visite==='PHARMACIE').length
