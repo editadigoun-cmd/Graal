@@ -28,7 +28,7 @@ export default function PlanningVisitesSuperviseurs(){
  const [adminRows,setAdminRows]=useState<(Programme & {lignes:Ligne[]})[]>([])
  const [loading,setLoading]=useState(true)
  const [busy,setBusy]=useState(false)
- const [notice,setNotice]=useState('')
+ const [notice,setNoticeState]=useState('')\n const setNotice=(message:string)=>{setNoticeState(message);if(message)window.dispatchEvent(new CustomEvent('platform-feedback',{detail:{title:message.toLowerCase().includes('erreur')?'Erreur':'Information',message,kind:message.toLowerCase().includes('erreur')?'error':'info'}})}
  const [motifRejet,setMotifRejet]=useState<Record<string,string>>({})
  const [clock,setClock]=useState(Date.now())
  useEffect(()=>{const t=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(t)},[])
