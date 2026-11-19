@@ -360,6 +360,35 @@ export default function Planning() {
       ? lignes.length > 0
       : joursCouverts === 5 && JOURS.every(jourOk)
 
+  // Verrouillage progressif : un jour n'est accessible que lorsque tous les
+  // jours précédents atteignent leur quota quotidien et leurs règles métier.
+  const minimumVisitesJour = (j: Jour) => estOdypharm2
+    ? 15
+    : Math.max(1, seuils.minMedical + seuils.minPharmacie)
+  const jourComplet = (j: Jour) => {
+    const total = lignes.filter((l) => l.jour === j).length
+    return estOdypharm2
+      ? quotaPharmacieRespecte(j)
+      : pharmacieUniquement
+        ? total >= minimumVisitesJour(j)
+        : total >= minimumVisitesJour(j) && jourOk(j)
+  }
+  const jourPrecedentIncomplet = (j: Jour) => {
+    const index = JOURS.indexOf(j)
+    return index > 0 ? JOURS.slice(0, index).find((precedent) => !jourComplet(precedent)) ?? null : null
+  }
+  const changerJour = (j: Jour) => {
+    const precedent = jourPrecedentIncomplet(j)
+    if (precedent) {
+      const total = lignes.filter((l) => l.jour === precedent).length
+      const manque = Math.max(0, minimumVisitesJour(precedent) - total)
+      setError(`Programmation bloquée : complétez d'abord ${JOUR_LABEL[precedent]} (${total}/${minimumVisitesJour(precedent)} visites, ${manque} manquante(s)) avant de passer à ${JOUR_LABEL[j]}.`)
+      return
+    }
+    setError(null)
+    setJourActif(j)
+  }
+
   function ouvrirPicker(type: TypeVisite) {
     setPicking(type)
     setRecherche('')
@@ -478,21 +507,47 @@ export default function Planning() {
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
         {joursAffiches.map((j) => {
           const count = lignes.filter((l) => l.jour === j).length
-          const ok = pharmacieUniquement ? count > 0 : jourOk(j)
+          const ok = jourComplet(j)
+          const locked = !!jourPrecedentIncomplet(j)
           return (
             <button
-              key={j} onClick={() => setJourActif(j)}
+              key={j} onClick={() => changerJour(j)}
+              title={locked ? `Complétez ${JOUR_LABEL[jourPrecedentIncomplet(j)!]} avant d'accéder à ce jour.` : undefined}
               className={`flex-shrink-0 flex items-center gap-1 rounded-2xl px-4 py-2.5 text-sm font-semibold transition ${
-                jourActif === j ? 'bg-royal-600 text-white shadow-soft' : 'bg-white text-ink-500 border border-ink-200'
+                jourActif === j ? 'bg-royal-600 text-white shadow-soft' : locked ? 'bg-ink-100 text-ink-300 border border-ink-100' : 'bg-white text-ink-500 border border-ink-200'
               }`}
             >
+              {locked && <span aria-hidden="true">🔒</span>}
               {JOUR_LABEL[j]}
               <span className={`text-[10px] ${jourActif === j ? 'text-white/70' : 'text-ink-300'}`}>{count}</span>
-              {jourStatuts[j]?.statut === 'VALIDE' ? <IconCheckCircle className={`h-3 w-3 ${jourActif === j ? 'text-white' : 'text-emerald-500'}`} /> : ok && <IconCheckCircle className={`h-3 w-3 ${jourActif === j ? 'text-white' : 'text-emerald-500'}`} />}
+              {!locked && ok && <IconCheckCircle className={`h-3 w-3 ${jourActif === j ? 'text-white' : 'text-emerald-500'}`} />}
             </button>
           )
         })}
       </div>
+
+      <Card className={jourComplet(jourActif) ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/60'}>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-bold text-ink-700">Verrouillage progressif — {JOUR_LABEL[jourActif]}</p>
+          <p className={`text-sm font-extrabold tabular-nums ${jourComplet(jourActif) ? 'text-emerald-700' : 'text-amber-700'}`}>
+            {lignes.filter((l) => l.jour === jourActif).length}/{minimumVisitesJour(jourActif)}
+          </p>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/80">
+          <div className={`h-full rounded-full transition-all ${jourComplet(jourActif) ? 'bg-emerald-500' : 'bg-amber-500'}`}
+            style={{ width: `${Math.min(100, (lignes.filter((l) => l.jour === jourActif).length / minimumVisitesJour(jourActif)) * 100)}%` }} />
+        </div>
+        {jourComplet(jourActif) ? (
+          <p className="mt-2 text-xs text-emerald-700">Quota atteint. Le jour suivant est accessible.</p>
+        ) : (
+          <p className="mt-2 text-xs font-medium text-amber-800">
+            Il manque {Math.max(0, minimumVisitesJour(jourActif) - lignes.filter((l) => l.jour === jourActif).length)} visite(s).
+            Complétez ce jour pour débloquer le suivant.
+          </p>
+        )}
+      </Card>
+
+
 
       {lignes.length > 0 && (
         <Card>
