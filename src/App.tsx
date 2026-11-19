@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { AuthProvider, useAuth } from '@/features/auth/AuthProvider'
+import { AuthProvider, useAuth } from '@/features/auth/AuthProvider'\nimport { GlobalFeedbackPopup } from '@/components/ui/GlobalFeedbackPopup'
 import Splash from '@/routes/Splash'
 import Login from '@/routes/Login'
 import { VmShell } from '@/routes/vm/VmShell'
@@ -58,7 +58,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) { const { pro
 
 export default function App() {
   if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) return <ConfigError />
-  return <AuthProvider><Gate><Routes>
+  return <AuthProvider><GlobalFeedbackPopup /><Gate><Routes>
     <Route path="/login" element={<Login />} /><Route path="/" element={<RoleRedirect />} />
     <Route path="/app" element={<RequireAuth><VmShell /></RequireAuth>}>
       <Route index element={<VmDashboard />} /><Route path="planning" element={<Planning />} /><Route path="visites" element={<Visites />} /><Route path="visites/:ligneId" element={<VisiteDetail />} /><Route path="cloture" element={<Cloture />} /><Route path="garde" element={<Garde />} /><Route path="portefeuille" element={<Portefeuille />} /><Route path="portefeuille/:clientId" element={<ClientDetail />} /><Route path="messages" element={<Messages />} /><Route path="messages/:conversationId" element={<Conversation />} /><Route path="profil" element={<Profil />} /><Route path="notifications" element={<Notifications />} /><Route path="reporting" element={<Reporting />} />
