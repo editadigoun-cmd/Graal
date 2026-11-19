@@ -8,10 +8,10 @@ export function GlobalFeedbackPopup() {
   const show=(e:Event)=>{const d=(e as CustomEvent).detail??{};setFeedback({title:d.title??'Information',message:String(d.message??'Une erreur est survenue.'),kind:d.kind??'error'})}
   const onError=(e:ErrorEvent)=>show(new CustomEvent('platform-feedback',{detail:{title:'Erreur de la plateforme',message:e.message||'Une erreur inattendue est survenue.',kind:'error'}}))
   const onReject=(e:PromiseRejectionEvent)=>show(new CustomEvent('platform-feedback',{detail:{title:'Erreur de la plateforme',message:String(e.reason?.message??e.reason??'Une opération a échoué.'),kind:'error'}}))
-  window.addEventListener('platform-feedback',show)
+  const originalAlert=window.alert\n  window.alert=(message?:unknown)=>show(new CustomEvent('platform-feedback',{detail:{title:'Information',message:String(message??''),kind:'info'}}))\n  window.addEventListener('platform-feedback',show)
   window.addEventListener('error',onError)
   window.addEventListener('unhandledrejection',onReject)
-  return()=>{window.removeEventListener('platform-feedback',show);window.removeEventListener('error',onError);window.removeEventListener('unhandledrejection',onReject)}
+  return()=>{window.alert=originalAlert;window.removeEventListener('platform-feedback',show);window.removeEventListener('error',onError);window.removeEventListener('unhandledrejection',onReject)}
  },[])
  if(!feedback)return null
  return <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 p-4" role="alertdialog" aria-modal="true">
