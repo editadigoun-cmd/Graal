@@ -30,7 +30,13 @@ export default function ManagementPlanActivites() {
   const [texte, setTexte] = useState('')
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [formOpen, setFormOpen] = useState(false)\n  const [clock, setClock] = useState(Date.now())\n  useEffect(() => { const timer = window.setInterval(() => setClock(Date.now()), 1000); return () => window.clearInterval(timer) }, [])\n  const deadline = new Date(dayjs(mois).subtract(1, 'month').date(25).hour(23).minute(59).second(59).millisecond(0).format('YYYY-MM-DDTHH:mm:ss') + '+01:00')\n  const remaining = Math.max(0, deadline.getTime() - clock)\n  const countdown = remaining > 0 ? `${Math.floor(remaining / 86400000)} j ${Math.floor(remaining % 86400000 / 3600000)} h ${Math.floor(remaining % 3600000 / 60000)} min ${Math.floor(remaining % 60000 / 1000)} s` : 'Délai dépassé'\n  const late = clock > deadline.getTime()
+  const [formOpen, setFormOpen] = useState(false)
+  const [clock, setClock] = useState(Date.now())
+  useEffect(() => { const timer = window.setInterval(() => setClock(Date.now()), 1000); return () => window.clearInterval(timer) }, [])
+  const deadline = new Date(dayjs(mois).subtract(1, 'month').date(25).hour(23).minute(59).second(59).millisecond(0).format('YYYY-MM-DDTHH:mm:ss') + '+01:00')
+  const remaining = Math.max(0, deadline.getTime() - clock)
+  const countdown = remaining > 0 ? `${Math.floor(remaining / 86400000)} j ${Math.floor(remaining % 86400000 / 3600000)} h ${Math.floor(remaining % 3600000 / 60000)} min ${Math.floor(remaining % 60000 / 1000)} s` : 'Délai dépassé'
+  const late = clock > deadline.getTime()
 
   const isAdmin = profile?.role === 'admin'
 
@@ -67,7 +73,9 @@ export default function ManagementPlanActivites() {
 
   async function soumettre(e: React.FormEvent) {
     e.preventDefault()
-    if (!equipeId || !profile) return\n    if (!texte.trim()) { setNotice({type:'error',text:'Le plan doit être renseigné avant soumission.'}); return }\n    if (late && profile.role !== 'admin') { setNotice({type:'error',text:'Le délai de soumission est dépassé. Contactez un administrateur.'}); return }
+    if (!equipeId || !profile) return
+    if (!texte.trim()) { setNotice({type:'error',text:'Le plan doit être renseigné avant soumission.'}); return }
+    if (late && profile.role !== 'admin') { setNotice({type:'error',text:'Le délai de soumission est dépassé. Contactez un administrateur.'}); return }
     setSaving(true)
     setNotice(null)
     const existant = plans.find((p) => p.equipe_id === equipeId && p.mois === mois)
@@ -130,7 +138,8 @@ export default function ManagementPlanActivites() {
         description="Renseignez le plan de l'équipe sélectionnée pour le mois concerné."
         maxWidth="max-w-2xl"
       >
-        <form onSubmit={soumettre} className="space-y-4">\n          <div className={`rounded-xl p-3 ${late ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}><p className="text-xs font-semibold">Échéance : le 25 du mois précédent à 23h59 (Bénin)</p><p className="mt-1 text-sm font-bold">{countdown}</p>{late && profile?.role !== 'admin' && <p className="text-xs mt-1">Soumission verrouillée. Demandez une dérogation à l’administrateur.</p>}</div>
+        <form onSubmit={soumettre} className="space-y-4">
+          <div className={`rounded-xl p-3 ${late ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}><p className="text-xs font-semibold">Échéance : le 25 du mois précédent à 23h59 (Bénin)</p><p className="mt-1 text-sm font-bold">{countdown}</p>{late && profile?.role !== 'admin' && <p className="text-xs mt-1">Soumission verrouillée. Demandez une dérogation à l’administrateur.</p>}</div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-ink-500">Équipe</label>
