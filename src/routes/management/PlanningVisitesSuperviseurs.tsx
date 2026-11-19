@@ -93,9 +93,8 @@ export default function PlanningVisitesSuperviseurs(){
   setBusy(true)
   const {error}=await (supabase as any).from('programmes_visites_superviseurs').update({statut,valide_at:new Date().toISOString(),valide_par:profile?.id,motif_rejet:statut==='REFUSE'?motif:null}).eq('id',p.id)
   if(error){setBusy(false);setNotice(error.message);return}
-  const {error:notifyError}=await (supabase as any).from('notifications').insert({profile_id:p.superviseur_id,type:statut==='VALIDE'?'PLANNING_SUPERVISEUR_VALIDE':'PLANNING_SUPERVISEUR_REJETE',titre:statut==='VALIDE'?'Planning hebdomadaire validé':'Planning hebdomadaire à corriger',corps:statut==='VALIDE'?'Votre planning hebdomadaire a été validé par l’administration.':`Votre planning hebdomadaire a été renvoyé. Motif : ${motif}`,metadata:{programme_id:p.id,semaine_debut:p.semaine_debut,motif_rejet:motif||null}})
   setBusy(false)
-  setNotice(notifyError?'Décision enregistrée, mais notification non envoyée : '+notifyError.message:'Décision et notification envoyées.')
+  setNotice('Décision enregistrée. Le superviseur sera notifié automatiquement.')
   await load()
  }
 
