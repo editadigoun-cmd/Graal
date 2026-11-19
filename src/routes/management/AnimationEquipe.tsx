@@ -55,7 +55,8 @@ export default function ManagementAnimationEquipe() {
     ])
     setEquipes(eq ?? [])
     setVms(vm ?? [])
-    setActivites((act as unknown as Activite[]) ?? [])
+    const teamIds=(se.data ?? []).map((s) => s.equipe_id)
+    setActivites(((act as unknown as Activite[]) ?? []).filter((a) => isAdmin || teamIds.includes(a.equipe_id)))
     setSupervisedIds((se.data ?? []).map((s) => s.equipe_id))
     setLoading(false)
   }
