@@ -12,18 +12,23 @@ export default function RapportActiviteHebdomadaire() {
   const [semaine, setSemaine] = useState(dayjs().startOf('week').add(1, 'day').format('YYYY-MM-DD'))
   const [vmId, setVmId] = useState('')
   const [vms, setVms] = useState<any[]>([])
+  const [supervisedIds, setSupervisedIds] = useState<string[]>([])
   const [rapports, setRapports] = useState<any[]>([])
   const [form, setForm] = useState({ forts: '', faibles: '', commandes: '', negociation: '', objectifs: '', commentaires: '' })
   const [notice, setNotice] = useState('')
   const [formOpen, setFormOpen] = useState(false)
 
   async function load() {
-    const [{ data: v }, { data: r }] = await Promise.all([
+    const [{ data: v }, { data: r }, teams] = await Promise.all([
       supabase.from('profiles').select('id,full_name').eq('role','vm').eq('actif',true).order('full_name'),
-      supabase.from('rapports_activite_hebdomadaires' as any).select('*').order('semaine_debut',{ascending:false}).limit(30) as any
+      supabase.from('rapports_activite_hebdomadaires' as any).select('*').order('semaine_debut',{ascending:false}).limit(100) as any,
+      profile?.role === 'superviseur' ? supabase.from('superviseur_equipes').select('equipe_id').eq('superviseur_id',profile.id) : Promise.resolve({data:[] as {equipe_id:string}[]})
     ])
-    setVms(v ?? [])
-    setRapports(r ?? [])
+    const teamIds=(teams.data??[]).map((x:any)=>x.equipe_id)
+    const allowedVmIds=new Set((v??[]).filter((x:any)=>profile?.role==='admin'||teamIds.includes(x.equipe_id)).map((x:any)=>x.id))
+    setSupervisedIds(teamIds)
+    setVms((v??[]).filter((x:any)=>allowedVmIds.has(x.id)))
+    setRapports((r??[]).filter((x:any)=>profile?.role==='admin'||allowedVmIds.has(x.vm_id)))
     if (v?.[0] && !vmId) setVmId(v[0].id)
   }
   useEffect(() => { load() }, [profile?.id])
@@ -47,7 +52,7 @@ export default function RapportActiviteHebdomadaire() {
   async function save() {
     if (!profile || !vmId) return
     const { error } = await (supabase.from('rapports_activite_hebdomadaires' as any).upsert({
-      superviseur_id:profile.id, vm_id:vmId, semaine_debut:semaine, points_forts:form.forts, points_faibles:form.faibles,
+      superviseur_id:profile.id, vm_id:vmId, equipe_id:vms.find((v:any)=>v.id===vmId)?.equipe_id ?? null, semaine_debut:semaine, points_forts:form.forts, points_faibles:form.faibles,
       commandes_obtenues:form.commandes, commandes_negociation:form.negociation,
       objectifs_semaine_suivante:form.objectifs, commentaires:form.commentaires
     }, { onConflict:'vm_id,semaine_debut' }) as any)
