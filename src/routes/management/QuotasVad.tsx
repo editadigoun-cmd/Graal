@@ -19,6 +19,12 @@ export default function QuotasVad() {
  const [loading,setLoading] = useState(true)
  const [saving,setSaving] = useState(false)
  const [notice,setNotice] = useState('')
+ const [clock,setClock] = useState(Date.now())
+ useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[])
+ const deadline=new Date(dayjs(mois).subtract(1,'month').date(25).hour(23).minute(59).second(59).millisecond(0).format('YYYY-MM-DDTHH:mm:ss')+'+01:00')
+ const remaining=Math.max(0,deadline.getTime()-clock)
+ const countdown=remaining>0?`${Math.floor(remaining/86400000)} j ${Math.floor(remaining%86400000/3600000)} h ${Math.floor(remaining%3600000/60000)} min ${Math.floor(remaining%60000/1000)} s`:'Délai dépassé'
+ const late=clock>deadline.getTime()
 
  async function load() {
   if (!profile?.id) return
@@ -43,6 +49,8 @@ export default function QuotasVad() {
  const statusLabel=(s:string)=>s==='VALIDE'?'Validé':s==='SOUMIS'?'En attente de validation':s==='REFUSE'?'Refusé':'Brouillon'
  async function submit() {
   if(!profile?.id)return
+  if(late&&profile.role!=='admin'){setNotice('Délai dépassé : la proposition est verrouillée. Contactez l’administrateur.');return}
+  if(!vms.length||vms.some(v=>values[v.id]===undefined||Number(values[v.id])<0||Number(values[v.id])>31)){setNotice('Complétez les quotas de tous les VM avant soumission.');return}
   setSaving(true);setNotice('')
   const payload=vms.map(v=>({superviseur_id:profile.id,vm_id:v.id,mois,jours:Math.max(0,Math.min(31,Number(values[v.id]??3))),statut:'SOUMIS',commentaire_superviseur:comments||null,soumis_le:new Date().toISOString()}))
   const {error}=await db.from('vad_duo_quotas_mensuels').upsert(payload,{onConflict:'superviseur_id,vm_id,mois'})
