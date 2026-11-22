@@ -265,7 +265,14 @@ export default function Planning() {
   function quotaPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId)) return false
     if (estOdypharm2) {
-      if (picking !== 'PHARMACIE') return false
+      if (picking !== 'PHARMACIE') {
+        if (picking === 'MEDICAL' && potentiel === 'GROS' && ['JEUDI', 'VENDREDI'].includes(jourActif)) {
+          const currentGross = lignesJour.filter(l => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'GROS').length;
+          const selectedGross = selectionArray.filter(id => portefeuille.find(c => c.id === id)?.potentiel === 'GROS').length;
+          return currentGross + selectedGross >= 2;
+        }
+        return false;
+      }
       const quota = quotasPharmacieJour[potentiel] ?? 0
       const deja = pharmaciesDuJour.filter((l) => l.clients?.potentiel === potentiel).length
       const selectionnes = selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === potentiel).length
