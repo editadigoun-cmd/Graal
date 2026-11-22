@@ -130,3 +130,40 @@ test("chat stores user and assistant messages, uses model, and finalizes quota",
     globalThis.fetch = originalFetch;
   }
 });
+test("product matching endpoint requires admin auth", async () => {
+  const response = await worker.fetch(new Request("https://agent.test/api/match-products", {
+    method: "POST",
+    headers: { Origin: "http://localhost:5173", "Content-Type": "application/json" },
+    body: JSON.stringify({ catalog: [], rows: [] })
+  }), { ALLOWED_ORIGINS: "http://localhost:5173" });
+  assert.equal(response.status, 401);
+});
+
+test("product matching endpoint only returns catalogue product IDs", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async input => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/auth/v1/user")) return Response.json({ id: "admin-user" });
+    if (url.pathname.endsWith("/rest/v1/profiles")) return Response.json([{ id: "admin-user", role: "admin", actif: true }]);
+    throw new Error("Unexpected auth fetch: " + url.pathname);
+  };
+  try {
+    const catalog = [{ id: "product-1", name: "Astymin Liquid 200ml" }];
+    const response = await worker.fetch(new Request("https://agent.test/api/match-products", {
+      method: "POST",
+      headers: { Origin: "http://localhost:5173", Authorization: "Bearer user-token", apikey: "public-key", "Content-Type": "application/json" },
+      body: JSON.stringify({ catalog, rows: [{ row_id: "1", source: "ASTYMIN LIQ 200", candidates: catalog }] })
+    }), {
+      ALLOWED_ORIGINS: "http://localhost:5173",
+      SUPABASE_URL: "https://supabase.test",
+      AI: { run: async () => ({ choices: [{ message: { content: JSON.stringify({ matches: [{ row_id: "1", candidates: [{ product_id: "product-1", score: 0.91, reason: "Marque et format concordants" }, { product_id: "invented", score: 0.99 }] }] }) }] }) }
+    });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.matches[0].candidates.length, 1);
+    assert.equal(data.matches[0].candidates[0].product_id, "product-1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
