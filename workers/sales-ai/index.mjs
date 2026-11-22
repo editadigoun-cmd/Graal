@@ -1,13 +1,13 @@
 const MODEL = "@cf/zai-org/glm-4.7-flash";
-const MAX_TOOL_ROUNDS = 4;
-const MAX_TOOL_CALLS = 6;
-const MAX_HISTORY_MESSAGES = 12;
-const MAX_MESSAGE_LENGTH = 3000;
+const MAX_TOOL_ROUNDS = 3;
+const MAX_TOOL_CALLS = 4;
+const MAX_HISTORY_MESSAGES = 8;
+const MAX_MESSAGE_LENGTH = 2000;
 const MAX_RANGE_DAYS = 400;
 const MAX_ROWS = 1000;
 const RESERVED_NEURONS = 300;
 const MODEL_MAX_TOKENS = 256;
-const FINAL_MAX_TOKENS = 512;
+const FINAL_MAX_TOKENS = 384;
 
 const SYSTEM_PROMPT = `Tu es l'assistant intelligent du module Pilotage des ventes de Provisit (GRAAL).
 Tu réponds en français, de façon professionnelle, claire et concise.
@@ -228,6 +228,16 @@ function money(n) {
   return Number(Number(n || 0).toFixed(2));
 }
 
+function safeToolContent(result) {
+  const json = JSON.stringify(result);
+  if (json.length <= 6000) return json;
+  return JSON.stringify({
+    truncated: true,
+    note: "Résultat trop volumineux; seuls les premiers éléments sont présentés. Réduisez les filtres ou demandez un classement plus court.",
+    preview: json.slice(0, 5200)
+  });
+}
+
 function parseToolArgs(call) {
   const raw = call?.function?.arguments ?? "{}";
   if (typeof raw === "object" && raw !== null) return raw;
@@ -411,10 +421,10 @@ async function loadSalesDataset(env, auth, startDate, endDate, filters = {}) {
     (!wholesalerFilter || row.grossiste_id === wholesalerFilter.id)
   );
   const monthKeys = [...new Set(weekStartsInRange(startDate, endDate).map(monthStart))];
-  const objectives = await fetchRows(env, auth.apikey, auth.token, "objectifs_mensuels_produits", {
+  const objectives = monthKeys.length ? await fetchRows(env, auth.apikey, auth.token, "objectifs_mensuels_produits", {
     select: "produit_id,mois,objectif_quantite",
     mois: "in.(" + monthKeys.join(",") + ")"
-  });
+  }) : [];
   const objectiveByProductMonth = new Map(objectives.map(row => [row.produit_id + "|" + row.mois, Number(row.objectif_quantite)]));
   return {
     startDate, endDate, weekStarts: weekStartsInRange(startDate, endDate),
@@ -506,7 +516,7 @@ async function getSalesByProduct(env, auth, args) {
   return {
     period: { start: dataset.startDate, end: dataset.endDate },
     sort_by: sortBy,
-    results: rows.slice(0, Math.min(20, Math.max(1, Number(args.limit || 10)))),
+    results: rows.slice(0, Math.min(10, Math.max(1, Number(args.limit || 10)))),
     source_tables: SOURCE_TABLES
   };
 }
@@ -812,11 +822,11 @@ async function processChat(request, env, auth, body, reservation, cors) {
                 const args = parseToolArgs(call);
                 const toolResult = await executeTool(env, auth, toolName, args);
                 for (const source of toolResult?.source_tables || []) sources.add(source);
-                resultText = JSON.stringify(toolResult);
+                resultText = safeToolContent(toolResult);
               } catch (error) {
                 resultText = JSON.stringify({ error: true, message: error?.message || "Erreur de l'outil." });
               }
-              messages.push({ role: "tool", tool_call_id: call.id, content: resultText.slice(0, 12000) });
+              messages.push({ role: "tool", tool_call_id: call.id, content: resultText });
               totalToolCalls++;
             }
             rounds++;
