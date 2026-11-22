@@ -1,7 +1,7 @@
 # Assistant IA — Pilotage des ventes Provisit (GRAAL)
 
 **Date de l'étude : 22 novembre 2026**  
-**Statut : étude technique et architecture recommandée — aucune modification applicative ni aucun déploiement effectués.**
+**Statut : étude documentée, API testée sur données synthétiques; aucun code applicatif ni déploiement effectué.**
 
 ## Objectif
 
@@ -13,9 +13,11 @@ Intégrer dans **Pilotage des ventes** un agent conversationnel accessible à l'
 - **Modèle principal :** `@cf/zai-org/glm-4.7-flash`.
 - **Modèle de secours à benchmarker :** `@cf/ibm-granite/granite-4.0-h-micro`.
 - **Modèle multimodal candidat :** `@cf/google/gemma-4-26b-a4b-it`, seulement si une tâche vision/document le justifie.
-- **Agent et chat persistant :** Cloudflare Agents SDK, `AIChatAgent`, Durable Objects SQLite.
-- **Frontend :** React, hook `useAgentChat`; chat intégré au module Pilotage des ventes.
+- **Agent V1 :** orchestrateur tool-calling personnalisé avec `env.AI.run`, sans dépendance SDK supplémentaire.
+- **Chat/historique :** tables Supabase avec RLS; réponse en streaming SSE.
+- **Frontend :** React, `fetch` + lecture SSE; chat intégré au module Pilotage des ventes.
 - **Backend IA :** Worker séparé pour isoler l'IA du Worker statique actuel `graal`.
+- **Cloudflare Agents SDK / Durable Objects :** option V2 si l'on a besoin d'agents persistants, de tâches en arrière-plan ou de reprise de stream.
 - **Données métier :** Supabase Provisit, requêtes limitées et validées, avec JWT utilisateur et RLS; pas de clé service-role dans l'agent.
 - **Première version :** outils en lecture seule. Toute écriture/import reste dans le workflow existant et demande une validation humaine.
 
@@ -28,7 +30,8 @@ Intégrer dans **Pilotage des ventes** un agent conversationnel accessible à l'
 - Aucun AI Gateway n'est actuellement configuré dans le compte vérifié.
 - Le catalogue Workers AI contient `@cf/zai-org/glm-4.7-flash`.
 - La fiche du modèle indique un contexte de 131 072 tokens, Function Calling et Reasoning pris en charge.
-- Aucun appel d'inférence n'a été effectué : les tests live consommeraient le quota AI du compte.
+- Une série de tests live synthétiques a été exécutée via l'API REST Workers AI : réponse simple, tool call, réponse finale avec résultat d'outil, streaming.
+- Aucun fichier ni donnée commerciale réelle n'a été envoyé au modèle.
 
 ### Provisit
 
@@ -85,29 +88,28 @@ Ce quota équivaut à environ 1,82 M tokens d'entrée seuls ou 275 k tokens de s
 - Workers Free : 100 000 requêtes/jour, CPU 10 ms par requête.
 - Durable Objects SQLite Free : 100 000 requêtes/jour, 13 000 GB-s/jour, 5 millions de lectures SQL/jour, 100 000 écritures/jour, 5 GB de stockage.
 - Durable Objects existent sur Free et Paid; en Free, les dépassements de limites font échouer les opérations.
-- Chat à faible volume, avec hibernation WebSocket et limite de messages, devrait rester dans ces quotas.
+- Un chat HTTP/SSE à faible volume devrait rester dans ces quotas; V1 n'utilise pas Durable Objects.
 
-## Architecture proposée
+## Architecture V1 retenue après test API
 
 ```text
 Provisit (React/Vite)
   Pilotage des ventes
-    ├─ Assistant IA / Chat
-    └─ Import ventes (workflow existant)
-          │
-          │ Supabase access token + token de connexion court
+    ├─ Chat Assistant IA
+    └─ Import ventes (workflow local existant)
+          │ HTTP + SSE / Supabase JWT
           ▼
 Worker séparé : graal-sales-ai
-  ├─ Authentification / CORS / contrôle admin
-  ├─ Cloudflare Agents SDK (AIChatAgent)
+  ├─ Authentification Supabase / contrôle admin / CORS
   ├─ Workers AI binding (AI)
-  ├─ Tool calling limité (aucun SQL libre)
-  ├─ Limites d'usage et de contexte
-  └─ Durable Object SQLite (historique chat)
-          │
-          │ Supabase JWT utilisateur
+  ├─ Orchestrateur tool-calling (max 4 tours)
+  ├─ Calculs métier dans le code
+  ├─ Limites de requêtes et de Neurons estimés
+  └─ Streaming de la réponse finale
+          │ Supabase JWT utilisateur (RLS)
           ▼
 Supabase Provisit
+  ├─ Historique conversation + usage
   ├─ ventes_hebdomadaires
   ├─ objectifs_mensuels_produits
   ├─ produits_pilotage
@@ -116,15 +118,16 @@ Supabase Provisit
   └─ mappings_produits_grossistes
 ```
 
+V1 n'utilise ni Durable Objects ni le service Agents SDK : le chat et son historique sont déjà couverts par Supabase, et l'API Workers AI native a été testée. Cela évite une dépendance supplémentaire et facilite le contrôle de quota/authentification. Agents SDK reste une option ultérieure.
+
 ### Authentification et isolation
 
 1. Le frontend utilise la session Supabase existante.
-2. Un endpoint Worker valide le JWT Supabase et vérifie le rôle `admin`.
-3. Le Worker émet un jeton de connexion court et signé pour le WebSocket; il ne place pas le JWT Supabase dans l'URL du WebSocket.
-4. Chaque message de chat transmet le JWT utilisateur dans le body temporaire; il est validé à nouveau.
-5. Les outils utilisent un client Supabase avec le JWT utilisateur et les politiques RLS; aucun service-role key.
-6. L'instance Agent est isolée par utilisateur/conversation.
-7. Aucun tool d'écriture ni SQL arbitraire n'est exposé au modèle.
+2. Le Worker vérifie le JWT avec Supabase Auth et le rôle `admin`.
+3. Le JWT utilisateur est envoyé dans l'en-tête Authorization, jamais dans les logs ni dans l'historique.
+4. Les outils utilisent le JWT utilisateur pour les requêtes PostgREST, donc RLS reste appliqué; aucun service-role key.
+5. Les conversations et messages sont isolés par `owner_id` et RLS.
+6. Aucun tool d'écriture ni SQL arbitraire n'est exposé au modèle.
 
 ## Outils métier prévus (lecture seule)
 
@@ -149,10 +152,10 @@ Les outils valident les dates, filtres, IDs et limites. Les calculs (quantités,
 - RLS vérifiée pour chaque outil; le Worker n'utilise pas service-role.
 - Outils en lecture seule; écritures et imports soumis au workflow de validation existant.
 - Les fichiers et résultats de requêtes sont considérés comme données non fiables (prompt injection).
-- Limite de 5–6 étapes de tool calling par tour, taille de réponse et fenêtre de contexte contrôlées.
-- Conversations persistées dans SQLite du Durable Object; bouton de suppression/reset et politique de rétention à définir.
+- Limite de 4 tours de tool calling par demande, taille des résultats, tokens de sortie et historique contrôlés.
+- Conversations et messages persistés dans Supabase, isolés par owner; reset et suppression.
 - Ne pas journaliser prompts, réponses ni tokens Supabase. Logs techniques sans contenu.
-- AI Gateway est facultatif en V1. Si utilisé, désactiver la collecte de payload (metadata seulement) ou la collecte complète; ne pas activer de cache pour les données commerciales sans analyse de confidentialité.
+- AI Gateway est facultatif en V1. Si utilisé, désactiver la collecte de payload (metadata seulement) et le cache pour les données commerciales.
 
 ## Fichiers
 
@@ -162,17 +165,16 @@ Clairic peut recevoir jusqu'à 4 PDFs (4 MiB chacun) et 4 images, avec une limit
 
 ## Plan de mise en œuvre
 
-### Phase 1 — Benchmark (avant appels live)
-- 20 scénarios en français sur données synthétiques.
-- Vérifier tool calling, refus d'inventer chiffres, format des réponses, dates/filtrage, prompt injection, erreurs de données.
-- Comparer GLM-4.7-Flash et Granite 4.0 H Micro; tester Gemma seulement pour vision.
-- Évaluer coûts estimés en Neurons et durée.
+### Phase 1 — Benchmark synthétique (partiellement réalisé)
+- Tests live synthétiques GLM-4.7-Flash : réponse simple, tool call, réponse finale avec résultat d'outil, streaming.
+- Comparer Granite 4.0 H Micro; tester Gemma seulement pour vision.
+- 20 scénarios supplémentaires à automatiser.
 
-### Phase 2 — Worker Agent
-- Créer un Worker indépendant `graal-sales-ai` et config Wrangler séparée.
-- AI binding, Agents SDK, Durable Object SQLite.
-- Auth Supabase, token de connexion court, CORS strict.
-- Limites d'usage, historique, streaming et suppression.
+### Phase 2 — Worker API
+- Créer un Worker indépendant `graal-sales-ai` et config séparée.
+- AI binding, endpoints HTTP, orchestrateur tool-calling, SSE.
+- Auth Supabase et contrôle admin, CORS strict.
+- Limites d'usage et historique Supabase.
 
 ### Phase 3 — Outils métier
 - Implémenter les outils de lecture en réutilisant les règles et calculs du dashboard.
@@ -188,6 +190,19 @@ Clairic peut recevoir jusqu'à 4 PDFs (4 MiB chacun) et 4 images, avec une limit
 - Typecheck/build, tests Workers runtime, tests RLS/auth, benchmark live contrôlé.
 - Déployer d'abord le Worker IA sans l'activer dans l'interface; vérifier le endpoint.
 - Activer l'interface uniquement après validation.
+
+## Résultats du benchmark live synthétique
+
+Les tests ont été exécutés avec le modèle GLM-4.7-Flash sur l'API Cloudflare connectée, sans données Provisit réelles :
+
+- Réponse simple avec `chat_template_kwargs.enable_thinking=false` : succès, 18 tokens total, 0,2226 Neurons.
+- Function calling : tool call `get_sales_summary` avec dates valides; arguments JSON corrects; 286 tokens, 3,2725 Neurons.
+- Réponse finale après résultat d'outil synthétique (100 ventes, objectif 120) : taux calculé correctement, 83,3 %; 183 tokens, 3,0459 Neurons.
+- Streaming : SSE fonctionne avec `stream=true` et `stream_options.include_usage`; 33 tokens, 0,5214 Neurons.
+- Avec le raisonnement activé par défaut et un plafond de 32 tokens, le modèle a produit du raisonnement sans réponse finale (finish reason `length`). Pour le chat métier V1, désactiver le thinking réduit les coûts et améliore le format de sortie.
+- Total de ces tests : environ 8,30 Neurons. Les appels sont très en dessous de l'allocation gratuite de 10 000 Neurons/jour.
+
+Le tool calling est documenté comme Beta côté Workers AI; les arguments et noms d'outils devront toujours être validés côté Worker.
 
 ## Tests à couvrir
 
