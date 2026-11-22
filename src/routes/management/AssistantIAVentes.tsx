@@ -8,7 +8,7 @@ import { analyserFichierLocal, scoreCorrespondance } from '@/lib/importGrossiste
 
 interface RefItem { id: string; nom: string }
 interface ImportRow { id: string; grossiste_id: string; laboratoire_id: string; fichier_nom: string; fichier_path: string; fichier_sha256: string | null; mois_reference: string | null; statut: string; resume: string | null; avertissements: string[]; created_at: string }
-interface ImportLine { id: string; numero_ligne: number; designation_source: string; code_externe: string | null; produit_id: string | null; ventes: number | null; confiance: number | null; avertissement: string | null }
+interface MatchSuggestion { produitId: string; nom: string; score: number }\ninterface ImportLine { id: string; numero_ligne: number; designation_source: string; code_externe: string | null; produit_id: string | null; ventes: number | null; confiance: number | null; avertissement: string | null; suggestions?: MatchSuggestion[] }
 interface Product { id: string; nom: string }
 
 export default function AssistantIAVentes({ grossistes, laboratoires, semaineDebut, onImported }: {
@@ -58,7 +58,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
     setResume(item.resume ?? ''); setAvertissements(item.avertissements ?? [])
     const { data: rows, error } = await db.from('lignes_import_ventes_ia').select('*').eq('import_id', item.id).order('numero_ligne')
     if (error) setErreur(error.message)
-    setLignes((rows ?? []) as ImportLine[])
+    setLignes(((rows ?? []) as ImportLine[]).map((line) => {\n      const ranked = produits.map((p) => ({ produitId: p.id, nom: p.nom, score: scoreCorrespondance(line.designation_source, p.nom) })).sort((a, b) => b.score - a.score).slice(0, 3).filter((s) => s.score >= 0.35)\n      return { ...line, suggestions: ranked }\n    }))
     setGrossisteId(item.grossiste_id); setLaboratoireId(item.laboratoire_id)
   }
 
@@ -225,7 +225,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
         <div className="flex flex-wrap items-center gap-2 text-[11px]"><Badge tone="success">{lignes.length - nonAssociees} associé(s)</Badge>{nonAssociees > 0 && <Badge tone="warning">{nonAssociees} à associer</Badge>}<span className="text-ink-400">Contrôlez les valeurs et corrigez les correspondances.</span></div>
         <div className="max-h-[360px] space-y-2 overflow-y-auto">
           {lignes.map((l) => <div key={l.id} className="grid gap-2 rounded-xl border border-ink-100 p-2 sm:grid-cols-[1.3fr_1fr_90px] sm:items-center">
-            <div className="min-w-0"><p className="truncate text-xs font-semibold text-ink-700">{l.designation_source}</p><p className="truncate text-[10px] text-ink-400">{l.code_externe ?? 'Sans code'} · confiance {Math.round((l.confiance ?? 0) * 100)}%{l.avertissement ? ` · ${l.avertissement}` : ''}</p></div>
+            <div className="min-w-0"><p className="truncate text-xs font-semibold text-ink-700">{l.designation_source}</p><p className="text-[10px] text-ink-400">{l.code_externe ?? 'Sans code'} · score {Math.round((l.confiance ?? 0) * 100)}%{l.avertissement ? ` · ${l.avertissement}` : ''}</p>{!l.produit_id && l.suggestions?.length ? <div className="mt-1 flex flex-wrap gap-1">{l.suggestions.map(s => <button type="button" key={s.produitId} onClick={() => modifierLigne(l.id, { produit_id: s.produitId, confiance: s.score, avertissement: 'Correspondance proposée — confirmation utilisateur.' })} className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-800 hover:bg-amber-100">Proposer {s.nom} · {Math.round(s.score * 100)}%</button>)}</div> : null}</div>
             <select value={l.produit_id ?? ''} onChange={(e) => modifierLigne(l.id, { produit_id: e.target.value || null })} className="w-full rounded-lg border border-ink-200 bg-white px-2 py-2 text-xs"><option value="">— Associer au produit —</option>{produits.map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}</select>
             <label className="text-[10px] text-ink-400">Ventes<input type="number" min="0" step="any" value={l.ventes ?? ''} onChange={(e) => modifierLigne(l.id, { ventes: e.target.value === '' ? null : Number(e.target.value) })} className="mt-1 w-full rounded-lg border border-ink-200 px-2 py-2 text-xs text-ink-700" /></label>
             <label className="text-[10px] text-ink-400"></label>
