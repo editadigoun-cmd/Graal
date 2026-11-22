@@ -124,9 +124,10 @@ export const TOOLS = [
         type: "object",
         properties: {
           laboratoire: { type: "string", description: "Laboratoire, facultatif" },
+          semaine_debut: { type: "string", description: "Semaine du lundi YYYY-MM-DD" },
           limit: { type: "integer", description: "Nombre de résultats, maximum 20" }
         },
-        required: []
+        required: ["semaine_debut"]
       }
     }
   },
@@ -142,7 +143,7 @@ export const TOOLS = [
 
 const SOURCE_TABLES = [
   "ventes_hebdomadaires",
-  "produits_pilotage",
+  "objectifs_hebdomadaires_produits",
   "produits_pilotage",
   "produits",
   "grossistes",
@@ -597,13 +598,12 @@ async function objectivesByProduct(env, auth, args) {
 async function dataFreshness(env, auth) {
   const [sales, objectives, imports] = await Promise.all([
     supabaseGet(env, auth.apikey, auth.token, "ventes_hebdomadaires", { select: "semaine_debut", order: "semaine_debut.desc", limit: "1" }),
-    supabaseGet(env, auth.apikey, auth.token, "produits_pilotage", { select: "produit_id,updated_at", objectif_quantite: "not.is.null", limit: "1000" }),
+    supabaseGet(env, auth.apikey, auth.token, "objectifs_hebdomadaires_produits", { select: "produit_id,semaine_debut,updated_at", order: "semaine_debut.desc", limit: "1000" }),
     supabaseGet(env, auth.apikey, auth.token, "imports_ventes_ia", { select: "created_at,statut,fichier_nom", order: "created_at.desc", limit: "1" })
   ]);
   return {
     latest_sales_week: Array.isArray(sales) && sales[0]?.semaine_debut || null,
     products_with_objective: Array.isArray(objectives) ? objectives.length : 0,
-    objectives_are_fixed_per_product: true,
     latest_objective_week: Array.isArray(objectives) && objectives[0]?.semaine_debut || null,
     objectives_are_weekly: true,
     latest_objective_update: Array.isArray(objectives) ? objectives.reduce((latest, row) => row.updated_at && row.updated_at > latest ? row.updated_at : latest, null) : null,
