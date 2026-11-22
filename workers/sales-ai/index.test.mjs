@@ -156,7 +156,23 @@ test("product matching endpoint only returns catalogue product IDs", async () =>
     }), {
       ALLOWED_ORIGINS: "http://localhost:5173",
       SUPABASE_URL: "https://supabase.test",
-      AI: { run: async () => ({ choices: [{ message: { content: JSON.stringify({ matches: [{ row_id: "1", candidates: [{ product_id: "product-1", score: 0.91, reason: "Marque et format concordants" }, { product_id: "invented", score: 0.99 }] }] }) }] }) }
+      AI: {
+        run: async () => ({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                matches: [{
+                  row_id: "1",
+                  candidates: [
+                    { product_id: "product-1", score: 0.91, reason: "Marque et format concordants" },
+                    { product_id: "invented", score: 0.99 }
+                  ]
+                }]
+              })
+            }
+          }]
+        })
+      }
     });
     assert.equal(response.status, 200);
     const data = await response.json();
