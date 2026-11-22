@@ -124,7 +124,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
         }
       })
 
-      // Le moteur local établit les candidats; l'IA Cloudflare les réévalue sur les noms/dosages.
+      // Le moteur local établit 8 candidats maximum; l'IA les réévalue sur nom, dosage et forme.
       const nonMapped = lignesPreparees.filter((l: any) => !l.produit_id).slice(0, 80)
       if (nonMapped.length) {
         try {
@@ -132,17 +132,17 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
           const accessToken = sessionData.session?.access_token
           const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
           if (accessToken && publishableKey) {
+            const candidateRows = nonMapped.map((line: any) => ({
+              row_id: String(line.numero_ligne),
+              source: line.designation_source,
+              candidates: catalogueAnalyse.map(p => ({ product: p, score: scoreCorrespondance(line.designation_source, p.nom) }))
+                .sort((a, b) => b.score - a.score).slice(0, 8).map(s => ({ id: s.product.id, name: s.product.nom }))
+            }))
+            const candidateCatalog = Array.from(new Map(candidateRows.flatMap(r => r.candidates).map(p => [p.id, p])).values())
             const aiResponse = await fetch((import.meta.env.VITE_GRAAL_SALES_AI_URL || 'https://graal-sales-ai.ccds22431.workers.dev') + '/api/match-products', {
               method: 'POST',
               headers: { Authorization: 'Bearer ' + accessToken, apikey: publishableKey, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                catalog: catalogueAnalyse.map(p => ({ id: p.id, name: p.nom })),
-                rows: nonMapped.map((line: any) => ({
-                  row_id: String(line.numero_ligne),
-                  source: line.designation_source,
-                  candidates: line.suggestions.map((s: any) => ({ id: s.produitId, name: s.nom }))
-                }))
-              })
+              body: JSON.stringify({ catalog: candidateCatalog, rows: candidateRows })
             })
             if (aiResponse.ok) {
               const aiData = await aiResponse.json()
@@ -150,18 +150,19 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
               for (const line of nonMapped as any[]) {
                 const candidates = byRow.get(String(line.numero_ligne)) as any[] | undefined
                 if (!candidates?.length) continue
-                const aiSuggestions = candidates.map(c => {
-                  const product = catalogueParId.get(c.product_id)
-                  return product ? { produitId: product.id, nom: product.nom, score: c.score, reason: c.reason } : null
+                const aiSuggestions = candidates.map(candidate => {
+                  const product = catalogueParId.get(candidate.product_id)
+                  return product ? { produitId: product.id, nom: product.nom, score: candidate.score, reason: candidate.reason } : null
                 }).filter(Boolean)
-                if (aiSuggestions.length) line.suggestions = aiSuggestions
-                const top = aiSuggestions[0] as any
-                if (top && !line.avertissement) line.avertissement = `Suggestion IA : ${top.nom} (${Math.round(top.score * 100)}%). Confirmation requise.`
+                if (aiSuggestions.length) {
+                  line.suggestions = aiSuggestions
+                  line.avertissement = `Suggestions IA — vérification obligatoire : ${(aiSuggestions as any[]).map(s => s.nom).join(', ')}.`
+                }
               }
             }
           }
         } catch {
-          // Si l'IA est indisponible, les suggestions locales restent utilisables.
+          // Les suggestions locales restent utilisables si le service IA est indisponible.
         }
       }
 
