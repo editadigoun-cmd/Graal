@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode, KeyboardEvent } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { IconSparkles, IconSend, IconPlus, IconX, IconChevronDown } from '@/components/ui/icons'
+import { IconSparkles, IconSend, IconPlus, IconX } from '@/components/ui/icons'
 
 type ChatMessage = {
   id: string
@@ -44,7 +45,7 @@ function parseTableRow(line: string) {
 
 function MarkdownContent({ content }: { content: string }) {
   const lines = String(content || '').split(/\r?\n/)
-  const blocks: React.ReactNode[] = []
+  const blocks: ReactNode[] = []
   let i = 0
   while (i < lines.length) {
     const line = lines[i].trim()
@@ -300,7 +301,7 @@ export default function AssistantChatVentes() {
     }
   }
 
-  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage()
