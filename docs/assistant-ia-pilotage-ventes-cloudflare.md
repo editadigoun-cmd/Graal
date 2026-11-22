@@ -1,7 +1,7 @@
 # Assistant IA — Pilotage des ventes Provisit (GRAAL)
 
 **Date de l'étude : 22 novembre 2026**  
-**Statut : étude documentée, API testée sur données synthétiques; aucun code applicatif ni déploiement effectué.**
+**Statut : API benchmarkée; migration appliquée; chat intégré au code; Worker IA déployé; CI build/tests/dry-run réussis. Déploiement du frontend Provisit reste à faire.**
 
 ## Objectif
 
@@ -157,6 +157,13 @@ Les outils valident les dates, filtres, IDs et limites. Les calculs (quantités,
 - Ne pas journaliser prompts, réponses ni tokens Supabase. Logs techniques sans contenu.
 - AI Gateway est facultatif en V1. Si utilisé, désactiver la collecte de payload (metadata seulement) et le cache pour les données commerciales.
 
+## État de déploiement
+
+- Worker IA : `https://graal-sales-ai.ccds22431.workers.dev` (déploiement confirmé par l'API Cloudflare; `/health` reste à vérifier depuis un navigateur).
+- Frontend : source intégrée à `main`, build CI réussi, mais le Worker statique `graal` n'a pas été redéployé.
+- Mobile OTA : workflow Capgo désormais manuel seulement en attendant la résolution de l'exigence de plan.
+- Aucun fichier de vente réelle n'a été transmis au modèle pendant les tests.
+
 ## Fichiers
 
 Cloudflare Markdown Conversion accepte notamment PDF, CSV, XLSX/XLS, DOCX, ODS/ODT, HTML, XML et images. La conversion est gratuite pour la plupart des formats; la conversion d'images peut appeler des modèles et consommer des Neurons. Pour les chiffres commerciaux, privilégier le parseur déterministe existant/une extraction structurée validée, puis utiliser l'IA pour l'analyse ou le mapping, jamais comme source de vérité numérique.
@@ -170,26 +177,29 @@ Clairic peut recevoir jusqu'à 4 PDFs (4 MiB chacun) et 4 images, avec une limit
 - Comparer Granite 4.0 H Micro; tester Gemma seulement pour vision.
 - 20 scénarios supplémentaires à automatiser.
 
-### Phase 2 — Worker API
-- Créer un Worker indépendant `graal-sales-ai` et config séparée.
-- AI binding, endpoints HTTP, orchestrateur tool-calling, SSE.
-- Auth Supabase et contrôle admin, CORS strict.
-- Limites d'usage et historique Supabase.
+### Phase 2 — Worker API (réalisé)
+- Worker indépendant `graal-sales-ai` créé et déployé via API Cloudflare.
+- Binding Workers AI `AI`, endpoint `/health`, endpoint `/api/chat`.
+- Orchestrateur tool-calling, SSE, auth Supabase et contrôle admin.
+- CORS, quota de 20 demandes compte/jour, 10/admin/jour, réservation 300 Neurons/demande (6 000/jour).
+- Observabilité/logs désactivés côté Worker pour éviter la collecte de payloads.
 
 ### Phase 3 — Outils métier
 - Implémenter les outils de lecture en réutilisant les règles et calculs du dashboard.
 - Contrôler la fraîcheur des données.
 - Tests unitaires et Workers runtime.
 
-### Phase 4 — UI
-- Ajouter un chat professionnel et épuré au module Pilotage des ventes.
-- Conserver le workflow d'import existant.
-- Historique, bouton nouvelle conversation, affichage des outils/source, quotas et erreurs.
+### Phase 4 — UI (réalisé dans le code)
+- Chat intégré à Pilotage des ventes avec historique, nouvelles conversations, suppression et prompts rapides.
+- Le workflow d'import existant est conservé dans un bouton séparé.
+- Affichage des sources, statuts d'analyse, quotas et erreurs.
 
-### Phase 5 — Tests et déploiement
-- Typecheck/build, tests Workers runtime, tests RLS/auth, benchmark live contrôlé.
-- Déployer d'abord le Worker IA sans l'activer dans l'interface; vérifier le endpoint.
-- Activer l'interface uniquement après validation.
+### Phase 5 — Tests et déploiement (partiellement réalisé)
+- Build React réussi; tests unitaires Worker réussis; `wrangler deploy --dry-run` réussi dans CI.
+- Migration Supabase appliquée; tables et RLS vérifiées.
+- Worker IA déployé, workers.dev activé; la vérification HTTP externe de `/health` n'a pas pu être effectuée depuis l'environnement de recherche.
+- Le frontend Provisit n'est pas encore déployé.
+- Capgo OTA automatique suspendu : le compte a retourné une exigence d'upgrade de plan; aucun OTA n'a été publié.
 
 ## Résultats du benchmark live synthétique
 
@@ -198,7 +208,8 @@ Les tests ont été exécutés avec le modèle GLM-4.7-Flash sur l'API Cloudflar
 - Réponse simple avec `chat_template_kwargs.enable_thinking=false` : succès, 18 tokens total, 0,2226 Neurons.
 - Function calling : tool call `get_sales_summary` avec dates valides; arguments JSON corrects; 286 tokens, 3,2725 Neurons.
 - Réponse finale après résultat d'outil synthétique (100 ventes, objectif 120) : taux calculé correctement, 83,3 %; 183 tokens, 3,0459 Neurons.
-- Streaming : SSE fonctionne avec `stream=true` et `stream_options.include_usage`; 33 tokens, 0,5214 Neurons.
+- Streaming simple : SSE fonctionne avec `stream=true` et `stream_options.include_usage`; 33 tokens, 0,5214 Neurons.
+- Tool calling en streaming : les deltas `tool_calls` ont été reçus; l'agent doit accumuler les arguments puis les valider. Test synthétique réussi.
 - Avec le raisonnement activé par défaut et un plafond de 32 tokens, le modèle a produit du raisonnement sans réponse finale (finish reason `length`). Pour le chat métier V1, désactiver le thinking réduit les coûts et améliore le format de sortie.
 - Total de ces tests : environ 8,30 Neurons. Les appels sont très en dessous de l'allocation gratuite de 10 000 Neurons/jour.
 
