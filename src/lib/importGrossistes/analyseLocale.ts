@@ -113,14 +113,14 @@ function editSimilarity(a: string, b: string) {
 }
 
 function extractNumbers(s: string) {
-  return (s.match(/\\d+(?:[.,]\\d+)?/g) ?? []).map((x) => x.replace(',', '.'))
+  return (s.match(/\d+(?:[.,]\d+)?/g) ?? []).map((x) => x.replace(',', '.'))
 }
 
 export function scoreCorrespondance(source: string, cible: string): number {
-  const normalizedSource = normalizeText(source).replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim()
-  const normalizedTarget = normalizeText(cible).replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim()
-  const a = normalizedSource.replace(/\\s/g, '')
-  const b = normalizedTarget.replace(/\\s/g, '')
+  const normalizedSource = normalizeText(source).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+  const normalizedTarget = normalizeText(cible).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+  const a = normalizedSource.replace(/\s/g, '')
+  const b = normalizedTarget.replace(/\s/g, '')
   if (!a || !b) return 0
   if (a === b) return 1
 
