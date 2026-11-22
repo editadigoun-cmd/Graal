@@ -42,6 +42,8 @@ const groups: NavGroup[] = [
       { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard },
       { to: '/admin/pilotage-ventes', label: 'Pilotage des ventes', icon: IconBarChart },
       { to: '/admin/analyse-ventes', label: 'Analyse des ventes', icon: IconTrendingUp },
+      { to: '/admin/objectifs-commerciaux', label: 'Objectif commercial', icon: IconBarChart, adminOnly: true },
+      { to: '/admin/analyse-resultats-mensuels', label: 'Analyse résultats pays mensuel', icon: IconTrendingUp, adminOnly: true },
       { to: '/admin/reporting', label: 'Reporting', icon: IconBarChart },
       { to: '/admin/couverture-mensuelle', label: 'Couverture mensuelle CRM', icon: IconTrendingUp, adminOnly: true },
       { to: '/admin/evaluation-superviseurs', label: 'Évaluation des superviseurs', icon: IconBarChart, adminOnly: true },
