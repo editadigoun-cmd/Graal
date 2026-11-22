@@ -7,6 +7,14 @@ concurrency:
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.*'
+      - 'capacitor.config.*'
+      - 'index.html'
   workflow_dispatch:
 
 permissions:
@@ -37,5 +45,9 @@ jobs:
           echo "Supabase public configuration is present."
       - name: Build web bundle
         run: npm run build
+      - name: Test Worker assistant IA
+        run: node --test workers/sales-ai/*.test.mjs
+      - name: Validate Cloudflare Worker bundle
+        run: npx wrangler@4 deploy --dry-run --config workers/sales-ai/wrangler.jsonc
       - name: Publish OTA update to Capgo
         run: npx @capgo/cli@latest bundle upload com.provisit.provisit --path ./dist --channel production --apikey "$CAPGO_API_KEY" --auto-bump patch --delta
