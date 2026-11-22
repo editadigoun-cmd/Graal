@@ -431,7 +431,7 @@ function productMetrics(dataset, productId) {
   const pilotage = dataset.pilotageByProduct.get(productId);
   const product = dataset.productById.get(productId);
   if (!pilotage || !product) return null;
-  const weeks = dataset.weekStarts;
+
   let quantity = 0;
   const byWholesaler = {};
   for (const sale of dataset.sales.filter(row => row.produit_id === productId)) {
