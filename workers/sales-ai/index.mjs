@@ -740,9 +740,7 @@ async function modelCall(env, messages, tools, auth) {
     max_completion_tokens: MODEL_MAX_TOKENS,
     chat_template_kwargs: { enable_thinking: false },
     temperature: 0.1,
-    store: false,
-    user: auth.userId,
-    ...(tools?.length ? { tools, tool_choice: "auto", parallel_tool_calls: false } : { tool_choice: "none" })
+    ...(tools?.length ? { tools, tool_choice: "auto" } : {})
   };
   const result = await env.AI.run(MODEL, input);
   return result;
