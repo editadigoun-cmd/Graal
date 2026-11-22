@@ -72,27 +72,73 @@ export async function analyserFichierLocal(file: File, grossisteName: string): P
   throw new Error('Formats disponibles pour le moteur local : CSV et PDF. Les fichiers Excel seront ajoutés dans une prochaine étape.')
 }
 
-export function scoreCorrespondance(source: string, cible: string): number {
-  const a = normalizeText(source).replace(/[^a-z0-9]/g, '')
-  const b = normalizeText(cible).replace(/[^a-z0-9]/g, '')
+function similarityTokens(a: string, b: string) {
+  const ta = new Set(a.split(' ').filter((t) => t.length > 1))
+  const tb = new Set(b.split(' ').filter((t) => t.length > 1))
+  const inter = [...ta].filter((t) => tb.has(t)).length
+  const union = new Set([...ta, ...tb]).size
+  return union ? inter / union : 0
+}
+
+function similarityBigrams(a: string, b: string) {
+  const grams = (s: string) => {
+    const padded = ' ' + s + ' '
+    const out = new Map<string, number>()
+    for (let i = 0; i < padded.length - 1; i++) {
+      const g = padded.slice(i, i + 2)
+      out.set(g, (out.get(g) ?? 0) + 1)
+    }
+    return out
+  }
+  const ga = grams(a), gb = grams(b)
+  let intersection = 0
+  for (const [g, count] of ga) intersection += Math.min(count, gb.get(g) ?? 0)
+  const total = [...ga.values()].reduce((s, n) => s + n, 0) + [...gb.values()].reduce((s, n) => s + n, 0)
+  return total ? (2 * intersection) / total : 0
+}
+
+function editSimilarity(a: string, b: string) {
   if (!a || !b) return 0
-  if (a === b) return 1
-  if (a.includes(b) || b.includes(a)) return Math.min(a.length, b.length) / Math.max(a.length, b.length) * 0.08 + 0.88
-
-  const tokensA = new Set(normalizeText(source).split(/[^a-z0-9]+/).filter((x) => x.length > 1))
-  const tokensB = new Set(normalizeText(cible).split(/[^a-z0-9]+/).filter((x) => x.length > 1))
-  const intersection = [...tokensA].filter((x) => tokensB.has(x)).length
-  const union = new Set([...tokensA, ...tokensB]).size
-  const jaccard = union ? intersection / union : 0
-
   const previous = Array.from({ length: b.length + 1 }, (_, i) => i)
   for (let i = 1; i <= a.length; i++) {
-    const current = [i]
+    let diagonal = previous[0]
+    previous[0] = i
     for (let j = 1; j <= b.length; j++) {
-      current[j] = Math.min(current[j - 1] + 1, previous[j] + 1, previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+      const old = previous[j]
+      previous[j] = Math.min(previous[j] + 1, previous[j - 1] + 1, diagonal + (a[i - 1] === b[j - 1] ? 0 : 1))
+      diagonal = old
     }
-    previous.splice(0, previous.length, ...current)
   }
-  const editScore = 1 - previous[b.length] / Math.max(a.length, b.length)
-  return Math.max(jaccard * 0.82, editScore * 0.9)
+  return 1 - previous[b.length] / Math.max(a.length, b.length)
+}
+
+function extractNumbers(s: string) {
+  return (s.match(/\\d+(?:[.,]\\d+)?/g) ?? []).map((x) => x.replace(',', '.'))
+}
+
+export function scoreCorrespondance(source: string, cible: string): number {
+  const normalizedSource = normalizeText(source).replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim()
+  const normalizedTarget = normalizeText(cible).replace(/[^a-z0-9 ]/g, ' ').replace(/\\s+/g, ' ').trim()
+  const a = normalizedSource.replace(/\\s/g, '')
+  const b = normalizedTarget.replace(/\\s/g, '')
+  if (!a || !b) return 0
+  if (a === b) return 1
+
+  const tokens = similarityTokens(normalizedSource, normalizedTarget)
+  const bigrams = similarityBigrams(a, b)
+  const edits = editSimilarity(a, b)
+  const contains = a.includes(b) || b.includes(a)
+    ? Math.min(a.length, b.length) / Math.max(a.length, b.length)
+    : 0
+  let score = Math.max(tokens * 0.48 + bigrams * 0.32 + edits * 0.20, contains * 0.88)
+
+  const numbersA = extractNumbers(normalizedSource)
+  const numbersB = extractNumbers(normalizedTarget)
+  if (numbersA.length && numbersB.length) {
+    const sameNumbers = numbersA.length === numbersB.length && numbersA.every((n, i) => numbersB[i] === n)
+    if (!sameNumbers) score *= 0.72
+  } else if (numbersA.length !== numbersB.length) {
+    score *= 0.82
+  }
+  return Math.max(0, Math.min(1, score))
 }
