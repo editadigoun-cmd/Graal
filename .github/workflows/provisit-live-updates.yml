@@ -5,16 +5,7 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'vite.config.*'
-      - 'capacitor.config.*'
-      - 'index.html'
+  # Capgo currently requires a plan upgrade; publish manually only.
   workflow_dispatch:
 
 permissions:
