@@ -19,7 +19,7 @@ begin
   join public.profiles p on p.id = prog.vm_id
   where prog.id = new.programme_id;
 
-  if v_equipe_id <> 'd8e7f5d2-0d77-4c0b-8a01-000000000002'::uuid then
+  if v_equipe_id is distinct from 'd8e7f5d2-0d77-4c0b-8a01-000000000002'::uuid then
     return new;
   end if;
 
@@ -27,7 +27,7 @@ begin
   from public.clients c
   where c.id = new.client_id;
 
-  if v_potentiel <> 'GROS' then
+  if v_potentiel is distinct from 'GROS' then
     return new;
   end if;
 
