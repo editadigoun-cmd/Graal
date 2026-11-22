@@ -10,6 +10,7 @@ on:
       - 'package-lock.json'
       - 'vite.config.*'
       - 'tsconfig*.json'
+      - 'workers/**'
       - '.github/workflows/ci.yml'
   push:
     branches: [main]
@@ -20,6 +21,7 @@ on:
       - 'package-lock.json'
       - 'vite.config.*'
       - 'tsconfig*.json'
+      - 'workers/**'
       - '.github/workflows/ci.yml'
 
 jobs:
@@ -33,3 +35,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: node --test workers/sales-ai/*.test.mjs
+      - run: npx wrangler@4 deploy --dry-run --config workers/sales-ai/wrangler.jsonc
