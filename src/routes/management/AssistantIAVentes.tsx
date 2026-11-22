@@ -58,7 +58,15 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
     setResume(item.resume ?? ''); setAvertissements(item.avertissements ?? [])
     const { data: rows, error } = await db.from('lignes_import_ventes_ia').select('*').eq('import_id', item.id).order('numero_ligne')
     if (error) setErreur(error.message)
-    setLignes(((rows ?? []) as ImportLine[]).map((line) => {\n      const ranked = produits.map((p) => ({ produitId: p.id, nom: p.nom, score: scoreCorrespondance(line.designation_source, p.nom) })).sort((a, b) => b.score - a.score).slice(0, 3).filter((s) => s.score >= 0.35)\n      return { ...line, suggestions: ranked }\n    }))
+    const { data: refs } = await db.from('produits_pilotage').select('produit_id').eq('laboratoire_id', item.laboratoire_id)
+    const ids = (refs ?? []).map((r: any) => r.produit_id)
+    const { data: catalog } = ids.length ? await db.from('produits').select('id,nom').in('id', ids).order('nom') : { data: [] }
+    const catalogItems = (catalog ?? []) as Product[]
+    setProduits(catalogItems)
+    setLignes(((rows ?? []) as ImportLine[]).map((line) => {
+      const ranked = catalogItems.map((p) => ({ produitId: p.id, nom: p.nom, score: scoreCorrespondance(line.designation_source, p.nom) })).sort((a, b) => b.score - a.score).slice(0, 3).filter((s) => s.score >= 0.35)
+      return { ...line, suggestions: ranked }
+    }))
     setGrossisteId(item.grossiste_id); setLaboratoireId(item.laboratoire_id)
   }
 
@@ -97,11 +105,12 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
         const mappedProduct = mappedId ? catalogueParId.get(mappedId) : undefined
         const scores = catalogueAnalyse.map((p) => ({ produit: p, score: scoreCorrespondance(line.designation, p.nom) })).sort((a, b) => b.score - a.score)
         const best = scores[0]
-        const produit = mappedProduct ?? (best && best.score >= 0.9 ? best.produit : null)
+        const produit = mappedProduct ?? (best && best.score >= 0.90 ? best.produit : null)
         const confidence = mappedProduct ? 1 : (best?.score ?? 0)
-        const warning = mappedProduct ? null : produit ? null : best && best.score >= 0.62
-          ? `Correspondance possible avec « ${best.produit.nom} » : vérification requise.`
-          : 'Aucune correspondance suffisamment fiable : choisissez le produit manuellement.'
+        const suggestions = scores.slice(0, 3).filter((s) => s.score >= 0.35).map((s) => ({ produitId: s.produit.id, nom: s.produit.nom, score: s.score }))
+        const warning = mappedProduct ? null : produit ? null : best && best.score >= 0.5
+          ? `Suggestion : « ${best.produit.nom} » (${Math.round(best.score * 100)}%). Confirmation requise.`
+          : 'Aucune correspondance fiable : choisissez ou recherchez le produit manuellement.'
         return {
           import_id: '',
           numero_ligne: index + 1,
@@ -110,7 +119,8 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
           produit_id: produit?.id ?? null,
           ventes: line.ventesPeriode,
           confiance: Math.round(confidence * 10000) / 10000,
-          avertissement: warning
+          avertissement: warning,
+          suggestions
         }
       })
 
