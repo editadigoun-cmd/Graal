@@ -20,7 +20,7 @@ const db = supabase as any
 
 const sourceLabels: Record<string, string> = {
   ventes_hebdomadaires: 'Ventes',
-  objectifs_mensuels_produits: 'Objectifs',
+  objectifs_hebdomadaires_produits: 'Objectifs hebdomadaires',
   produits_pilotage: 'Produits / PGHT',
   produits: 'Catalogue',
   grossistes: 'Grossistes',
