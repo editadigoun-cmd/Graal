@@ -8,7 +8,8 @@ import { analyserFichierLocal, scoreCorrespondance } from '@/lib/importGrossiste
 
 interface RefItem { id: string; nom: string }
 interface ImportRow { id: string; grossiste_id: string; laboratoire_id: string; fichier_nom: string; fichier_path: string; fichier_sha256: string | null; mois_reference: string | null; statut: string; resume: string | null; avertissements: string[]; created_at: string }
-interface MatchSuggestion { produitId: string; nom: string; score: number }\ninterface ImportLine { id: string; numero_ligne: number; designation_source: string; code_externe: string | null; produit_id: string | null; ventes: number | null; confiance: number | null; avertissement: string | null; suggestions?: MatchSuggestion[] }
+interface MatchSuggestion { produitId: string; nom: string; score: number }
+interface ImportLine { id: string; numero_ligne: number; designation_source: string; code_externe: string | null; produit_id: string | null; ventes: number | null; confiance: number | null; avertissement: string | null; suggestions?: MatchSuggestion[] }
 interface Product { id: string; nom: string }
 
 export default function AssistantIAVentes({ grossistes, laboratoires, semaineDebut, onImported }: {
