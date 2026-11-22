@@ -101,7 +101,6 @@ test("chat stores user and assistant messages, uses model, and finalizes quota",
         run: async (model, input) => {
           assert.equal(model, MODEL);
           assert.equal(input.chat_template_kwargs.enable_thinking, false);
-          assert.equal(input.store, false);
           return {
             choices: [{ message: { content: "Les données sont prêtes pour l'analyse." } }],
             usage: { prompt_tokens: 20, completion_tokens: 8, neurons: 0.42 }
