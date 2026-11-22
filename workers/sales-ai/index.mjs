@@ -1,11 +1,10 @@
-const MODEL = "@cf/zai-org/glm-4.7-flash";
+export const MODEL = "@cf/zai-org/glm-4.7-flash";
 const MAX_TOOL_ROUNDS = 3;
 const MAX_TOOL_CALLS = 4;
 const MAX_HISTORY_MESSAGES = 8;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_RANGE_DAYS = 400;
 const MAX_ROWS = 1000;
-const RESERVED_NEURONS = 300;
 const MODEL_MAX_TOKENS = 256;
 const FINAL_MAX_TOKENS = 384;
 
@@ -25,7 +24,7 @@ RÈGLES ABSOLUES :
 - Présente les périodes, unités et filtres utilisés. Utilise des tableaux courts et des pourcentages lisibles quand cela aide.
 - Si une question n'est pas liée au pilotage commercial, répond brièvement et ramène la conversation au périmètre Provisit.`;
 
-const TOOLS = [
+export const TOOLS = [
   {
     type: "function",
     function: {
@@ -750,11 +749,8 @@ async function modelCall(env, messages, tools, auth) {
 }
 
 async function processChat(request, env, auth, body, reservation, cors) {
-  const encoder = new TextEncoder();
-  let controllerRef;
   const stream = new ReadableStream({
     start(controller) {
-      controllerRef = controller;
       const emit = (event, data) => sse(controller, event, data);
       (async () => {
         let usage = { prompt_tokens: 0, completion_tokens: 0, neurons: 0 };
