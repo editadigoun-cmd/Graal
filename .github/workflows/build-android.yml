@@ -16,7 +16,6 @@ on:
       - 'package-lock.json'
       - '.env.example'
       - '.github/workflows/build-android.yml'
-      - '.github/workflows/provisit-live-updates.yml'
 
 jobs:
   build:
