@@ -885,6 +885,43 @@ async function processChat(request, env, auth, body, reservation, cors) {
   });
 }
 
+async function matchProducts(request, env, auth, cors) {
+  let body;
+  try { body = await request.json(); } catch { return jsonResponse({ error: "JSON invalide." }, 400, cors); }
+  const rows = Array.isArray(body?.rows) ? body.rows.slice(0, 80) : [];
+  if (!rows.length) return jsonResponse({ matches: [] }, 200, cors);
+  if (!Array.isArray(body?.catalog) || body.catalog.length > 1500) return jsonResponse({ error: "Catalogue invalide ou trop volumineux." }, 400, cors);
+  const catalog = body.catalog.filter(p => p && typeof p.id === "string" && typeof p.name === "string").slice(0, 1500);
+  if (rows.some(r => typeof r?.source !== "string" || r.source.length > 180 || !Array.isArray(r.candidates) || r.candidates.length > 8)) {
+    return jsonResponse({ error: "Lignes de rapprochement invalides." }, 400, cors);
+  }
+  const input = rows.map(r => ({ row_id: String(r.row_id), source: r.source, candidates: r.candidates.map(c => ({ id: c.id, name: c.name })) }));
+  const prompt = `Tu es un assistant de rapprochement de noms de produits pharmaceutiques. Compare les désignations source avec le catalogue officiel. Prends en compte fautes de frappe, abréviations, accents, ordre des mots, marque, dosage, forme et conditionnement. Un dosage ou conditionnement incompatible doit réduire fortement la confiance. Ne crée aucun produit. N'associe pas un produit si aucun candidat n'est crédible. Pour chaque row_id, retourne jusqu'à 3 candidats parmi les IDs fournis, avec score 0 à 1 et courte raison. Réponds UNIQUEMENT en JSON valide sous la forme {"matches":[{"row_id":"...","candidates":[{"product_id":"...","score":0.0,"reason":"..."}]}]}.\n\nLignes à rapprocher:\n${JSON.stringify(input)}\nCatalogue autorisé:\n${JSON.stringify(catalog)}`;
+  let result;
+  try {
+    result = await env.AI.run(MODEL, {
+      messages: [{ role: "system", content: "Tu es un moteur de matching de produits. Sortie JSON uniquement, aucune supposition." }, { role: "user", content: prompt }],
+      max_tokens: 1800,
+      chat_template_kwargs: { enable_thinking: false }
+    });
+  } catch (error) {
+    return jsonResponse({ error: "Analyse IA indisponible : " + (error?.message || "erreur modèle") }, 502, cors);
+  }
+  const raw = String(result?.choices?.[0]?.message?.content || result?.response || "").trim();
+  const jsonText = raw.replace(/^\`\`\`(?:json)?/i, "").replace(/\`\`\`$/, "").trim();
+  let parsed;
+  try { parsed = JSON.parse(jsonText); } catch { return jsonResponse({ error: "L'IA a retourné un format non valide." }, 502, cors); }
+  const validIds = new Set(catalog.map(p => p.id));
+  const validRows = new Set(rows.map(r => String(r.row_id)));
+  const matches = Array.isArray(parsed?.matches) ? parsed.matches.filter(m => validRows.has(String(m.row_id))).map(m => ({
+    row_id: String(m.row_id),
+    candidates: Array.isArray(m.candidates) ? m.candidates.filter(x => validIds.has(String(x.product_id))).slice(0, 3).map(x => ({
+      product_id: String(x.product_id), score: Math.max(0, Math.min(1, Number(x.score) || 0)), reason: String(x.reason || "").slice(0, 100)
+    })) : []
+  })) : [];
+  return jsonResponse({ matches }, 200, cors);
+}
+
 export default {
   async fetch(request, env) {
     const cors = corsHeaders(request, env);
@@ -894,7 +931,7 @@ export default {
     if (url.pathname === "/health" && request.method === "GET") {
       return jsonResponse({ ok: true, model: MODEL, version: "v1-read-only" }, 200, cors);
     }
-    if (url.pathname !== "/api/chat" || request.method !== "POST") {
+    if (!["/api/chat", "/api/match-products"].includes(url.pathname) || request.method !== "POST") {
       return jsonResponse({ error: "Route non trouvée." }, 404, cors);
     }
     let auth;
@@ -903,6 +940,7 @@ export default {
     } catch (error) {
       return jsonResponse({ error: error?.message || "Authentification refusée." }, 401, cors);
     }
+    if (url.pathname === "/api/match-products") return matchProducts(request, env, auth, cors);
     let body;
     try {
       body = await request.json();
