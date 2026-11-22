@@ -1,0 +1,14 @@
+{
+  "name": "graal-sales-ai",
+  "main": "index.mjs",
+  "compatibility_date": "2026-11-22",
+  "workers_dev": true,
+  "preview_urls": false,
+  "ai": {
+    "binding": "AI"
+  },
+  "vars": {
+    "SUPABASE_URL": "https://bjwcsfdvucrwtlheivuu.supabase.co",
+    "ALLOWED_ORIGINS": "https://graal.ccds22431.workers.dev,http://localhost:5173"
+  }
+}
