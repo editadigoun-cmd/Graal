@@ -391,7 +391,7 @@ async function loadSalesDataset(env, auth, startDate, endDate, filters = {}) {
       order: "semaine_debut.asc"
     }),
     fetchRows(env, auth.apikey, auth.token, "produits_pilotage", {
-      select: "produit_id,laboratoire_id,pght"
+      select: "produit_id,laboratoire_id,pght,objectif_quantite"
     }),
     fetchRows(env, auth.apikey, auth.token, "laboratoires", { select: "id,nom,actif", order: "nom.asc" }),
     fetchRows(env, auth.apikey, auth.token, "grossistes", { select: "id,nom,actif", order: "nom.asc" }),
@@ -453,10 +453,10 @@ function productMetrics(dataset, productId) {
     pght,
     quantity: money(quantity),
     revenue: money(revenue),
-    objective_quantity: objectiveWeeks ? money(objectiveQuantity) : null,
-    objective_revenue: objectiveWeeks ? money(objectiveRevenue) : null,
-    achievement_quantity: objectiveWeeks ? pct(quantity, objectiveQuantity) : null,
-    achievement_revenue: objectiveWeeks ? pct(revenue, objectiveRevenue) : null,
+    objective_quantity: objectiveQuantity === null ? null : money(objectiveQuantity),
+    objective_revenue: objectiveRevenue === null ? null : money(objectiveRevenue),
+    achievement_quantity: objectiveQuantity !== null && objectiveQuantity > 0 ? pct(quantity, objectiveQuantity) : null,
+    achievement_revenue: objectiveRevenue !== null && objectiveRevenue > 0 ? pct(revenue, objectiveRevenue) : null,
     wholesaler_breakdown: byWholesaler
   };
 }
