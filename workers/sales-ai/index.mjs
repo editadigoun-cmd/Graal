@@ -869,7 +869,7 @@ async function processChat(request, env, auth, body, reservation, cors) {
         } catch (error) {
           emit("error", { message: error?.message || "L'analyse a échoué." });
         } finally {
-          try { await finalizeUsage(env, auth, reservation.id, usage, status); } catch {}
+          try { await finalizeUsage(env, auth, reservation.reservation_id, usage, status); } catch {}
           try { controller.close(); } catch {}
         }
       })();
