@@ -615,6 +615,7 @@ export default function Planning() {
                 })}
               </div>
               <p className="text-[11px] text-ink-400">Centres ajoutés : {lignesJour.filter((l) => l.type_visite === 'MEDICAL').length} · en supplément des 15 pharmacies</p>
+              {['JEUDI', 'VENDREDI'].includes(jourActif) && <p className="text-[11px] font-medium text-royal-700">Médical : 0 à 2 GROS maximum (aucun minimum). MOYENS et FAIBLES libres.</p>}
             </div>
           ) : (
             <div className={`grid ${pharmacieUniquement ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
