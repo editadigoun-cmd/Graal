@@ -129,7 +129,7 @@ export default function AssistantChatVentes() {
   async function createConversation() {
     if (!session?.user?.id) return
     const { data, error: createError } = await db.from('sales_ai_conversations')
-      .insert({ owner_id: user.id, title: 'Nouvelle conversation' })
+      .insert({ owner_id: session.user.id, title: 'Nouvelle conversation' })
       .select('id,title,updated_at').single()
     if (createError || !data) {
       setError(createError?.message || 'Impossible de créer une conversation.')
@@ -146,7 +146,7 @@ export default function AssistantChatVentes() {
     setLoadingConversations(true)
     const { data, error: loadError } = await db.from('sales_ai_conversations')
       .select('id,title,updated_at')
-      .eq('owner_id', user.id)
+      .eq('owner_id', session.user.id)
       .order('updated_at', { ascending: false })
       .limit(20)
     if (loadError) {
@@ -184,7 +184,7 @@ export default function AssistantChatVentes() {
     setUsageLoading(true)
     const { data, error: usageError } = await db.from('sales_ai_usage_reservations')
       .select('reserved_neurons,actual_neurons,status')
-      .eq('user_id', user.id)
+      .eq('user_id', session.user.id)
       .eq('usage_day', todayUTC())
     if (!usageError && data) {
       setUsage({
