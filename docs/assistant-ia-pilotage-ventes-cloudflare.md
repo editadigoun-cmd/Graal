@@ -159,7 +159,8 @@ Les outils valident les dates, filtres, IDs et limites. Les calculs (quantités,
 
 ## État de déploiement
 
-- Worker IA : `https://graal-sales-ai.ccds22431.workers.dev` (déploiement confirmé par l'API Cloudflare; `/health` reste à vérifier depuis un navigateur).
+- Worker IA : `https://graal-sales-ai.ccds22431.workers.dev` (script, binding AI et sous-domaine workers.dev confirmés par l'API Cloudflare; endpoint santé : `https://graal-sales-ai.ccds22431.workers.dev/health`).
+- Le Worker principal `graal` est un déploiement assets-only actif (version 464 au moment de l'étude). Il n'a pas été remplacé pour éviter d'écraser le déploiement principal.
 - Frontend : source intégrée à `main`, build CI réussi, mais le Worker statique `graal` n'a pas été redéployé.
 - Mobile OTA : workflow Capgo désormais manuel seulement en attendant la résolution de l'exigence de plan.
 - Aucun fichier de vente réelle n'a été transmis au modèle pendant les tests.
