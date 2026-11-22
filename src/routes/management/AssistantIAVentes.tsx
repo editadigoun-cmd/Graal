@@ -124,6 +124,47 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
         }
       })
 
+      // Le moteur local établit les candidats; l'IA Cloudflare les réévalue sur les noms/dosages.
+      const nonMapped = lignesPreparees.filter((l: any) => !l.produit_id).slice(0, 80)
+      if (nonMapped.length) {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession()
+          const accessToken = sessionData.session?.access_token
+          const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
+          if (accessToken && publishableKey) {
+            const aiResponse = await fetch((import.meta.env.VITE_GRAAL_SALES_AI_URL || 'https://graal-sales-ai.ccds22431.workers.dev') + '/api/match-products', {
+              method: 'POST',
+              headers: { Authorization: 'Bearer ' + accessToken, apikey: publishableKey, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                catalog: catalogueAnalyse.map(p => ({ id: p.id, name: p.nom })),
+                rows: nonMapped.map((line: any) => ({
+                  row_id: String(line.numero_ligne),
+                  source: line.designation_source,
+                  candidates: line.suggestions.map((s: any) => ({ id: s.produitId, name: s.nom }))
+                }))
+              })
+            })
+            if (aiResponse.ok) {
+              const aiData = await aiResponse.json()
+              const byRow = new Map((aiData.matches || []).map((m: any) => [String(m.row_id), m.candidates || []]))
+              for (const line of nonMapped as any[]) {
+                const candidates = byRow.get(String(line.numero_ligne)) as any[] | undefined
+                if (!candidates?.length) continue
+                const aiSuggestions = candidates.map(c => {
+                  const product = catalogueParId.get(c.product_id)
+                  return product ? { produitId: product.id, nom: product.nom, score: c.score, reason: c.reason } : null
+                }).filter(Boolean)
+                if (aiSuggestions.length) line.suggestions = aiSuggestions
+                const top = aiSuggestions[0] as any
+                if (top && !line.avertissement) line.avertissement = `Suggestion IA : ${top.nom} (${Math.round(top.score * 100)}%). Confirmation requise.`
+              }
+            }
+          }
+        } catch {
+          // Si l'IA est indisponible, les suggestions locales restent utilisables.
+        }
+      }
+
       const bytes = await fichier.arrayBuffer()
       const digest = await crypto.subtle.digest('SHA-256', bytes)
       const hash = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
