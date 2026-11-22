@@ -245,3 +245,12 @@ Le tool calling est documenté comme Beta côté Workers AI; les arguments et no
 - AI Gateway spend limits : https://developers.cloudflare.com/ai-gateway/features/spend-limits/
 - Markdown Conversion : https://developers.cloudflare.com/workers-ai/features/markdown-conversion/
 - Clairic : https://developers.cloudflare.com/workers-ai/models/clairic/
+
+
+## Mise à jour — import intelligent et objectifs produit (22 novembre 2026)
+
+- Le rapprochement des noms de produits combine désormais un score local (normalisation, tokens, bigrammes, distance d'édition, pénalité de dosage) et un endpoint Cloudflare AI réservé aux administrateurs pour reclasser jusqu'à 8 candidats par ligne.
+- L'IA ne reçoit que les désignations et les candidats produits, pas les quantités du fichier. Les correspondances restent à confirmer par l'administrateur. Les mappings confirmés par code grossiste restent mémorisés.
+- La colonne `objectif_quantite` a été ajoutée à `produits_pilotage`; les objectifs historiques ont été copiés vers cette colonne sans supprimer la table historique. Le dashboard et l'agent utilisent désormais cet objectif fixe par produit.
+- 57 produits ont un objectif renseigné sur 58 produits pilotés; un produit demeure sans objectif.
+- Worker IA redéployé avec `/api/match-products` et l'outil objectifs produits sans paramètre de mois.
