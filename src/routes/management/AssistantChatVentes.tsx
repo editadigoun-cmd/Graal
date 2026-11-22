@@ -111,7 +111,7 @@ function parseSseFrame(frame: string) {
 }
 
 export default function AssistantChatVentes() {
-  const { user, session, profile } = useAuth()
+  const { session, profile } = useAuth()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [conversationId, setConversationId] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -127,7 +127,7 @@ export default function AssistantChatVentes() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   async function createConversation() {
-    if (!user?.id) return
+    if (!session?.user?.id) return
     const { data, error: createError } = await db.from('sales_ai_conversations')
       .insert({ owner_id: user.id, title: 'Nouvelle conversation' })
       .select('id,title,updated_at').single()
@@ -142,7 +142,7 @@ export default function AssistantChatVentes() {
   }
 
   async function loadConversations() {
-    if (!user?.id) return
+    if (!session?.user?.id) return
     setLoadingConversations(true)
     const { data, error: loadError } = await db.from('sales_ai_conversations')
       .select('id,title,updated_at')
@@ -180,7 +180,7 @@ export default function AssistantChatVentes() {
   }
 
   async function loadUsage() {
-    if (!user?.id) return
+    if (!session?.user?.id) return
     setUsageLoading(true)
     const { data, error: usageError } = await db.from('sales_ai_usage_reservations')
       .select('reserved_neurons,actual_neurons,status')
@@ -196,7 +196,7 @@ export default function AssistantChatVentes() {
     setUsageLoading(false)
   }
 
-  useEffect(() => { loadConversations(); loadUsage() }, [user?.id])
+  useEffect(() => { loadConversations(); loadUsage() }, [session?.user?.id])
   useEffect(() => { if (conversationId) loadMessages(conversationId) }, [conversationId])
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, [messages, status])
 
@@ -208,7 +208,7 @@ export default function AssistantChatVentes() {
 
   async function deleteConversation() {
     if (!conversationId || sending || !window.confirm('Supprimer cette conversation et son historique ?')) return
-    const { error: deleteError } = await db.from('sales_ai_conversations').delete().eq('id', conversationId).eq('owner_id', user?.id)
+    const { error: deleteError } = await db.from('sales_ai_conversations').delete().eq('id', conversationId).eq('owner_id', session?.user?.id)
     if (deleteError) { setError(deleteError.message); return }
     const rest = conversations.filter(c => c.id !== conversationId)
     setConversations(rest)
@@ -220,7 +220,7 @@ export default function AssistantChatVentes() {
 
   async function sendMessage(text = message) {
     const content = text.trim()
-    if (!content || sending || !conversationId || !user?.id) return
+    if (!content || sending || !conversationId || !session?.user?.id) return
     const accessToken = session?.access_token
     if (!accessToken || !SUPABASE_KEY) {
       setError('Session ou clé Supabase indisponible. Reconnectez-vous.')
