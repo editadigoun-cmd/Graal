@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 
 type Run={id:string;grossiste_id:string;status:string;started_at:string;finished_at:string|null;rows_found:number;rows_matched:number;rows_unmatched:number;summary:string|null}
-type Page={id:string;sync_run_id:string;page_order:number;page_url:string;page_title:string|null;extracted_payload:any;review_status:string}}
+type Page={id:string;sync_run_id:string;page_order:number;page_url:string;page_title:string|null;extracted_payload:any;review_status:string}
 type Product={id:string;nom:string;equipe_id?:string}
 type Supplier={id:string;nom:string}
 const date=(v:string)=>new Date(v).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})
