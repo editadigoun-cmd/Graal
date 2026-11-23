@@ -1,0 +1,7 @@
+{
+  "name": "provisit-grossiste-sync",
+  "main": "index.mjs",
+  "compatibility_date": "2026-11-23",
+  "workers_dev": true,
+  "preview_urls": false
+}
