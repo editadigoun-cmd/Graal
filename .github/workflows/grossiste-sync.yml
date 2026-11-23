@@ -35,6 +35,19 @@ jobs:
           SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
           UBIPHARM_USERNAME: ${{ secrets.UBIPHARM_USERNAME }}
           UBIPHARM_PASSWORD: ${{ secrets.UBIPHARM_PASSWORD }}
+      - name: Configure Supabase snapshot storage (if secrets are configured)
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            printf '%s' "$SUPABASE_URL" | npx wrangler secret put SUPABASE_URL
+            printf '%s' "$SUPABASE_SERVICE_ROLE_KEY" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+          else
+            echo "Supabase secrets not configured; scheduled extraction will not persist snapshots."
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       - name: Inspect UBIPHARM portal (read-only)
         if: github.event_name == 'workflow_dispatch'
         run: |
