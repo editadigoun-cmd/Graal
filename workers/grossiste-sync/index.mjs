@@ -32,7 +32,7 @@ let browser,stage="browser_launch",started=Date.now();try{const{launch}=await im
 if(route!=="/inspect/ubipharm"){stage="login";const auth=await login(page,env);if(!auth.ok)return json({provider:"ubipharm",status:auth.reason,diagnostics:auth.diagnostics||await timed(diagnostics(page),LIMIT.diagnostics,"diagnostics"),elapsedMs:Date.now()-started},auth.reason==="verification_required"?409:502);
 if(route==="/inspect/ubipharm/authenticated")return json({provider:"ubipharm",status:"authenticated_page_inspected",diagnostics:auth.diagnostics,elapsedMs:Date.now()-started});
 stage="extract_current_page";const current=await timed(extractPage(page),LIMIT.diagnostics,stage);
-return json({provider:"ubipharm",status:"extraction_preview",mode:"read-only",authenticated:true,source:PORTAL,extractedAt:new Date().toISOString(),pages:[current],reviewRequired:true,imported:false,elapsedMs:Date.now()-started});
+return json({provider:"ubipharm",status:"extraction_preview",mode:"read-only",authenticated:true,source:PORTAL,extractedAt:new Date().toISOString(),pages:[current],diagnostics:auth.diagnostics,reviewRequired:true,imported:false,elapsedMs:Date.now()-started});
 }
 stage="diagnostics";const d=await timed(diagnostics(page),LIMIT.diagnostics,stage);return json({provider:"ubipharm",status:"portal_inspected",diagnostics:d,elapsedMs:Date.now()-started})
 }catch(error){return json({provider:"ubipharm",status:error?.code||(String(error).includes("429")?"browser_rate_limit":"browser_error"),stage,error:String(error).slice(0,400),elapsedMs:Date.now()-started},502)}finally{if(browser)try{await timed(browser.close(),LIMIT.close,"browser_close")}catch{}}}};
