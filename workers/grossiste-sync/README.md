@@ -14,7 +14,7 @@ The Worker is scheduled daily at 06:00 Benin time (05:00 UTC). It opens the UBIP
 Cloudflare Worker secrets:
 - `SYNC_TOKEN`
 - `UBIPHARM_USERNAME`
-- `UBIPHARM_PASSWORD`\n- `SUPABASE_URL`\n- `SUPABASE_SERVICE_ROLE_KEY` (required for persistence; configure as GitHub repository secrets)
+- `UBIPHARM_PASSWORD`\n- `SUPABASE_URL` (configured as a non-secret Cloudflare Worker variable)\n- `SUPABASE_SERVICE_ROLE_KEY` (configure once as a Cloudflare Worker secret; never store it in GitHub)
 
 Do not send credentials in chat or commit them. The worker never returns or logs credential values.
 
