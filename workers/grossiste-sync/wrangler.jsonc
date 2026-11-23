@@ -14,5 +14,8 @@
     "crons": [
       "0 5 * * *"
     ]
+  },
+  "vars": {
+    "SUPABASE_URL": "https://bjwcsfdvucrwtlheivuu.supabase.co"
   }
 }
