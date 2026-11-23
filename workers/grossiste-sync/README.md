@@ -1,20 +1,23 @@
 # Provisit Grossiste Sync Worker
 
-Phase 1 scaffold is deliberately **read-only**. It exposes:
-- `GET /health` (public status)
-- `POST /test/{laborex|ubphar|ubipharm}` (protected by `SYNC_TOKEN`)
+Current phase: **UBIPHARM browser diagnostics only**. The worker uses Cloudflare Browser Run through the `BROWSER` binding to inspect the portal's public/login page and identify its visible form controls. It does not submit credentials, change portal data, or import sales.
 
-Provider credentials and Cloudflare API credentials must be Worker Secrets. No passwords are logged or returned. The current endpoint verifies configuration only; it does not yet submit credentials to portals. Provider scripts are blocked until selectors, post-login report navigation, and data fields are reviewed and validated.
+## Endpoints
+- `GET /health` — public health status.
+- `POST /inspect/ubipharm` — protected by `SYNC_TOKEN`; opens the UBIPHARM Benin portal and returns page diagnostics (title, URL, visible form/input metadata, links and limited body text). Only UBIPHARM is enabled in this phase.
 
 ## Secrets
+Configure in Cloudflare Worker Secrets / environment:
 - `SYNC_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
-- `CLOUDFLARE_API_TOKEN` (Browser Rendering/Browser Run permissions only, scoped to this account)
-- `LABOREX_USERNAME`, `LABOREX_PASSWORD`
-- `UBPHAR_USERNAME`, `UBPHAR_PASSWORD`
-- `UBIPHARM_USERNAME`, `UBIPHARM_PASSWORD`
+- `UBIPHARM_USERNAME` and `UBIPHARM_PASSWORD` (reserved for the next verified login step; not used by diagnostics)
+- Future providers: `LABOREX_USERNAME`, `LABOREX_PASSWORD`, `UBPHAR_USERNAME`, `UBPHAR_PASSWORD`
 
-## Test
-Run `node --test index.test.mjs`.
+No credentials should be sent in chat, committed to Git, or logged.
 
-No sales rows are imported by this worker. Integration into Provisit sales remains a separate, reviewed step after validating each provider's extraction against a manually downloaded report.
+## Browser
+Wrangler configuration declares the Cloudflare Browser Run binding as `BROWSER`. Browser automation requires Browser Run enabled for the Cloudflare account.
+
+## Next
+After inspecting the actual login page and confirming its selectors and authorized flow, implement login using secrets, then inspect the authenticated supplier portal. Capture product rows and section/group boundaries; resolve each product to its laboratory using the Provisit product catalog. Unknown/ambiguous products go to review. Compare extracted totals against a manually downloaded report before any sales import.
+
+Run tests with `node --test index.test.mjs`.
