@@ -59,7 +59,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/health") {
       return json({ service: "provisit-grossiste-sync", status: "ok", mode: "read-only-diagnostics", provider: "ubipharm" });
     }
-    const route = url.pathname;
+    const route = url.pathname.replace(/\\/+$/, "") || "/";
     if (request.method !== "POST" || !["/inspect/ubipharm", "/inspect/ubipharm/authenticated"].includes(route)) {
       return json({ error: "Not found" }, 404);
     }
