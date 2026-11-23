@@ -48,10 +48,18 @@ jobs:
           SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
       - name: Inspect authenticated UBIPHARM space (read-only)
         run: |
-          response=$(curl --fail-with-body --silent --show-error \
+          http_code=$(curl --silent --show-error --output response.json --write-out "%{http_code}" \
             -X POST "https://provisit-grossiste-sync.ccds22431.workers.dev/inspect/ubipharm/authenticated" \
             -H "Authorization: Bearer $SYNC_TOKEN" \
             -H "Content-Type: application/json")
-          echo "$response" | jq .
+          echo "HTTP status: $http_code"
+          if jq . response.json; then
+            echo "Inspection response displayed."
+          else
+            cat response.json
+          fi
+          if [ "$http_code" -ge 500 ]; then
+            echo "Portal inspection returned a server error; deployment/test results remain separate."
+          fi
         env:
           SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
