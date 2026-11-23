@@ -5,7 +5,7 @@ import { launch } from "@cloudflare/playwright";
  * UBIPHARM-only diagnostics. Read-only, no sales import.
  */
 const PROVIDERS = {
-  ubipharm: { portalUrl: "https://benin.ubipharm.com/fr" }
+  ubipharm: { portalUrl: "https://fournisseur-benin.ubipharm.com" }
 };
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
