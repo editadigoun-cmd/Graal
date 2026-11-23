@@ -30,7 +30,8 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
   const [avertissements, setAvertissements] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
-  const [erreur, setErreur] = useState('')\n  const [aiFindings, setAiFindings] = useState<Array<{row:number;severity:string;message:string;recommendation:string}>>([])\n  const [aiSummary, setAiSummary] = useState('')
+  const [erreur, setErreur] = useState('')
+  const [aiFindings, setAiFindings] = useState<Array<{row:number;severity:string;message:string;recommendation:string}>>([])\n  const [aiSummary, setAiSummary] = useState('')
 
   useEffect(() => {
     if (!grossisteId && grossistes.length) setGrossisteId(grossistes[0].id)
