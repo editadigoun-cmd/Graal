@@ -46,3 +46,12 @@ jobs:
           echo "$response" | jq .
         env:
           SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
+      - name: Inspect authenticated UBIPHARM space (read-only)
+        run: |
+          response=$(curl --fail-with-body --silent --show-error \
+            -X POST "https://provisit-grossiste-sync.ccds22431.workers.dev/inspect/ubipharm/authenticated" \
+            -H "Authorization: Bearer $SYNC_TOKEN" \
+            -H "Content-Type: application/json")
+          echo "$response" | jq .
+        env:
+          SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
