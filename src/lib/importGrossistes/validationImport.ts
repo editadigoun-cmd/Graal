@@ -1,4 +1,4 @@
-import type { LigneImportGrossiste, ResultatImportGrossiste } from './types'
+import type { ResultatImportGrossiste } from './types'
 
 export type NiveauAnomalie = 'bloquante' | 'attention' | 'info'
 export interface AnomalieImport {
