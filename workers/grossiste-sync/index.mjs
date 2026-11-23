@@ -53,8 +53,8 @@ export function parseUbipharmRows(payload){
    if(productIdx<0||saleIdx<0)continue;
    for(const row of table.rows||[]){
     const cell=String(row[productIdx]||"");
-    const code=(cell.match(/(?:^|\\n)([0-9]{5,14})\\s*$/)||cell.match(/([0-9]{5,14})\\s*$/))?.[1];
-    const name=cell.replace(/\\n[0-9]{5,14}\\s*$/,"").trim();
+    const code=(cell.match(/(?:^|\n)([0-9]{5,14})\s*$/)||cell.match(/([0-9]{5,14})\s*$/))?.[1];
+    const name=cell.replace(/\n[0-9]{5,14}\s*$/,"").trim();
     const qty=Number(String(row[saleIdx]||"").replace(/\\s/g,"").replace(",","."));
     if(code&&name&&Number.isFinite(qty)&&qty>=0)out.push({code_externe:code,produit_source:name,cumul_mois:qty,raw_row:row});
    }
@@ -65,7 +65,7 @@ export function parseUbipharmRows(payload){
 async function persistSnapshots(env,rows,capturedDate,month){
  if(!env.SUPABASE_URL||!env.SUPABASE_SERVICE_ROLE_KEY)throw new Error("supabase_secrets_missing");
  if(!rows.length)throw new Error("no_sales_rows_parsed");
- const url=env.SUPABASE_URL.replace(/\\/$/,"")+"/rest/v1/grossiste_ventes_snapshots?on_conflict=grossiste_id,code_externe,mois_reference,date_capture";
+ const url=env.SUPABASE_URL.replace(/\/$/,"")+"/rest/v1/grossiste_ventes_snapshots?on_conflict=grossiste_id,code_externe,mois_reference,date_capture";
  const body=rows.map(r=>({grossiste_id:UBIPHARM_ID,code_externe:r.code_externe,produit_source:r.produit_source,mois_reference:month,date_capture:capturedDate,cumul_mois:r.cumul_mois,raw_row:{row:r.raw_row}}));
  const res=await fetch(url,{method:"POST",headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,"content-type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(body)});
  if(!res.ok)throw new Error("supabase_write_failed_"+res.status+"_"+(await res.text()).slice(0,250));
