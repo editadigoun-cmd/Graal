@@ -25,7 +25,7 @@ const d=await timed(diagnostics(page),LIMIT.diagnostics,"post_login_diagnostics"
 if(d.verificationRequired)return{ok:false,reason:"verification_required",diagnostics:d};
 if(d.loginVisible)return{ok:false,reason:"login_failed_or_rejected",diagnostics:d};
 return{ok:true,diagnostics:d}}
-export default{async fetch(request,env){const url=new URL(request.url);if(request.method==="GET"&&url.pathname==="/health")return json({service:"provisit-grossiste-sync",status:"ok",mode:"read-only-portal-extraction",provider:"ubipharm"});
+export default{async scheduled(controller,env,ctx){ctx.waitUntil(dailyCollection(env).catch(e=>console.error(JSON.stringify({event:"grossiste_daily_sync_failed",message:String(e)}))))},async fetch(request,env){const url=new URL(request.url);if(request.method==="GET"&&url.pathname==="/health")return json({service:"provisit-grossiste-sync",status:"ok",mode:"read-only-portal-extraction",provider:"ubipharm"});
 const route=url.pathname.replace(/\/+$/,"")||"/";if(request.method!=="POST"||!["/inspect/ubipharm","/inspect/ubipharm/authenticated","/extract/ubipharm"].includes(route))return json({error:"Not found"},404);
 if(!authorized(request,env))return json({error:"Unauthorized"},401);if(route!=="/inspect/ubipharm"&&(!env.UBIPHARM_USERNAME||!env.UBIPHARM_PASSWORD))return json({status:"credentials_missing"},503);if(!env.BROWSER)return json({status:"browser_binding_missing"},503);
 let browser,stage="browser_launch",started=Date.now();try{const{launch}=await import("@cloudflare/playwright");browser=await timed(launch(env.BROWSER),LIMIT.launch,stage);stage="new_page";const page=await timed(browser.newPage(),10000,stage);page.setDefaultNavigationTimeout(LIMIT.navigation);stage="navigation";await timed(page.goto(PORTAL,{waitUntil:"domcontentloaded",timeout:LIMIT.navigation}),LIMIT.navigation+3000,stage);stage="initial_wait";await timed(page.waitForTimeout(1200),3000,stage);
@@ -35,7 +35,50 @@ stage="extract_current_page";const current=await timed(extractPage(page),LIMIT.d
 const pages=[current],visited=new Set([new URL(page.url()).pathname]);
 const candidateLinks=auth.diagnostics.links.filter(l=>["/StatsVentes","/StatsVentesPDF","/Achats"].includes(l.path));
 for(const link of candidateLinks){if(visited.has(link.path)||pages.length>=4)continue;visited.add(link.path);stage="navigate_"+link.path;try{await timed(page.goto(new URL(link.path,PORTAL).href,{waitUntil:"domcontentloaded",timeout:LIMIT.navigation}),LIMIT.navigation+3000,stage);await timed(page.waitForTimeout(700),2000,"page_wait");pages.push(await timed(extractPage(page),LIMIT.diagnostics,"page_extract"));}catch(e){pages.push({url:new URL(link.path,PORTAL).href,error:String(e).slice(0,200)});}}
-return json({provider:"ubipharm",status:"extraction_preview",mode:"read-only",authenticationStatus:"not_confirmed",authenticated:false,source:PORTAL,extractedAt:new Date().toISOString(),pages,diagnostics:auth.diagnostics,reviewRequired:true,imported:false,elapsedMs:Date.now()-started});
+return json({provider:"ubipharm",status:"extraction_preview",mode:"read-only",authenticationStatus:"confirmed_by_session_check",authenticated:true,source:PORTAL,extractedAt:new Date().toISOString(),pages,diagnostics:auth.diagnostics,reviewRequired:true,imported:false,elapsedMs:Date.now()-started});
 }
 stage="diagnostics";const d=await timed(diagnostics(page),LIMIT.diagnostics,stage);return json({provider:"ubipharm",status:"portal_inspected",diagnostics:d,elapsedMs:Date.now()-started})
 }catch(error){return json({provider:"ubipharm",status:error?.code||(String(error).includes("429")?"browser_rate_limit":"browser_error"),stage,error:String(error).slice(0,400),elapsedMs:Date.now()-started},502)}finally{if(browser)try{await timed(browser.close(),LIMIT.close,"browser_close")}catch{}}}};
+
+const UBIPHARM_ID="c7af99dc-93fd-4c93-a5d8-504ebcb4cba8";
+function beninDateParts(d=new Date()){return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Porto-Novo",year:"numeric",month:"2-digit",day:"2-digit"}).format(d)}
+function monthStart(date){return date.slice(0,7)+"-01"}
+function parseUbipharmRows(payload){
+ const out=[];
+ for(const pg of payload?.pages||[]){
+  for(const table of pg.tables||[]){
+   const h=(table.headers||[]).map(x=>String(x).trim().toLowerCase());
+   const productIdx=h.findIndex(x=>x==="produit");
+   const saleIdx=h.findIndex(x=>x==="vente mois");
+   if(productIdx<0||saleIdx<0)continue;
+   for(const row of table.rows||[]){
+    const cell=String(row[productIdx]||"");
+    const code=(cell.match(/(?:^|\\n)([0-9]{5,14})\\s*$/)||cell.match(/([0-9]{5,14})\\s*$/))?.[1];
+    const name=cell.replace(/\\n[0-9]{5,14}\\s*$/,"").trim();
+    const qty=Number(String(row[saleIdx]||"").replace(/\\s/g,"").replace(",","."));
+    if(code&&name&&Number.isFinite(qty)&&qty>=0)out.push({code_externe:code,produit_source:name,cumul_mois:qty,raw_row:row});
+   }
+  }
+ }
+ return out;
+}
+async function persistSnapshots(env,rows,capturedDate,month){
+ if(!env.SUPABASE_URL||!env.SUPABASE_SERVICE_ROLE_KEY)throw new Error("supabase_secrets_missing");
+ if(!rows.length)throw new Error("no_sales_rows_parsed");
+ const url=env.SUPABASE_URL.replace(/\\/$/,"")+"/rest/v1/grossiste_ventes_snapshots?on_conflict=grossiste_id,code_externe,mois_reference,date_capture";
+ const body=rows.map(r=>({grossiste_id:UBIPHARM_ID,code_externe:r.code_externe,produit_source:r.produit_source,mois_reference:month,date_capture:capturedDate,cumul_mois:r.cumul_mois,raw_row:{row:r.raw_row}}));
+ const res=await fetch(url,{method:"POST",headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,"content-type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(body)});
+ if(!res.ok)throw new Error("supabase_write_failed_"+res.status+"_"+(await res.text()).slice(0,250));
+ return body.length;
+}
+async function dailyCollection(env){
+ const date=beninDateParts();const month=monthStart(date);
+ const base=env.WORKER_URL||"https://provisit-grossiste-sync.ccds22431.workers.dev";
+ const res=await fetch(base+"/extract/ubipharm",{method:"POST",headers:{authorization:"Bearer "+env.SYNC_TOKEN,"content-type":"application/json"},body:"{}"});
+ if(!res.ok)throw new Error("extract_http_"+res.status);
+ const payload=await res.json();
+ if(!payload.authenticated||payload.authenticationStatus!=="confirmed_by_session_check")throw new Error("authentication_not_confirmed");
+ const rows=parseUbipharmRows(payload);
+ const count=await persistSnapshots(env,rows,date,month);
+ console.log(JSON.stringify({event:"grossiste_daily_snapshot",provider:"ubipharm",date_capture:date,month,rows_saved:count}));
+}
