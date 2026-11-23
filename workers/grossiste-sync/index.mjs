@@ -23,6 +23,7 @@ async function diagnostics(page) {
         // Keep paths only; never expose query parameters that may contain tokens.
         return u.pathname;
       } catch { return null; }
+    };
     const headings = Array.from(document.querySelectorAll("h1,h2,h3,h4"))
       .filter(visible).map(el => (el.innerText || "").trim()).filter(Boolean).slice(0,30);
     const links = Array.from(document.querySelectorAll("a")).filter(visible).slice(0,80)
