@@ -12,13 +12,15 @@ import worker, {
   executeTool
 } from "./index.mjs";
 
-test("GLM model and tools remain read-only", () => {
+test("GLM model has analysis and controlled admin write tools", () => {
   assert.equal(MODEL, "@cf/zai-org/glm-4.7-flash");
-  assert.ok(TOOLS.length >= 5);
+  assert.ok(TOOLS.length >= 9);
   const names = TOOLS.map(t => t.function.name);
-  assert.ok(names.includes("sales_summary"));
-  assert.ok(names.includes("data_freshness"));
-  assert.ok(names.every(n => !/(insert|update|delete|write|import|sql)/i.test(n)));
+  for (const name of ["sales_summary","data_freshness","sales_catalog","manage_product","set_weekly_objective","record_weekly_sale"]) assert.ok(names.includes(name));
+  assert.ok(!names.includes("arbitrary_sql"));
+  assert.ok(!names.includes("delete_product"));
+  assert.ok(!names.includes("manage_stock"));
+  assert.ok(!names.includes("sales_import"));
 });
 
 test("dates validate ISO calendar dates", () => {
