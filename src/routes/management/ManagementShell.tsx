@@ -43,6 +43,7 @@ const groups: NavGroup[] = [
       { to: '/admin/analyse-resultats-mensuels', label: 'Analyse résultats mensuels', icon: IconTrendingUp, adminOnly: true },
       { to: '/admin/analyse-ventes', label: 'Analyse évolutive', icon: IconTrendingUp },
       { to: '/admin/statistiques-ventes', label: 'Statistiques quotidiennes', icon: IconBarChart, adminOnly: true },
+      { to: '/admin/grossistes-sync', label: 'Imports grossistes · revue', icon: IconClipboard, adminOnly: true },
       { to: '/admin/rapport-ventes-hebdomadaire', label: 'Rapport hebdomadaire', icon: IconClipboard, adminOnly: true },
     ],
   },
