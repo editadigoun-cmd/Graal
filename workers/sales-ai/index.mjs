@@ -1131,7 +1131,8 @@ export default {
     } catch (error) {
       return jsonResponse({ error: error?.message || "Authentification refusée." }, 401, cors);
     }
-    if (url.pathname === "/api/match-products") return matchProducts(request, env, auth, cors);\n    if (url.pathname === "/api/analyze-import") return analyzeImport(request, env, auth, cors);
+    if (url.pathname === "/api/match-products") return matchProducts(request, env, auth, cors);
+    if (url.pathname === "/api/analyze-import") return analyzeImport(request, env, auth, cors);
     let body;
     try {
       body = await request.json();
