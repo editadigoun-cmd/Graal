@@ -2,6 +2,7 @@
   "name": "provisit-grossiste-sync",
   "main": "index.mjs",
   "compatibility_date": "2026-11-23",
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": false,
   "browser": {
