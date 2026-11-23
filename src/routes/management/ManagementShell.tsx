@@ -35,15 +35,24 @@ const topItems: NavItem[] = [
 
 const groups: NavGroup[] = [
   {
+    label: 'Ventes',
+    icon: IconTrendingUp,
+    children: [
+      { to: '/admin/pilotage-ventes', label: 'Pilotage hebdomadaire', icon: IconBarChart },
+      { to: '/admin/objectifs-commerciaux', label: 'Objectif commercial', icon: IconBarChart, adminOnly: true },
+      { to: '/admin/analyse-resultats-mensuels', label: 'Analyse résultats mensuels', icon: IconTrendingUp, adminOnly: true },
+      { to: '/admin/analyse-ventes', label: 'Analyse évolutive', icon: IconTrendingUp },
+      { to: '/admin/statistiques-ventes', label: 'Statistiques quotidiennes', icon: IconBarChart, adminOnly: true },
+      { to: '/admin/rapport-ventes-hebdomadaire', label: 'Rapport hebdomadaire', icon: IconClipboard, adminOnly: true },
+    ],
+  },
+
+  {
     label: 'Pilotage',
     icon: IconBarChart,
     children: [
       { to: '/admin/programmes', label: 'Programmes', icon: IconClipboard },
       { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard },
-      { to: '/admin/pilotage-ventes', label: 'Pilotage des ventes', icon: IconBarChart },
-      { to: '/admin/analyse-ventes', label: 'Analyse des ventes', icon: IconTrendingUp },
-      { to: '/admin/objectifs-commerciaux', label: 'Objectif commercial', icon: IconBarChart, adminOnly: true },
-      { to: '/admin/analyse-resultats-mensuels', label: 'Analyse résultats mensuels', icon: IconTrendingUp, adminOnly: true },
       { to: '/admin/reporting', label: 'Reporting', icon: IconBarChart },
       { to: '/admin/couverture-mensuelle', label: 'Couverture mensuelle CRM', icon: IconTrendingUp, adminOnly: true },
       { to: '/admin/evaluation-superviseurs', label: 'Évaluation des superviseurs', icon: IconBarChart, adminOnly: true },
@@ -99,7 +108,7 @@ export function ManagementShell() {
   const unread = useUnreadNotifications()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['Pilotage', 'Terrain & activité', 'Administration']))
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['Pilotage', 'Ventes', 'Terrain & activité', 'Administration']))
 
   const supervisorPaths = new Set([
     '/admin/programmes', '/admin/plan-activites', '/admin/reporting',
