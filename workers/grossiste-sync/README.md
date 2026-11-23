@@ -1,6 +1,6 @@
 # Provisit Grossiste Sync Worker
 
-Phase: **read-only UBIPHARM portal authentication + extraction preview**.
+Phase: **read-only UBIPHARM portal navigation, extraction preview, and admin staging**.\n\nVerified on 2026-11-23: the portal landing page and the `StatsVentes` and `Achats` pages are reachable; `StatsVentes` exposes 26 product rows in the captured page. Authentication is not conclusively verified (the worker reports `not_confirmed`). The captured sales page is staged in Provisit under an Admin-only review run; the reference month for `Vente mois` is not confirmed, so no sales/stock/order data is written to the definitive tables.
 
 The worker opens the UBIPHARM supplier portal through Cloudflare Browser Rendering, authenticates using configured Cloudflare secrets, and returns a limited preview of visible page text, tables, links and download candidates. It does **not** click export/download controls, modify portal data, or write any data to Provisit yet. Every result is marked as requiring review and not imported.
 
