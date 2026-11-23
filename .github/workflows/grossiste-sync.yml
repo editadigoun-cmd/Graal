@@ -1,0 +1,41 @@
+name: Deploy Provisit UBIPHARM Sync Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "workers/grossiste-sync/**"
+      - ".github/workflows/grossiste-sync.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/grossiste-sync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: workers/grossiste-sync/package.json
+      - run: npm install
+      - run: npm test
+      - name: Deploy Worker
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      - name: Configure Worker secrets
+        run: |
+          printf '%s' "$SYNC_TOKEN" | npx wrangler secret put SYNC_TOKEN
+          printf '%s' "$UBIPHARM_USERNAME" | npx wrangler secret put UBIPHARM_USERNAME
+          printf '%s' "$UBIPHARM_PASSWORD" | npx wrangler secret put UBIPHARM_PASSWORD
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
+          UBIPHARM_USERNAME: ${{ secrets.UBIPHARM_USERNAME }}
+          UBIPHARM_PASSWORD: ${{ secrets.UBIPHARM_PASSWORD }}
