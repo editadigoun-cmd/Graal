@@ -53,7 +53,7 @@ jobs:
           echo "curl exit code: ${curl_status:-0}"
           echo "HTTP status: ${http_code:-no-response}"
           if [ -f response.json ]; then
-            jq '{provider,status,authenticated,mode,reviewRequired,imported,elapsedMs,pages:(.pages|length),tableCount:(.pages|map(.tables|length)|add // 0),rowCount:(.pages|map([.tables[].rows|length]|add // 0)|add // 0),titles:(.pages|map(.title)),pageUrls:(.pages|map(.url))}' response.json 2>/dev/null || echo "Could not parse summary."
+            jq '{provider,status,authenticated,mode,reviewRequired,imported,elapsedMs,pages:(.pages|length),tableCount:(.pages|map(.tables|length)|add // 0),rowCount:(.pages|map([.tables[].rows|length]|add // 0)|add // 0),titles:(.pages|map(.title)),pageUrls:(.pages|map(.url)),diagnostics:{title:.diagnostics.title,url:.diagnostics.url,headings:.diagnostics.headings,loginVisible:.diagnostics.loginVisible,verificationRequired:.diagnostics.verificationRequired,forms:.diagnostics.forms,inputs:.diagnostics.inputs,links:(.diagnostics.links|map({text,path})|.[:40]),pageTextSignals:.diagnostics.pageTextSignals}}' response.json 2>/dev/null || echo "Could not parse summary."
           fi
           if [ "${curl_status:-0}" -ne 0 ]; then echo "Portal preview failed or timed out; deploy/test results remain separate."; exit 0; fi
           if [ "${http_code:-0}" -ge 500 ]; then echo "Portal preview server error; deployment/test results remain separate."; fi
