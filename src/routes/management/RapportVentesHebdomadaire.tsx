@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
 import { Card } from '@/components/ui/Card'
 import { supabase } from '@/lib/supabase'
-type Lab={id:string;nom:string};type Grossiste={id:string;nom:string};type Product={id:string;nom:string;pght:number};type Sale={produit_id:string;grossiste_id:string;semaine_debut:string;quantite:number}
+type Lab={id:string;nom:string};type Grossiste={id:string;nom:string};type Product={id:string;nom:string;pght:number};type Sale={produit_id:string;grossiste_id:string;semaine_debut:string;quantite:number};type StockRow={produit_id:string;grossiste_id:string;semaine_debut:string;quantite:number}
 function fmt(n:number){return n.toLocaleString('fr-FR',{maximumFractionDigits:1})}
 function weeksOfMonth(ym:string){const d=dayjs(ym+'-01');return Array.from({length:5},(_,i)=>({label:'S'+(i+1),start:d.add(i*7,'day').startOf('day').format('YYYY-MM-DD'),from:i*7+1,to:Math.min(i*7+7,d.daysInMonth())})).filter(w=>w.from<=d.daysInMonth())}
 export default function RapportVentesHebdomadaire(){
