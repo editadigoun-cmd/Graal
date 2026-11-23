@@ -43,7 +43,7 @@ stage="diagnostics";const d=await timed(diagnostics(page),LIMIT.diagnostics,stag
 const UBIPHARM_ID="c7af99dc-93fd-4c93-a5d8-504ebcb4cba8";
 function beninDateParts(d=new Date()){return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Porto-Novo",year:"numeric",month:"2-digit",day:"2-digit"}).format(d)}
 function monthStart(date){return date.slice(0,7)+"-01"}
-function parseUbipharmRows(payload){
+export function parseUbipharmRows(payload){
  const out=[];
  for(const pg of payload?.pages||[]){
   for(const table of pg.tables||[]){
