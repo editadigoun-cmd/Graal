@@ -1,5 +1,4 @@
 name: Deploy Provisit UBIPHARM Sync Worker
-
 on:
   push:
     branches: [main]
@@ -7,7 +6,6 @@ on:
       - "workers/grossiste-sync/**"
       - ".github/workflows/grossiste-sync.yml"
   workflow_dispatch:
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -39,27 +37,21 @@ jobs:
           UBIPHARM_PASSWORD: ${{ secrets.UBIPHARM_PASSWORD }}
       - name: Inspect UBIPHARM portal (read-only)
         run: |
-          response=$(curl --fail-with-body --silent --show-error \
+          response=$(curl --fail-with-body --silent --show-error --max-time 95 --connect-timeout 15 \
             -X POST "https://provisit-grossiste-sync.ccds22431.workers.dev/inspect/ubipharm" \
-            -H "Authorization: Bearer $SYNC_TOKEN" \
-            -H "Content-Type: application/json")
+            -H "Authorization: Bearer $SYNC_TOKEN" -H "Content-Type: application/json")
           echo "$response" | jq .
         env:
           SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
       - name: Inspect authenticated UBIPHARM space (read-only)
         run: |
-          http_code=$(curl --silent --show-error --output response.json --write-out "%{http_code}" \
+          http_code=$(curl --silent --show-error --output response.json --write-out "%{http_code}" --max-time 95 --connect-timeout 15 \
             -X POST "https://provisit-grossiste-sync.ccds22431.workers.dev/inspect/ubipharm/authenticated" \
-            -H "Authorization: Bearer $SYNC_TOKEN" \
-            -H "Content-Type: application/json")
-          echo "HTTP status: $http_code"
-          if jq . response.json; then
-            echo "Inspection response displayed."
-          else
-            cat response.json
-          fi
-          if [ "$http_code" -ge 500 ]; then
-            echo "Portal inspection returned a server error; deployment/test results remain separate."
-          fi
+            -H "Authorization: Bearer $SYNC_TOKEN" -H "Content-Type: application/json") || curl_status=$?
+          echo "curl exit code: ${curl_status:-0}"
+          echo "HTTP status: ${http_code:-no-response}"
+          jq . response.json 2>/dev/null || cat response.json 2>/dev/null || true
+          if [ "${curl_status:-0}" -ne 0 ]; then echo "Timed out/failed; deployment and tests remain separate."; exit 0; fi
+          if [ "$http_code" -ge 500 ]; then echo "Portal inspection server error; deployment/test results remain separate."; fi
         env:
           SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
