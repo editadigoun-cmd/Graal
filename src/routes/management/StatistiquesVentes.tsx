@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import dayjs from 'dayjs'
 import { Card } from '@/components/ui/Card'
 import { supabase } from '@/lib/supabase'
@@ -24,7 +24,49 @@ export default function StatistiquesVentes(){
  return <div className="space-y-5"><header><h1 className="text-xl font-extrabold text-ink-800">Statistiques des ventes · suivi mensuel</h1><p className="text-sm text-ink-400">Suivi mensuel automatique, arrêté à la date du jour.</p></header>
  <Card className="p-4"><div className="grid grid-cols-1 gap-3 sm:grid-cols-3"><label className="text-xs font-semibold text-ink-500">Laboratoire<select value={lab} onChange={e=>setLab(e.target.value)} className="mt-1 block w-full rounded-xl border p-2.5 text-sm">{labs.map(x=><option key={x.id} value={x.id}>{x.nom}</option>)}</select></label><label className="text-xs font-semibold text-ink-500">Grossiste<select value={grossiste} onChange={e=>setGrossiste(e.target.value)} className="mt-1 block w-full rounded-xl border p-2.5 text-sm"><option value="">Tous les grossistes</option>{grossistes.map(x=><option key={x.id} value={x.id}>{x.nom}</option>)}</select></label><div className="rounded-xl border bg-slate-50 p-2.5 text-sm"><span className="text-xs text-slate-500">Date automatique</span><div className="font-semibold">{today.format("DD/MM/YYYY")}</div><div className="text-xs text-slate-500">{elapsedDays}/{daysInMonth} jours</div></div></div><div className="mt-3 flex justify-end"><button onClick={exportCsv} className="rounded-xl border px-3 py-2 text-sm">Exporter CSV</button></div></Card>
  <div className="grid grid-cols-2 gap-3"><Card className="p-4"><p className="text-xs text-ink-400">Unités vendues · mois</p><p className="mt-1 text-2xl font-bold">{fmt(monthlyUnits)} <span className="text-sm font-normal">u.</span></p></Card><Card className="p-4"><p className="text-xs text-ink-400">CA cumulé du mois</p><p className="mt-1 text-2xl font-bold">{fmt(monthlyCa)} €</p></Card></div>
- <Card className="p-4"><h2 className="font-bold">Objectif commercial · {today.format("MMMM YYYY")}</h2><div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3"><div className="rounded-xl border bg-slate-50 p-3"><p className="text-xs text-ink-500">Objectif mensuel</p><p className="text-xl font-bold">{fmt(monthlyObjective)} €</p><p className="text-xs text-ink-500">Objectif unités : {fmt(unitGoal)}</p></div><div className="rounded-xl border bg-slate-50 p-3"><p className="text-xs text-ink-500">Objectif à date</p><p className="text-xl font-bold">{fmt(objectiveToDate)} €</p><p className="text-xs text-ink-500">Unités attendues : {fmt(unitsObjectiveToDate)}</p></div><div className="rounded-xl border bg-slate-50 p-3"><p className="text-xs text-ink-500">CA cumulé à date (tous grossistes)</p><p className="text-xl font-bold">{fmt(monthlyCaAll)} €</p><p className={"text-xs font-semibold "+(variance>=0?"text-emerald-700":"text-red-600")}>{variance>=0?"Avance":"Retard"} : {fmt(Math.abs(variance))} €</p></div></div><div className="mt-4 flex flex-wrap items-center gap-4"><div className="relative h-36 w-36 shrink-0"><svg viewBox="0 0 120 120" className="h-full w-full -rotate-90"><circle cx="60" cy="60" r="48" stroke="#e2e8f0" strokeWidth="12" fill="none"/><circle cx="60" cy="60" r="48" stroke={objectiveRate>=100?"#059669":objectiveRate>=80?"#f59e0b":"#dc2626"} strokeWidth="12" fill="none" strokeDasharray={301.6} strokeDashoffset={301.6*(1-Math.min(objectiveRate,100)/100)} strokeLinecap="round"/></svg><div className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-xl font-extrabold">{fmt(objectiveRate)}%</span><span className="text-[10px] text-slate-500">objectif à date</span></div></div><div className="min-w-0 flex-1 space-y-2"><div className="rounded-xl border bg-slate-50 p-3"><p className="text-xs text-slate-500">Réalisation objectif mensuel</p><p className="font-bold">{fmt(monthlyRate)}%</p></div><div className="rounded-xl border bg-slate-50 p-3"><p className="text-xs text-slate-500">Réalisation objectif attendu à date</p><p className={"font-bold "+(objectiveRate>=100?"text-emerald-700":"text-red-600")}>{fmt(objectiveRate)}%</p></div><div className="rounded-xl border bg-slate-50 p-3"><p className="text-xs text-slate-500">Objectif à date · unités</p><p className="font-bold">{fmt(unitsObjectiveToDate)} u.</p></div></div></div></Card><Card className="p-4"><h2 className="font-bold">Répartition du CA par grossiste</h2>{mix.length?<div className="mt-3 h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={mix} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={({name,percent})=>name+' '+(percent*100).toFixed(0)+'%'}>{mix.map((x,i)=><Cell key={x.name} fill={['#0f766e','#0891b2','#6366f1','#f59e0b','#e11d48','#8b5cf6','#14b8a6'][i%7]}/>}</Pie><Tooltip formatter={(v:any)=>fmt(Number(v))+' €'}/></PieChart></ResponsiveContainer></div>:<p className="mt-4 text-sm text-ink-400">—</p>}</Card>
- <div className="grid grid-cols-1 gap-3 md:grid-cols-2"><Card className="p-4"><p className="text-xs text-ink-400">Stock total des dépôts · dernier relevé</p><p className="mt-1 text-2xl font-extrabold">{fmt(stockTotal)} unités</p></Card><Card className="p-4"><p className="text-xs text-ink-400">Références actives avec données</p><p className="mt-1 text-2xl font-extrabold">{rows.length}</p></Card></div>
- <Card className="overflow-x-auto"><div className="p-4"><h2 className="font-bold">Détail par produit · cumul du mois</h2>{loading&&<p className="mt-2 text-sm text-ink-400">Chargement…</p>}</div><table className="min-w-full text-xs"><thead><tr className="bg-ink-50"><th className="p-3 text-left">Produit</th><th className="p-3 text-right">Stock</th><th className="p-3 text-right">PGHT (€)</th><th className="p-3 text-right">Quantité</th><th className="p-3 text-right">CA (€)</th></tr></thead><tbody>{rows.map(p=><tr key={p.id} className="border-t"><td className="p-3">{p.nom}</td><td className="p-3 text-right">{fmt(p.stock)}</td><td className="p-3 text-right">{fmt(p.pght)}</td><td className="p-3 text-right">{fmt(p.qty)}</td><td className="p-3 text-right font-semibold">{fmt(p.ca)}</td></tr>)}</tbody><tfoot><tr className="border-t-2 bg-ink-50 font-bold"><td className="p-3">TOTAL</td><td className="p-3 text-right">{fmt(stockTotal)}</td><td></td><td className="p-3 text-right">{fmt(monthlyUnits)}</td><td className="p-3 text-right">{fmt(monthlyCa)} €</td></tr></tfoot></table></Card></div>
+ <Card className="p-4">
+  <h2 className="font-bold">Objectif commercial · {today.format("MMMM YYYY")}</h2>
+  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+   <div className="rounded-xl border bg-slate-50 p-3">
+    <p className="text-xs text-ink-500">Objectif mensuel</p><p className="text-xl font-bold">{fmt(monthlyObjective)} €</p>
+   </div>
+   <div className="rounded-xl border bg-slate-50 p-3">
+    <p className="text-xs text-ink-500">Objectif à date</p><p className="text-xl font-bold">{fmt(objectiveToDate)} €</p>
+   </div>
+   <div className="rounded-xl border bg-slate-50 p-3">
+    <p className="text-xs text-ink-500">CA cumulé</p><p className="text-xl font-bold">{fmt(monthlyCaAll)} €</p>
+   </div>
+  </div>
+  <div className="mt-4 flex flex-wrap items-center gap-4">
+   <div className="relative h-36 w-36 shrink-0">
+    <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+     <circle cx="60" cy="60" r="48" stroke="#e2e8f0" strokeWidth="12" fill="none"/>
+     <circle cx="60" cy="60" r="48" stroke={objectiveRate>=100?"#059669":objectiveRate>=80?"#f59e0b":"#dc2626"} strokeWidth="12" fill="none" strokeDasharray="301.6" strokeDashoffset={301.6*(1-Math.min(objectiveRate,100)/100)} strokeLinecap="round"/>
+    </svg>
+    <div className="absolute inset-0 flex flex-col items-center justify-center">
+     <span className="text-xl font-extrabold">{fmt(objectiveRate)}%</span><span className="text-[10px] text-slate-500">objectif à date</span>
+    </div>
+   </div>
+   <div className="min-w-0 flex-1 space-y-2">
+    <div className="rounded-xl border bg-slate-50 p-3"><p className="text-xs text-slate-500">Réalisation objectif mensuel</p><p className="font-bold">{fmt(monthlyRate)}%</p></div>
+    <div className="rounded-xl border bg-slate-50 p-3"><p className="text-xs text-slate-500">Réalisation objectif à date</p><p className="font-bold">{fmt(objectiveRate)}%</p></div>
+    <div className="rounded-xl border bg-slate-50 p-3"><p className="text-xs text-slate-500">Écart à date</p><p className={"font-bold "+(variance>=0?"text-emerald-700":"text-red-600")}>{variance>=0?"Avance":"Retard"} : {fmt(Math.abs(variance))} €</p></div>
+   </div>
+  </div>
+ </Card>
+ <Card className="p-4">
+  <h2 className="font-bold">Répartition du CA par grossiste</h2>
+  {mix.length>0 ? <div className="mt-3 h-64">
+   <ResponsiveContainer width="100%" height="100%">
+    <PieChart>
+     <Pie data={mix} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={({name,percent})=>name+" "+(percent*100).toFixed(0)+"%"}>
+      {mix.map((x,i)=><Cell key={x.name} fill={["#0f766e","#0891b2","#6366f1","#f59e0b","#e11d48","#8b5cf6","#14b8a6"][i%7]}/>)}
+     </Pie>
+     <Tooltip formatter={(v:any)=>fmt(Number(v))+" €"}/>
+    </PieChart>
+   </ResponsiveContainer>
+  </div> : <p className="mt-4 text-sm text-ink-400">—</p>}
+ </Card>
+ <div className="grid grid-cols-1 gap-3 md:grid-cols-2"><Card className="p-4"><p className="text-xs text-ink-400">Stock total</p><p className="mt-1 text-2xl font-extrabold">{fmt(stockTotal)} unités</p></Card><Card className="p-4"><p className="text-xs text-ink-400">Lignes produit</p><p className="mt-1 text-2xl font-extrabold">{rows.length}</p></Card></div>
+ <Card className="overflow-x-auto"><div className="p-4"><h2 className="font-bold">Détail par produit</h2>{loading&&<p className="mt-2 text-sm text-ink-400">Chargement…</p>}</div><table className="min-w-full text-xs"><thead><tr className="bg-ink-50"><th className="p-3 text-left">Produit</th><th className="p-3 text-right">Stock</th><th className="p-3 text-right">PGHT (€)</th><th className="p-3 text-right">Quantité</th><th className="p-3 text-right">CA (€)</th></tr></thead><tbody>{rows.map(p=><tr key={p.id} className="border-t"><td className="p-3">{p.nom}</td><td className="p-3 text-right">{fmt(p.stock)}</td><td className="p-3 text-right">{fmt(p.pght)}</td><td className="p-3 text-right">{fmt(p.qty)}</td><td className="p-3 text-right font-semibold">{fmt(p.ca)}</td></tr>)}</tbody><tfoot><tr className="border-t-2 bg-ink-50 font-bold"><td className="p-3">TOTAL</td><td className="p-3 text-right">{fmt(stockTotal)}</td><td></td><td className="p-3 text-right">{fmt(monthlyUnits)}</td><td className="p-3 text-right">{fmt(monthlyCa)} €</td></tr></tfoot></table></Card></div>
 }
