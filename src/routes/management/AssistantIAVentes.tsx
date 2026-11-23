@@ -30,7 +30,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
   const [avertissements, setAvertissements] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
-  const [erreur, setErreur] = useState('')
+  const [erreur, setErreur] = useState('')\n  const [aiFindings, setAiFindings] = useState<Array<{row:number;severity:string;message:string;recommendation:string}>>([])\n  const [aiSummary, setAiSummary] = useState('')
 
   useEffect(() => {
     if (!grossisteId && grossistes.length) setGrossisteId(grossistes[0].id)
@@ -78,7 +78,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
     if (!['csv', 'pdf'].includes(fichier.name.toLowerCase().split('.').pop() ?? '')) {
       setErreur('Le moteur local accepte actuellement les fichiers CSV et PDF.'); return
     }
-    setBusy(true); setErreur(''); setMessage('Lecture du document sur cet appareil…')
+    setBusy(true); setErreur(''); setAiFindings([]); setAiSummary(''); setMessage('Lecture du document sur cet appareil…')
     try {
       const grossiste = grossistes.find((g) => g.id === grossisteId)
       const parsed = await analyserFichierLocal(fichier, grossiste?.nom ?? '')
@@ -166,6 +166,27 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
         } catch {
           // Les suggestions locales restent utilisables si le service IA est indisponible.
         }
+      }
+
+      // Audit IA des données extraites : la sortie IA reste une alerte de revue, jamais une source de chiffres.
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const accessToken = sessionData.session?.access_token
+        const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
+        if (accessToken && publishableKey) {
+          const auditResponse = await fetch((import.meta.env.VITE_GRAAL_SALES_AI_URL || 'https://graal-sales-ai.ccds22431.workers.dev') + '/api/analyze-import', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + accessToken, apikey: publishableKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wholesaler: grossiste?.nom ?? '', period: parsed.moisReference, rows: parsed.lignes.slice(0, 100).map(row => ({ designation: row.designation, code: row.codeExterne, quantity: row.ventesPeriode, stock: row.stock })) })
+          })
+          if (auditResponse.ok) {
+            const audit = await auditResponse.json()
+            setAiFindings(audit.findings ?? [])
+            setAiSummary(audit.summary ?? '')
+          } else setMessage('Import lu. L’audit IA n’a pas répondu; les contrôles automatiques restent actifs.')
+        }
+      } catch {
+        setMessage('Import lu. Audit IA indisponible; les contrôles automatiques restent actifs.')
       }
 
       const bytes = await fichier.arrayBuffer()
@@ -276,7 +297,7 @@ export default function AssistantIAVentes({ grossistes, laboratoires, semaineDeb
       <div className="flex flex-wrap items-center justify-between gap-2"><div><button onClick={() => { setSelection(null); setLignes([]); setMessage('') }} className="mb-1 flex items-center gap-1 text-xs font-semibold text-ink-500"><IconChevronLeft className="h-3 w-3" /> Historique</button><p className="text-sm font-bold text-ink-800">{selection.fichier_nom}</p><p className="text-[10px] text-ink-400">{fmtDate(selection.created_at)}</p></div><Badge tone={selection.statut === 'valide' ? 'success' : selection.statut === 'erreur' ? 'danger' : 'warning'}>{selection.statut.replace('_',' ')}</Badge></div>
       {resume && <p className="rounded-lg bg-ink-50 p-3 text-xs text-ink-600">{resume}</p>}
       {avertissements.map((a, i) => <p key={i} className="text-[11px] text-amber-700">⚠ {a}</p>)}
-      {selection.statut === 'a_verifier' && <div className={`rounded-xl border p-3 ${rapportValidation.peutValider ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}><p className="text-xs font-bold">{rapportValidation.peutValider ? 'Contrôles automatiques : validation possible après revue' : 'Contrôles automatiques : validation bloquée'}</p><p className="mt-1 text-[11px]">{rapportValidation.totalLignes} lignes · total extrait : {rapportValidation.totalVentes.toLocaleString('fr-FR')} unités · {rapportValidation.anomalies.length} anomalie(s)</p>{rapportValidation.anomalies.map((a, i) => <p key={`${a.code}-${i}`} className={`mt-1 text-[11px] ${a.niveau === 'bloquante' ? 'font-semibold text-red-700' : 'text-amber-800'}`}>{a.niveau === 'bloquante' ? '⛔' : '⚠️'} {a.message}</p>)}</div>}
+      {aiSummary || aiFindings.length ? <div className="rounded-xl border border-violet-200 bg-violet-50 p-3"><p className="text-xs font-bold text-violet-900">Analyse IA complémentaire</p>{aiSummary && <p className="mt-1 text-xs text-violet-800">{aiSummary}</p>}{aiFindings.map((f, i) => <p key={i} className="mt-1 text-[11px] text-violet-800">Ligne {f.row} · {f.severity === 'critical' ? '⚠️ critique' : 'Attention'} — {f.message}{f.recommendation ? ` Recommandation : ${f.recommendation}` : ''}</p>)}<p className="mt-1 text-[10px] text-violet-600">L’IA n’a pas modifié les chiffres. Vérifiez chaque alerte sur le document source.</p></div>}{selection.statut === 'a_verifier' && <div className={`rounded-xl border p-3 ${rapportValidation.peutValider ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}><p className="text-xs font-bold">{rapportValidation.peutValider ? 'Contrôles automatiques : validation possible après revue' : 'Contrôles automatiques : validation bloquée'}</p><p className="mt-1 text-[11px]">{rapportValidation.totalLignes} lignes · total extrait : {rapportValidation.totalVentes.toLocaleString('fr-FR')} unités · {rapportValidation.anomalies.length} anomalie(s)</p>{rapportValidation.anomalies.map((a, i) => <p key={`${a.code}-${i}`} className={`mt-1 text-[11px] ${a.niveau === 'bloquante' ? 'font-semibold text-red-700' : 'text-amber-800'}`}>{a.niveau === 'bloquante' ? '⛔' : '⚠️'} {a.message}</p>)}</div>}
       {selection.statut === 'a_verifier' && <>
         <div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-semibold text-ink-600">Mois du relevé<input type="month" value={mois} onChange={(e) => setMois(e.target.value)} className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm" /></label><label className="text-xs font-semibold text-ink-600">Semaine de destination<input type="date" value={semaine} onChange={(e) => setSemaine(e.target.value)} className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm" /></label></div>
         <div className="flex flex-wrap items-center gap-2 text-[11px]"><Badge tone="success">{lignes.length - nonAssociees} associé(s)</Badge>{nonAssociees > 0 && <Badge tone="warning">{nonAssociees} à associer</Badge>}<span className="text-ink-400">Contrôlez les valeurs et corrigez les correspondances.</span></div>
