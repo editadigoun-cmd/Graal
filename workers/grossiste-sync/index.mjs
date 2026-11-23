@@ -1,4 +1,3 @@
-import { launch } from "@cloudflare/playwright";
 
 /**
  * Provisit Grossiste Sync Worker.
@@ -24,6 +23,8 @@ export default {
     if (!env.BROWSER) return json({ status: "browser_binding_missing" }, 503);
     let browser;
     try {
+      // Load Cloudflare-only Playwright runtime only inside the Workers execution path.
+      const { launch } = await import("@cloudflare/playwright");
       browser = await launch(env.BROWSER);
       const page = await browser.newPage();
       page.setDefaultNavigationTimeout(45000);
