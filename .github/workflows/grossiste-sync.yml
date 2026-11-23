@@ -36,6 +36,7 @@ jobs:
           UBIPHARM_USERNAME: ${{ secrets.UBIPHARM_USERNAME }}
           UBIPHARM_PASSWORD: ${{ secrets.UBIPHARM_PASSWORD }}
       - name: Inspect UBIPHARM portal (read-only)
+        if: github.event_name == 'workflow_dispatch'
         run: |
           response=$(curl --fail-with-body --silent --show-error --max-time 95 --connect-timeout 15 \
             -X POST "https://provisit-grossiste-sync.ccds22431.workers.dev/inspect/ubipharm" \
@@ -44,6 +45,7 @@ jobs:
         env:
           SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
       - name: Inspect authenticated UBIPHARM space (read-only)
+        if: github.event_name == 'workflow_dispatch'
         run: |
           http_code=$(curl --silent --show-error --output response.json --write-out "%{http_code}" --max-time 95 --connect-timeout 15 \
             -X POST "https://provisit-grossiste-sync.ccds22431.workers.dev/inspect/ubipharm/authenticated" \
