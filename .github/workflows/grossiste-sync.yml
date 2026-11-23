@@ -59,3 +59,11 @@ jobs:
           if [ "${http_code:-0}" -ge 500 ]; then echo "Portal preview server error; deployment/test results remain separate."; fi
         env:
           SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
+      - name: Upload UBIPHARM extraction preview for review
+        if: always() && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubipharm-preview-${{ github.run_id }}
+          path: workers/grossiste-sync/response.json
+          if-no-files-found: ignore
+          retention-days: 3
