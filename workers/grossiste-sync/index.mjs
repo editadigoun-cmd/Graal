@@ -20,7 +20,6 @@ async function diagnostics(page) {
       try {
         const u = new URL(href, location.href);
         if (u.origin !== location.origin) return null;
-        // Keep paths only; never expose query parameters that may contain tokens.
         return u.pathname;
       } catch { return null; }
     };
@@ -65,10 +64,10 @@ export default {
       return json({ error: "Not found" }, 404);
     }
     if (!authorized(request, env)) return json({ error: "Unauthorized" }, 401);
-    if (!env.BROWSER) return json({ status: "browser_binding_missing" }, 503);
     if (route.endsWith("/authenticated") && (!env.UBIPHARM_USERNAME || !env.UBIPHARM_PASSWORD)) {
       return json({ status: "credentials_missing" }, 503);
     }
+    if (!env.BROWSER) return json({ status: "browser_binding_missing" }, 503);
     let browser;
     try {
       const { launch } = await import("@cloudflare/playwright");
@@ -86,11 +85,8 @@ export default {
         await login.fill(env.UBIPHARM_USERNAME);
         await password.fill(env.UBIPHARM_PASSWORD);
         const submit = page.locator('form button[type="submit"], form input[type="submit"], button:has-text("Se connecter")').first();
-        if (await submit.count()) {
-          await submit.click();
-        } else {
-          await page.locator("form").first().evaluate(form => form.requestSubmit());
-        }
+        if (await submit.count()) await submit.click();
+        else await page.locator("form").first().evaluate(form => form.requestSubmit());
         try { await page.waitForLoadState("domcontentloaded", { timeout: 12000 }); } catch {}
         await page.waitForTimeout(2500);
         const d = await diagnostics(page);
