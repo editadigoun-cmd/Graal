@@ -6,11 +6,10 @@ import { useAuth } from '@/features/auth/AuthProvider'
 type Run={id:string;grossiste_id:string;status:string;started_at:string;finished_at:string|null;rows_found:number;rows_matched:number;rows_unmatched:number;summary:string|null}
 type Page={id:string;sync_run_id:string;page_order:number;page_url:string;page_title:string|null;extracted_payload:any;review_status:string}
 type Product={id:string;nom:string;equipe_id?:string}
-type Supplier={id:string;nom:string}
 const date=(v:string)=>new Date(v).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})
 export default function GrossisteSync(){
- const {profile}=useAuth(); const [runs,setRuns]=useState<Run[]>([]); const [pages,setPages]=useState<Page[]>([]); const [selected,setSelected]=useState(''); const [loading,setLoading]=useState(true); const [busy,setBusy]=useState(''); const [error,setError]=useState(''); const [catalog,setCatalog]=useState<Product[]>([]); const [suppliers,setSuppliers]=useState<Supplier[]>([]); const [choices,setChoices]=useState<Record<string,string>>({})
- const reload=useCallback(async()=>{setLoading(true);setError('');const {data,error}=await (supabase as any).from('grossiste_sync_runs').select('*').order('started_at',{ascending:false}).limit(50);if(error){setError(error.message);setLoading(false);return}const rs=(data??[]) as Run[];setRuns(rs); const {data:prod}=await (supabase as any).from('produits').select('id,nom,equipe_id').eq('actif',true).order('nom');setCatalog((prod??[]) as Product[]);const {data:sup}=await (supabase as any).from('grossistes').select('id,nom');setSuppliers((sup??[]) as Supplier[]);const id=selected&&rs.some(r=>r.id===selected)?selected:rs[0]?.id??'';setSelected(id);if(id){const {data:p,error:pe}=await (supabase as any).from('grossiste_sync_preview_pages').select('*').eq('sync_run_id',id).order('page_order');if(pe)setError(pe.message);setPages((p??[]) as Page[])}else setPages([]);setLoading(false)},[selected])
+ const {profile}=useAuth(); const [runs,setRuns]=useState<Run[]>([]); const [pages,setPages]=useState<Page[]>([]); const [selected,setSelected]=useState(''); const [loading,setLoading]=useState(true); const [busy,setBusy]=useState(''); const [error,setError]=useState(''); const [catalog,setCatalog]=useState<Product[]>([]); const [choices,setChoices]=useState<Record<string,string>>({})
+ const reload=useCallback(async()=>{setLoading(true);setError('');const {data,error}=await (supabase as any).from('grossiste_sync_runs').select('*').order('started_at',{ascending:false}).limit(50);if(error){setError(error.message);setLoading(false);return}const rs=(data??[]) as Run[];setRuns(rs); const {data:prod}=await (supabase as any).from('produits').select('id,nom,equipe_id').eq('actif',true).order('nom');setCatalog((prod??[]) as Product[]);const id=selected&&rs.some(r=>r.id===selected)?selected:rs[0]?.id??'';setSelected(id);if(id){const {data:p,error:pe}=await (supabase as any).from('grossiste_sync_preview_pages').select('*').eq('sync_run_id',id).order('page_order');if(pe)setError(pe.message);const run=rs.find(r=>r.id===id);let pageRows=(p??[]) as Page[];if(run?.grossiste_id){const {data:maps}=await (supabase as any).from('mappings_produits_grossistes').select('code_externe,produit_id').eq('grossiste_id',run.grossiste_id);const mapByCode=new Map((maps??[]).map((m:any)=>[String(m.code_externe).trim(),m.produit_id]));pageRows=pageRows.map(pg=>{const review=pg.extracted_payload?.matching_review;if(!Array.isArray(review))return pg;let changed=false;const updated=review.map((m:any)=>{const pid=mapByCode.get(String(m.source_code||'').trim());if(!pid||m.decision==='rejected')return m;const prod=(prod??[]).find((x:any)=>x.id===pid);if(!prod)return m;changed=true;return {...m,candidate_product_id:pid,candidate_product:prod.nom,status:'matched_from_memory',decision:'auto_mapped',mapping_scope:'portal_grossiste'};});return changed?{...pg,extracted_payload:{...pg.extracted_payload,matching_review:updated}}:pg;});}setPages(pageRows)}else setPages([]);setLoading(false)},[selected])
  useEffect(()=>{reload()},[])
  async function decide(page:Page,index:number,decision:'accepted'|'rejected'){
   setBusy(page.id+index);setError('');
@@ -19,15 +18,14 @@ export default function GrossisteSync(){
   if(decision==='accepted'){
    const productId=choices[page.id+index]||m.candidate_product_id;
    if(!productId){setError('Choisissez un produit du catalogue.');setBusy('');return;}
-   const supplierName=String(m.supplier||'').trim().toLocaleLowerCase('fr-FR');
-   const supplier=suppliers.find(s=>s.nom.trim().toLocaleLowerCase('fr-FR')===supplierName);
-   if(!supplier){setError("Ce fournisseur ("+(m.supplier||"non précisé")+") n'est pas configuré dans Provisit. La correspondance ne sera pas mémorisée avant sa configuration.");setBusy('');return;}
+   const run=runs.find(r=>r.id===page.sync_run_id);
+   if(!run?.grossiste_id){setError('Grossiste source du rapport introuvable : mémorisation refusée.');setBusy('');return;}
    const sourceCode=String(m.source_code||'').trim();
-   if(!sourceCode){setError("Code fournisseur absent : mémorisation refusée.");setBusy('');return;}
+   if(!sourceCode){setError('Code externe absent : mémorisation refusée.');setBusy('');return;}
    m.candidate_product_id=productId;
    m.candidate_product=catalog.find(x=>x.id===productId)?.nom||m.candidate_product;
-   m.decision='accepted';m.status='validated';
-   const {error:me}=await (supabase as any).from('mappings_produits_grossistes').upsert({grossiste_id:supplier.id,code_externe:sourceCode,produit_id:productId},{onConflict:'grossiste_id,code_externe'});
+   m.decision='accepted';m.status='validated';m.mapping_scope='portal_grossiste';
+   const {error:me}=await (supabase as any).from('mappings_produits_grossistes').upsert({grossiste_id:run.grossiste_id,code_externe:sourceCode,produit_id:productId},{onConflict:'grossiste_id,code_externe'});
    if(me){setError('Mémoire non sauvegardée: '+me.message);setBusy('');return;}
   }else{m.decision='rejected';}
   arr[index]=m;
