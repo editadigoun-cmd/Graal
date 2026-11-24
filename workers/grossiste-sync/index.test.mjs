@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker, { parseUbipharmRows } from "./index.mjs";
+import worker, { parseUbipharmRows, parseUbipharmStockRows } from "./index.mjs";
 const env = { SYNC_TOKEN: "test-token" };
 const req = (path, method="GET", token=null) => new Request("https://sync.example"+path, { method, headers: token ? {authorization:"Bearer "+token} : {} });
 test("health endpoint reports UBIPHARM read-only extraction mode", async () => { const res=await worker.fetch(req("/health"),env); const data=await res.json(); assert.equal(res.status,200); assert.equal(data.mode,"read-only-portal-extraction"); assert.equal(data.provider,"ubipharm"); });
@@ -21,4 +21,22 @@ test("parses cumulative monthly sales rows from UBIPHARM stats table",()=>{
 test("ignores rows without product code or numeric cumulative value",()=>{
  const payload={pages:[{tables:[{headers:["Produit","Vente mois"],rows:[["A","4"],["B",""],["No code","2"]]}]}]};
  assert.equal(parseUbipharmRows(payload).length,0);
+});
+
+test("manual sync route rejects unauthenticated requests", async () => {
+ const res=await worker.fetch(req("/sync/ubipharm","POST"),env);
+ assert.equal(res.status,403);
+ const data=await res.json();
+ assert.equal(data.status,"forbidden");
+});
+test("manual sync route supports browser preflight", async () => {
+ const res=await worker.fetch(req("/sync/ubipharm","OPTIONS"),env);
+ assert.equal(res.status,204);
+ assert.equal(res.headers.get("access-control-allow-origin"),"*");
+});
+test("parses stock, orders and monthly sales from UBIPHARM rows",()=>{
+ const payload={pages:[{tables:[{headers:["Produit","Nb mois stock","Stock","Cde en cours","Moy. ventes","Vente mois"],rows:[["PROTON 20MG GEL B/14\\n8036782","2.5","18","4","7.2","25"]]}]}]};
+ const rows=parseUbipharmStockRows(payload);
+ assert.equal(rows.length,1);
+ assert.deepEqual([rows[0].code_externe,rows[0].stock_quantity,rows[0].order_quantity,rows[0].cumulative_quantity],["8036782",18,4,25]);
 });
