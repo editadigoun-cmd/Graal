@@ -101,6 +101,7 @@ declare
   v_stock_rows integer := 0;
   v_posted_rows integer := 0;
   v_weekly_rows integer := 0;
+  v_unmapped_rows integer := 0;
 begin
   if not public.is_admin() then
     raise exception 'Accès administrateur requis pour valider un relevé grossiste';
@@ -133,6 +134,17 @@ begin
   where s.sync_run_id = p_sync_run_id
     and s.grossiste_id = m.grossiste_id
     and s.code_externe = m.code_externe;
+
+  select count(*) into v_unmapped_rows
+  from public.grossiste_sales_snapshots
+  where sync_run_id = p_sync_run_id
+    and code_externe is not null
+    and cumulative_quantity is not null
+    and produit_id is null;
+
+  if v_unmapped_rows > 0 then
+    raise exception 'Validation bloquée : % référence(s) ne sont pas associées à un produit du catalogue et à son laboratoire.', v_unmapped_rows;
+  end if;
 
   update public.grossiste_sales_snapshots
   set reviewed = true
