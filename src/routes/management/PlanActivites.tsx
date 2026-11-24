@@ -38,6 +38,8 @@ export default function ManagementPlanActivites() {
   const remaining = Math.max(0, deadline.getTime() - clock)
   const countdown = remaining > 0 ? `${Math.floor(remaining / 86400000)} j ${Math.floor(remaining % 86400000 / 3600000)} h ${Math.floor(remaining % 3600000 / 60000)} min ${Math.floor(remaining % 60000 / 1000)} s` : 'Délai dépassé'
   const late = clock > deadline.getTime()
+  const planSelectionne = plans.find((p) => p.equipe_id === equipeId && p.mois === mois)
+  const planVerrouille = !!planSelectionne && !['BROUILLON', 'REFUSE'].includes(planSelectionne.statut ?? 'SOUMIS')
 
   const isAdmin = profile?.role === 'admin'
 
@@ -80,6 +82,7 @@ export default function ManagementPlanActivites() {
     setSaving(true)
     setNotice(null)
     const existant = plans.find((p) => p.equipe_id === equipeId && p.mois === mois)
+    if (existant && !['BROUILLON', 'REFUSE'].includes(existant.statut ?? 'SOUMIS')) { setNotice({ type: 'error', text: 'Ce plan est déjà soumis ou validé et ne peut plus être modifié.' }); return }
     const payload: any = {
       id: existant?.id, equipe_id: equipeId, superviseur_id: profile.id, mois, contenu: { texte }, statut: 'SOUMIS', motif_rejet: null
     }
@@ -118,7 +121,7 @@ export default function ManagementPlanActivites() {
       <div>
         <h1 className="text-xl font-bold text-ink-800 font-display">Plan d'activités mensuel</h1>
         <p className="text-sm text-ink-400">
-          À soumettre par équipe au plus tard le 25 du mois en cours pour le mois suivant — sans plan soumis,
+          À soumettre par équipe au plus tard le 25 du mois en cours pour le mois suivant — sans plan validé,
           l'équipe ne peut programmer aucune activité pour le mois concerné.
         </p>
       </div>
@@ -171,6 +174,8 @@ export default function ManagementPlanActivites() {
               </select>
             </div>
           </div>
+          {planSelectionne?.statut === 'REFUSE' && planSelectionne.motif_rejet && <div className="rounded-xl border border-red-200 bg-red-50 p-3"><p className="text-xs font-bold text-red-800">Correction demandée par l’administrateur</p><p className="mt-1 whitespace-pre-wrap text-sm text-red-700">{planSelectionne.motif_rejet}</p></div>}
+          {planVerrouille && <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Ce plan est déjà soumis ou validé. Il ne peut être modifié que si l’administrateur le retourne pour correction.</p>}
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-ink-500">Contenu du plan</label>
             <textarea value={texte} onChange={(e) => setTexte(e.target.value)} rows={7} required
@@ -179,7 +184,7 @@ export default function ManagementPlanActivites() {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>Annuler</Button>
-            <Button type="submit" loading={saving} disabled={!texte.trim() || (late && profile?.role !== 'admin')}>Soumettre le plan</Button>
+            <Button type="submit" loading={saving} disabled={!texte.trim() || planVerrouille || (late && profile?.role !== 'admin')}>Soumettre le plan</Button>
           </div>
         </form>
       </Modal>}
