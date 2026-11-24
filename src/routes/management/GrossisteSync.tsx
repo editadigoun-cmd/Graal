@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/Card'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 
-type Run={id:string;grossiste_id:string;status:string;started_at:string;finished_at:string|null;rows_found:number;rows_matched:number;rows_unmatched:number;summary:string|null}
+type Run={id:string;grossiste_id:string;status:string;started_at:string;finished_at:string|null;report_month?:string|null;rows_found:number;rows_matched:number;rows_unmatched:number;summary:string|null}
 type Page={id:string;sync_run_id:string;page_order:number;page_url:string;page_title:string|null;extracted_payload:any;review_status:string;created_at?:string}
 type Product={id:string;nom:string;equipe_id?:string}
 type SalesRow={grossiste_id:string;code_externe:string;produit_id:string|null;produit_source:string;mois_reference:string;date_capture:string;date_vente:string;cumul_capture:number;cumul_precedent:number|null;date_capture_precedente:string|null;ventes_intervalle:number|null;ventes_jour_precedent:number|null;status:string}
