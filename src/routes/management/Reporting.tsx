@@ -96,7 +96,7 @@ export default function ManagementReporting() {
           <button type="button" onClick={() => setSemaineDebut(isoWeekMonday().format('YYYY-MM-DD'))} className="rounded-lg bg-royal-50 px-3 py-2 text-xs font-semibold text-royal-700">Cette semaine</button>
         </div>
         <label className="text-xs font-semibold text-ink-500">Choisir une semaine
-          <input type="date" value={semaineDebut} onChange={(e) => { if (e.target.value) setSemaineDebut(dayjs(e.target.value).startOf('week').add(1, 'day').format('YYYY-MM-DD')) }} className="ml-2 rounded-lg border border-ink-200 px-3 py-2 text-sm" />
+          <input type="date" value={semaineDebut} onChange={(e) => { if (e.target.value) { const chosen = dayjs(e.target.value); const sinceMonday = (chosen.day() + 6) % 7; setSemaineDebut(chosen.subtract(sinceMonday, 'day').format('YYYY-MM-DD')) } }} className="ml-2 rounded-lg border border-ink-200 px-3 py-2 text-sm" />
         </label>
       </Card>
 
