@@ -84,7 +84,7 @@ export default function ManagementPlanActivites() {
     const existant = plans.find((p) => p.equipe_id === equipeId && p.mois === mois)
     if (existant && !['BROUILLON', 'REFUSE'].includes(existant.statut ?? 'SOUMIS')) { setNotice({ type: 'error', text: 'Ce plan est déjà soumis ou validé et ne peut plus être modifié.' }); return }
     const payload: any = {
-      id: existant?.id, equipe_id: equipeId, superviseur_id: profile.id, mois, contenu: { texte }, statut: 'SOUMIS', motif_rejet: null
+      id: existant?.id, equipe_id: equipeId, superviseur_id: profile.id, mois, contenu: { texte }, statut: 'SOUMIS', motif_rejet: null, soumis_at: new Date().toISOString(), valide_at: null, valide_par: null
     }
     // upsert plutôt que select-puis-insert/update : deux superviseurs (ou deux onglets) soumettant
     // en même temps pour la même équipe/mois ne se heurtent alors plus à la contrainte unique.
