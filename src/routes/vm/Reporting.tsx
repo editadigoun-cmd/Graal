@@ -11,7 +11,7 @@ import type { Database } from '@/types/database'
 import dayjs from 'dayjs'
 import logo from '@/assets/logo-full.png'
 
-type Reporting = Database['public']['Tables']['reporting_hebdomadaire']['Row']
+type Reporting = Database['public']['Tables']['reporting_hebdomadaire']['Row'] & { appreciation_admin: string | null; recommandations_admin: string | null; visa_admin_id: string | null; visa_admin_at: string | null }
 type TauxHebdo = Database['public']['Views']['v_taux_realisation_hebdomadaire']['Row']
 type ScorePondere = Database['public']['Views']['v_score_hebdomadaire_pondere']['Row']
 
@@ -196,6 +196,17 @@ export default function Reporting() {
               </div>
               {reporting.appreciation_superviseur && <p className="mb-2 whitespace-pre-wrap text-sm leading-6 text-emerald-950">{reporting.appreciation_superviseur}</p>}
               {reporting.recommandations_superviseur && <p className="whitespace-pre-wrap text-sm italic leading-6 text-emerald-800">{reporting.recommandations_superviseur}</p>}
+            </Card>
+          )}
+
+          {(reporting.visa_admin_id || reporting.appreciation_admin || reporting.recommandations_admin) && (
+            <Card className="border border-blue-100 bg-blue-50/60 shadow-sm">
+              <div className="mb-3 flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700"><IconCheckCircle className="h-5 w-5" /></span>
+                <div><p className="text-sm font-bold text-blue-900">Avis de l’administrateur</p><p className="text-xs text-blue-700">{reporting.visa_admin_at ? `Retour du ${dayjs(reporting.visa_admin_at).format('DD/MM/YYYY à HH:mm')}` : 'Retour administratif'}</p></div>
+              </div>
+              {reporting.appreciation_admin && <p className="mb-2 whitespace-pre-wrap text-sm leading-6 text-blue-950">{reporting.appreciation_admin}</p>}
+              {reporting.recommandations_admin && <p className="whitespace-pre-wrap text-sm italic leading-6 text-blue-800">{reporting.recommandations_admin}</p>}
             </Card>
           )}
 
