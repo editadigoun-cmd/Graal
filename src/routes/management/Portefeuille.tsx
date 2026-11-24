@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { IconCheckCircle, IconMapPin, IconSearch, IconUsers } from '@/components/ui/icons'
+import { IconSearch, IconUsers } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { todayBenin } from '@/lib/time'
@@ -21,9 +20,7 @@ export default function ManagementPortefeuille() {
   const [clients, setClients] = useState<Client[]>([])
   const [visites, setVisites] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [message, setMessage] = useState<string | null>(null)
 
   async function load() {
     if (!profile?.id) return
@@ -51,47 +48,6 @@ export default function ManagementPortefeuille() {
   }
 
   useEffect(() => { load() }, [profile?.id])
-
-  async function enregistrerVisite(client: Client) {
-    if (!profile?.id) return
-    setBusy(client.id)
-    setMessage(null)
-
-    let latitude = 0
-    let longitude = 0
-    try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 8000 })
-      )
-      latitude = position.coords.latitude
-      longitude = position.coords.longitude
-    } catch {
-      setMessage('La localisation est nécessaire pour enregistrer la visite.')
-      setBusy(null)
-      return
-    }
-
-    const { error } = await supabase.from('visites').insert({
-      client_id: client.id,
-      vm_id: profile.id,
-      jour: todayBenin().format('YYYY-MM-DD'),
-      type_visite: 'MEDICAL',
-      statut: 'REALISEE',
-      hors_programme: true,
-      cachet_prospect: false,
-      cachet_centre: false,
-      prescriptions_constatees: 0,
-      latitude,
-      longitude
-    })
-
-    if (error) setMessage(error.message)
-    else {
-      setMessage(`Visite enregistrée pour ${client.nom}.`)
-      await load()
-    }
-    setBusy(null)
-  }
 
   const filtered = clients.filter((c) => {
     const q = search.toLowerCase().trim()
@@ -128,8 +84,6 @@ export default function ManagementPortefeuille() {
         </div>
       </div>
 
-      {message && <div className="rounded-xl bg-ink-50 px-3.5 py-2.5 text-xs text-ink-600">{message}</div>}
-
       <Card className="flex items-center gap-3">
         <IconSearch className="h-4 w-4 text-ink-300" />
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un client ou centre…" className="w-full outline-none text-sm" />
@@ -138,18 +92,13 @@ export default function ManagementPortefeuille() {
       <div className="space-y-2.5">
         {filtered.map((client) => (
           <Card key={client.id}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-ink-800 truncate">{client.nom}</p>
-                <p className="text-[11px] text-ink-400">{client.centre ?? 'Centre non renseigné'} · {client.specialite}</p>
-                <div className="mt-2 flex gap-1.5 flex-wrap">
-                  <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-500">{client.potentiel}</span>
-                  <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-500">Secteur {client.secteur}</span>
-                </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-ink-800 truncate">{client.nom}</p>
+              <p className="text-[11px] text-ink-400">{client.centre ?? 'Centre non renseigné'} · {client.specialite}</p>
+              <div className="mt-2 flex gap-1.5 flex-wrap">
+                <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-500">{client.potentiel}</span>
+                <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-500">Secteur {client.secteur}</span>
               </div>
-              <Button size="sm" loading={busy === client.id} disabled={false} icon={visites >= 8 ? <IconCheckCircle className="h-4 w-4" /> : <IconMapPin className="h-4 w-4" />} onClick={() => enregistrerVisite(client)}>
-                {visites >= 8 ? 'Ajouter une visite' : 'Visiter'}
-              </Button>
             </div>
           </Card>
         ))}
