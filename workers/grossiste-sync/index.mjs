@@ -86,14 +86,14 @@ async function dailyCollection(env){
 const MANUAL_GROSSISTE_ID="c7af99dc-93fd-4c93-a5d8-504ebcb4cba8";
 const CORS={"access-control-allow-origin":"*","access-control-allow-methods":"POST, OPTIONS","access-control-allow-headers":"authorization, content-type","access-control-max-age":"86400"};
 async function sbRequest(env,path,options={}) {
- const base=env.SUPABASE_URL.replace(/\\/$/,"");
+ const base=env.SUPABASE_URL.replace(/\/$/,"");
  return fetch(base+path,{...options,headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:"Bearer "+env.SUPABASE_SERVICE_ROLE_KEY,"content-type":"application/json",...(options.headers||{})}});
 }
 async function authorizeAdmin(request,env) {
  const bearer=request.headers.get("authorization")||"";
- const token=bearer.replace(/^Bearer\\s+/i,"");
+ const token=bearer.replace(/^Bearer\s+/i,"");
  if(!token||!env.SUPABASE_URL||!env.SUPABASE_SERVICE_ROLE_KEY)return null;
- const userRes=await fetch(env.SUPABASE_URL.replace(/\\/$/,"")+"/auth/v1/user",{headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:"Bearer "+token}});
+ const userRes=await fetch(env.SUPABASE_URL.replace(/\/$/,"")+"/auth/v1/user",{headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:"Bearer "+token}});
  if(!userRes.ok)return null;
  const user=await userRes.json();
  if(!user?.id)return null;
@@ -131,10 +131,10 @@ export function parseUbipharmStockRows(payload) {
   const salesIdx=idx(["vente mois","ventes mois"]);
   for(const row of table.rows||[]) {
    const cell=String(row[productIdx]||"").trim();
-   const match=cell.match(/(?:^|\\n)([0-9]{5,14})\\s*$/)||cell.match(/([0-9]{5,14})\\s*$/);
-   const code=match?.[1]; const designation=cell.replace(/\\n[0-9]{5,14}\\s*$/,"").trim();
+   const match=cell.match(/(?:^|\n)([0-9]{5,14})\s*$/)||cell.match(/([0-9]{5,14})\s*$/);
+   const code=match?.[1]; const designation=cell.replace(/\n[0-9]{5,14}\s*$/,"").trim();
    if(!code||!designation)continue;
-   const number=(i)=>{if(i<0)return null;const raw=String(row[i]??"").replace(/[\\s\\u00a0]/g,"").replace(",",".");if(!raw)return null;const n=Number(raw);return Number.isFinite(n)?n:null};
+   const number=(i)=>{if(i<0)return null;const raw=String(row[i]??"").replace(/[\s\u00a0]/g,"").replace(",",".");if(!raw)return null;const n=Number(raw);return Number.isFinite(n)?n:null};
    out.push({code_externe:code,designation_source:designation,stock_quantity:number(stockIdx),order_quantity:number(orderIdx),stock_months:number(monthStockIdx),average_month_sales:number(avgIdx),cumulative_quantity:number(salesIdx),source_row:row});
   }
  }
