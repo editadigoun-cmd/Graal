@@ -12,7 +12,7 @@ import type { Database } from '@/types/database'
 import dayjs from 'dayjs'
 
 type Equipe = Database['public']['Tables']['equipes']['Row']
-type Plan = Database['public']['Tables']['plans_activites_mensuels']['Row'] & { statut?: 'BROUILLON' | 'SOUMIS' | 'VALIDE' | 'REFUSE'; motif_rejet?: string | null; valide_at?: string | null; valide_par?: string | null; profiles?: { full_name: string } | null }
+type Plan = Database['public']['Tables']['plans_activites_mensuels']['Row'] & { statut?: 'BROUILLON' | 'SOUMIS' | 'VALIDE' | 'REFUSE' | 'ARCHIVE'; motif_rejet?: string | null; valide_at?: string | null; valide_par?: string | null; profiles?: { full_name: string } | null }
 
 function moisOptions() {
   // Mois courant + 3 suivants (le plan porte "sur le mois suivant", soumis avant le 25 du mois précédent)
@@ -204,7 +204,7 @@ export default function ManagementPlanActivites() {
                   </p>
                 </div>
                 {dernier ? (
-                  <Badge tone={dernier.statut === 'VALIDE' ? 'success' : dernier.statut === 'SOUMIS' ? 'info' : dernier.statut === 'REFUSE' ? 'danger' : 'warning'}>{dernier.statut === 'VALIDE' ? 'Validé' : dernier.statut === 'SOUMIS' ? 'En attente' : dernier.statut === 'REFUSE' ? 'À corriger' : 'Brouillon'}</Badge>
+                  <Badge tone={dernier.statut === 'VALIDE' ? 'success' : dernier.statut === 'SOUMIS' ? 'info' : dernier.statut === 'REFUSE' ? 'danger' : 'neutral'}>{dernier.statut === 'VALIDE' ? 'Validé' : dernier.statut === 'SOUMIS' ? 'En attente' : dernier.statut === 'REFUSE' ? 'À corriger' : dernier.statut === 'ARCHIVE' ? 'Historique' : 'Brouillon'}</Badge>
                 ) : (
                   <Badge tone="warning"><IconCalendar className="h-3 w-3 mr-1 inline" />Manquant</Badge>
                 )}
@@ -235,7 +235,7 @@ export default function ManagementPlanActivites() {
                     <td className="px-4 py-3 text-ink-600">{p.profiles?.full_name ?? 'Superviseur'}</td>
                     <td className="px-4 py-3 text-ink-500">{dayjs(p.mois).format('MMMM YYYY')}</td>
                     <td className="px-4 py-3 text-ink-500">{dayjs(p.soumis_at).format('DD/MM/YYYY HH:mm')}</td>
-                    <td className="px-4 py-3">{p.statut === 'VALIDE' ? <Badge tone="success">Validé</Badge> : p.statut === 'SOUMIS' ? <Badge tone="info">À valider</Badge> : p.statut === 'REFUSE' ? <Badge tone="danger">À corriger</Badge> : <Badge tone="warning">Brouillon</Badge>}</td>
+                    <td className="px-4 py-3">{p.statut === 'VALIDE' ? <Badge tone="success">Validé</Badge> : p.statut === 'SOUMIS' ? <Badge tone="info">À valider</Badge> : p.statut === 'REFUSE' ? <Badge tone="danger">À corriger</Badge> : p.statut === 'ARCHIVE' ? <Badge tone="neutral">Historique</Badge> : <Badge tone="warning">Brouillon</Badge>}</td>
                     <td className="px-4 py-3 min-w-[280px]">
                       <p className="max-w-md whitespace-pre-wrap text-xs text-ink-600">{(p.contenu as { texte?: string } | null)?.texte ?? '—'}</p>
                       {p.statut === 'REFUSE' && p.motif_rejet && <p className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700">Motif : {p.motif_rejet}</p>}
