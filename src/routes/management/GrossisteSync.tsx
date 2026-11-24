@@ -20,7 +20,7 @@ export default function GrossisteSync(){
   try{
    const response=await fetch('https://provisit-grossiste-sync.ccds22431.workers.dev/sync/ubipharm',{method:'POST',headers:{authorization:'Bearer '+session.access_token,'content-type':'application/json'},body:'{}'});
    const result=await response.json().catch(()=>({error:'Réponse illisible du service de synchronisation.'}));
-   if(!response.ok)throw new Error(result.error||result.message||result.status||'La synchronisation a échoué.');
+   if(!response.ok){if(result.run_id){const failedRunKey='run:'+result.run_id;setHistorySelection(failedRunKey);await reload(failedRunKey);}throw new Error(result.error||result.message||result.status||'La synchronisation a échoué.');}
    const runKey=result.run_id?'run:'+result.run_id:'';
    setSyncMessage(result.message||('Collecte terminée : '+(result.stock_rows_saved??0)+' lignes de stock enregistrées.'));
    if(runKey){setHistorySelection(runKey);await reload(runKey);}else await reload();
