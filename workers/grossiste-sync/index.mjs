@@ -145,7 +145,7 @@ async function persistStockRows(env,runId,rows) {
  const mapRes=await sbRequest(env,"/rest/v1/mappings_produits_grossistes?select=code_externe,produit_id&grossiste_id=eq."+MANUAL_GROSSISTE_ID);
  if(!mapRes.ok)throw new Error("mapping_read_failed_"+mapRes.status);
  const mappings=new Map((await mapRes.json()).map(x=>[String(x.code_externe).trim(),x.produit_id]));
- const now=new Date(); const reportMonth=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)).toISOString().slice(0,10);
+ const reportMonth=monthStart(beninDateParts());
  const records=rows.map(r=>({sync_run_id:runId,grossiste_id:MANUAL_GROSSISTE_ID,produit_id:mappings.get(r.code_externe)||null,code_externe:r.code_externe,designation_source:r.designation_source,report_month:reportMonth,cumulative_quantity:r.cumulative_quantity,stock_quantity:r.stock_quantity,order_quantity:r.order_quantity,source_row:{portal_row:r.source_row,stock_months:r.stock_months,average_month_sales:r.average_month_sales},reviewed:false}));
  const res=await sbRequest(env,"/rest/v1/grossiste_sales_snapshots",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify(records)});
  if(!res.ok)throw new Error("stock_save_failed_"+res.status+"_"+(await res.text()).slice(0,220));
@@ -199,7 +199,7 @@ async function manualUbipharmSync(request,env) {
   const mapRes=await sbRequest(env,"/rest/v1/mappings_produits_grossistes?select=code_externe&grossiste_id=eq."+MANUAL_GROSSISTE_ID);
   const mappedCodes=mapRes.ok?new Set((await mapRes.json()).map(x=>String(x.code_externe).trim())):new Set();
   const matched=rows.filter(r=>mappedCodes.has(r.code_externe)).length;
-  await patchRun(env,run.id,{status:"needs_human",finished_at:new Date().toISOString(),rows_found:rows.length,rows_matched:matched,rows_unmatched:Math.max(0,rows.length-matched),summary:"Connexion UBIPHARM confirmée. "+saved+" lignes de stock enregistrées en attente de revue administrateur.",metadata:{portal_authentication:"confirmed",stock_rows_saved:saved,pages_extracted:extracted.length,review_required:true,report_month_assigned:new Date().toISOString().slice(0,7)+"-01"}});
+  await patchRun(env,run.id,{status:"needs_human",finished_at:new Date().toISOString(),rows_found:rows.length,rows_matched:matched,rows_unmatched:Math.max(0,rows.length-matched),summary:"Connexion UBIPHARM confirmée. "+saved+" lignes de stock enregistrées en attente de revue administrateur.",metadata:{portal_authentication:"confirmed",stock_rows_saved:saved,pages_extracted:extracted.length,review_required:true,report_month_assigned:monthStart(beninDateParts())}});
   console.log(JSON.stringify({event:"ubipharm_manual_sync",run_id:run.id,authenticated:true,stock_rows:saved,stage:"completed"}));
   return json({status:"needs_human",run_id:run.id,authenticated:true,rows_found:rows.length,stock_rows_saved:saved,rows_matched:matched,rows_unmatched:Math.max(0,rows.length-matched),message:"Relevé UBIPHARM enregistré dans Provisit et disponible pour revue."});
  } catch(error) {
