@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { supabase } from '@/lib/supabase'
+import { TrajetCarte, type PointTrajet } from '@/components/ui/TrajetCarte'
+import dayjs from 'dayjs'
 
 type Evaluation = {
   superviseur_id: string
@@ -23,6 +25,69 @@ type Evaluation = {
   appreciation: string | null
   recommandations: string | null
   note_finale: number
+}
+
+
+type VadSession = {
+  id: string; superviseur_id: string; vm_id: string; jour: string; mode: string; statut: string;
+  medecins_vus_ids: string[] | null; observations: string | null; compte_rendu: string | null;
+  started_at: string | null; ended_at: string | null; start_latitude: number | null; start_longitude: number | null;
+  end_latitude: number | null; end_longitude: number | null;
+  supervisor?: { full_name: string } | null; vm?: { full_name: string } | null;
+}
+type VadClient = { id: string; nom: string; specialite: string | null; centre: string | null }
+function VadsDuMois({ mois }: { mois: string }) {
+  const [sessions, setSessions] = useState<VadSession[]>([])
+  const [clients, setClients] = useState<Record<string, VadClient[]>>({})
+  const [trajets, setTrajets] = useState<Record<string, PointTrajet[]>>({})
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let active = true
+    async function load() {
+      setLoading(true)
+      const debut = dayjs(mois).startOf('month').format('YYYY-MM-DD')
+      const fin = dayjs(mois).add(1, 'month').startOf('month').format('YYYY-MM-DD')
+      const { data } = await (supabase.from('vad_duo_journaliers' as any)
+        .select('*, supervisor:profiles!vad_duo_journaliers_superviseur_id_fkey(full_name), vm:profiles!vad_duo_journaliers_vm_id_fkey(full_name)')
+        .gte('jour', debut).lt('jour', fin).order('jour', { ascending: false }) as any)
+      const rows = (data ?? []) as VadSession[]
+      if (!active) return
+      setSessions(rows)
+      const ids = [...new Set(rows.flatMap(s => s.medecins_vus_ids ?? []))]
+      const { data: clientRows } = ids.length
+        ? await supabase.from('clients').select('id,nom,specialite,centre').in('id', ids)
+        : { data: [] as VadClient[] }
+      const byId = Object.fromEntries((clientRows ?? []).map((x: any) => [x.id, x]))
+      const clientMap: Record<string, VadClient[]> = {}
+      rows.forEach(s => { clientMap[s.id] = (s.medecins_vus_ids ?? []).map(id => byId[id]).filter(Boolean) })
+      const routeMap: Record<string, PointTrajet[]> = {}
+      await Promise.all(rows.map(async s => {
+        const pts: PointTrajet[] = []
+        if (s.start_latitude != null && s.start_longitude != null) pts.push({ id: s.id+'-start', lat: s.start_latitude, lng: s.start_longitude, label: 'Départ du superviseur', heure: s.started_at ? dayjs(s.started_at).format('HH:mm') : '', type: 'visite' })
+        const selectedIds = s.medecins_vus_ids ?? []
+        if (selectedIds.length) {
+          const { data: visitRows } = await (supabase.from('visites').select('id,client_id,latitude,longitude,horodatage,clients(nom,centre)').eq('vm_id',s.vm_id).eq('jour',s.jour).in('client_id',selectedIds).not('latitude','is',null).not('longitude','is',null).order('horodatage') as any)
+          ;(visitRows ?? []).forEach((v: any) => {
+            if (v.latitude != null && v.longitude != null) pts.push({ id:v.id,lat:v.latitude,lng:v.longitude,label:[v.clients?.nom,v.clients?.centre].filter(Boolean).join(' · ') || 'Client visité avec le VM',heure:v.horodatage?dayjs(v.horodatage).format('HH:mm'):'',type:'visite' })
+          })
+        }
+        if (s.end_latitude != null && s.end_longitude != null) pts.push({ id:s.id+'-end',lat:s.end_latitude,lng:s.end_longitude,label:'Fin du VAD',heure:s.ended_at?dayjs(s.ended_at).format('HH:mm'):'',type:'cloture' })
+        routeMap[s.id] = pts
+      }))
+      if (active) { setClients(clientMap); setTrajets(routeMap); setLoading(false) }
+    }
+    void load()
+    return () => { active = false }
+  }, [mois])
+  return <Card className="space-y-4">
+    <div><p className="text-sm font-bold text-ink-800">VAD effectuées · {dayjs(mois).format('MMMM YYYY')}</p><p className="text-xs text-ink-400 mt-1">Historique réel des journées VAD, médecins accompagnés, itinéraire GPS et observations.</p></div>
+    {loading ? <Skeleton className="h-40" /> : sessions.length === 0 ? <p className="py-6 text-center text-sm text-ink-400">Aucun VAD terminé ou enregistré pour ce mois.</p> : sessions.map(s => <div key={s.id} className="rounded-2xl border border-ink-100 p-4 space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-bold text-ink-800">{s.supervisor?.full_name ?? 'Superviseur'} · {s.vm?.full_name ?? 'VM'}</p><p className="text-xs text-ink-400 mt-1">{dayjs(s.jour).format('DD/MM/YYYY')} · {s.mode === 'COTONOU' ? 'Cotonou' : 'Hors Cotonou'}</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{s.statut === 'TERMINE' ? 'Terminé' : s.statut === 'EN_COURS' ? 'En cours' : 'Programmé'}</span></div>
+      <div><p className="text-xs font-bold text-ink-600 mb-2">Médecins vus avec le VM ({clients[s.id]?.length ?? 0})</p>{(clients[s.id] ?? []).length ? <div className="grid gap-2 sm:grid-cols-2">{clients[s.id].map(cl => <div key={cl.id} className="rounded-xl bg-ink-50 p-3"><p className="text-sm font-semibold text-ink-800">{cl.nom}</p><p className="text-xs text-ink-500">{[cl.specialite,cl.centre].filter(Boolean).join(' · ')}</p></div>)}</div> : <p className="text-xs text-ink-400">Aucun médecin sélectionné dans le compte rendu.</p>}</div>
+      {(s.observations || s.compte_rendu) && <div className="grid gap-3 sm:grid-cols-2">{s.observations && <div className="rounded-xl bg-amber-50 p-3"><p className="text-xs font-bold text-amber-800">Observations</p><p className="mt-1 whitespace-pre-wrap text-sm text-ink-700">{s.observations}</p></div>}{s.compte_rendu && <div className="rounded-xl bg-ink-50 p-3"><p className="text-xs font-bold text-ink-600">Compte rendu</p><p className="mt-1 whitespace-pre-wrap text-sm text-ink-700">{s.compte_rendu}</p></div>}</div>}
+      {(trajets[s.id] ?? []).length > 0 ? <div><p className="text-xs font-bold text-ink-600 mb-2">Itinéraire GPS du superviseur</p><TrajetCarte points={trajets[s.id]} /></div> : <p className="rounded-xl bg-ink-50 p-3 text-xs text-ink-500">Aucune coordonnée GPS exploitable pour tracer cet itinéraire. Les positions de départ/fin et les positions GPS des visites du VM apparaîtront lorsqu'elles auront été enregistrées.</p>}
+    </div>)}
+  </Card>
 }
 
 export default function EvaluationSuperviseurs() {
@@ -86,6 +151,8 @@ export default function EvaluationSuperviseurs() {
         <Card><p className="text-[11px] text-ink-400">Base prospection</p><p className="text-2xl font-bold text-ink-800 mt-1">{rows.length ? Math.round(rows.reduce((s,r)=>s+r.prospection_pct,0)/rows.length) : 0}%</p></Card>
         <Card><p className="text-[11px] text-ink-400">Note moyenne</p><p className="text-2xl font-bold text-royal-700 mt-1">{rows.length ? Math.round(rows.reduce((s,r)=>s+r.note_finale,0)/rows.length) : 0}/100</p></Card>
       </div>
+
+      <VadsDuMois mois={rows[0]?.mois ?? dayjs().startOf('month').format('YYYY-MM-DD')} />
 
       <Card className="p-0 overflow-hidden">
         <div className="px-5 py-4 border-b border-ink-100">
