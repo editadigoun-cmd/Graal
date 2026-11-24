@@ -117,7 +117,7 @@ async function savePreviewPages(env,runId,pages) {
  const res=await sbRequest(env,"/rest/v1/grossiste_sync_preview_pages",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify(rows)});
  if(!res.ok)throw new Error("preview_save_failed_"+res.status+"_"+(await res.text()).slice(0,180));
 }
-function parseUbipharmStockRows(payload) {
+export function parseUbipharmStockRows(payload) {
  const out=[];
  for(const pg of payload?.pages||[])for(const table of pg.tables||[]) {
   const h=(table.headers||[]).map(x=>String(x).trim().toLowerCase());
