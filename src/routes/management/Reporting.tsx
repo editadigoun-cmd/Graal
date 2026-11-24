@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { StatCard } from '@/components/ui/StatCard'
 import { IconChat, IconCheckCircle, IconClock } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth/AuthProvider'
 import { isoWeekMonday } from '@/lib/time'
 import dayjs from 'dayjs'
 
@@ -22,12 +23,18 @@ interface ReportingRow {
   appreciation_superviseur: string | null
   recommandations_superviseur: string | null
   visa_superviseur_id: string | null
+  appreciation_admin: string | null
+  recommandations_admin: string | null
+  visa_admin_id: string | null
+  visa_admin_at: string | null
   profiles: { full_name: string; equipe_id: string | null } | null
 }
 
 interface EquipeOption { id: string; nom: string }
 
 export default function ManagementReporting() {
+  const { profile } = useAuth()
+  const isAdmin = profile?.role === 'admin'
   const [rows, setRows] = useState<ReportingRow[]>([])
   const [equipes, setEquipes] = useState<EquipeOption[]>([])
   const [equipeFilter, setEquipeFilter] = useState('')
@@ -59,19 +66,21 @@ export default function ManagementReporting() {
     const draft = drafts[id]
     setSaving(id)
     const { data: session } = await supabase.auth.getSession()
-    await supabase.from('reporting_hebdomadaire').update({
-      appreciation_superviseur: draft?.appreciation || null,
-      recommandations_superviseur: draft?.recommandations || null,
-      visa_superviseur_id: session.session?.user.id
-    }).eq('id', id)
+    const userId = session.session?.user.id
+    if (!userId) { setSaving(null); return }
+    const payload = isAdmin
+      ? { appreciation_admin: draft?.appreciation || null, recommandations_admin: draft?.recommandations || null, visa_admin_id: userId, visa_admin_at: new Date().toISOString() }
+      : { appreciation_superviseur: draft?.appreciation || null, recommandations_superviseur: draft?.recommandations || null, visa_superviseur_id: userId }
+    const { error } = await (supabase.from('reporting_hebdomadaire').update(payload as any).eq('id', id) as any)
     setSaving(null)
+    if (error) return
     setEditingId(null)
     load()
   }
 
   if (loading) return <div className="space-y-3"><Skeleton className="h-32" /><Skeleton className="h-32" /></div>
 
-  const visesCount = rowsFiltrees.filter((r) => r.visa_superviseur_id).length
+  const visesCount = rowsFiltrees.filter((r) => isAdmin ? r.visa_admin_id : r.visa_superviseur_id).length
 
   return (
     <div className="space-y-6">
@@ -102,19 +111,19 @@ export default function ManagementReporting() {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <StatCard label="Reportings soumis" value={rowsFiltrees.length} tone="royal" icon={<IconChat className="h-4 w-4" />} />
-        <StatCard label="Visés" value={visesCount} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
-        <StatCard label="En attente" value={rowsFiltrees.length - visesCount} tone="flame" icon={<IconClock className="h-4 w-4" />} />
+        <StatCard label={isAdmin ? "Avis admin donnés" : "Reportings visés"} value={visesCount} tone="emerald" icon={<IconCheckCircle className="h-4 w-4" />} />
+        <StatCard label={isAdmin ? "En attente d’avis admin" : "En attente de visa"} value={rowsFiltrees.length - visesCount} tone="flame" icon={<IconClock className="h-4 w-4" />} />
       </div>
 
       {rowsFiltrees.length === 0 && <Card className="text-center py-10 text-sm text-ink-400">Aucun reporting soumis pour cette semaine.</Card>}
 
       {rowsFiltrees.map((r) => {
-        const draft = drafts[r.id] ?? { appreciation: r.appreciation_superviseur ?? '', recommandations: r.recommandations_superviseur ?? '' }
+        const draft = drafts[r.id] ?? { appreciation: isAdmin ? r.appreciation_admin ?? '' : r.appreciation_superviseur ?? '', recommandations: isAdmin ? r.recommandations_admin ?? '' : r.recommandations_superviseur ?? '' }
         return (
           <Card key={r.id}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold text-ink-800">{r.profiles?.full_name}</p>
-              {r.visa_superviseur_id ? <Badge tone="success">Visé</Badge> : <Badge tone="warning">En attente</Badge>}
+              {(isAdmin ? r.visa_admin_id : r.visa_superviseur_id) ? <Badge tone="success">{isAdmin ? 'Avis admin donné' : 'Visé par le superviseur'}</Badge> : <Badge tone="warning">{isAdmin ? 'Avis admin attendu' : 'Visa attendu'}</Badge>}
             </div>
             <div className="grid md:grid-cols-2 gap-3 text-xs mb-3">
               <Field label="Analyse générale" value={r.analyse_generale} />
@@ -122,10 +131,14 @@ export default function ManagementReporting() {
               <Field label="Veille concurrentielle" value={r.veille_concurrentielle} />
               <Field label="Suggestions" value={r.suggestions} />
               <Field label="Appréciation personnelle" value={r.appreciation_personnelle} className="md:col-span-2" />
+              <Field label="Avis du superviseur" value={r.appreciation_superviseur} />
+              <Field label="Recommandations du superviseur" value={r.recommandations_superviseur} />
+              <Field label="Avis de l’administrateur" value={r.appreciation_admin} />
+              <Field label="Recommandations de l’administrateur" value={r.recommandations_admin} />
             </div>
             <div className="border-t border-ink-100 pt-3 flex justify-end">
               <Button size="sm" variant="secondary" onClick={() => setEditingId(r.id)}>
-                {r.visa_superviseur_id ? 'Modifier le visa' : 'Viser le reporting'}
+                {isAdmin ? (r.visa_admin_id ? 'Modifier l’avis admin' : 'Donner un avis') : (r.visa_superviseur_id ? 'Modifier le visa' : 'Viser le reporting')}
               </Button>
             </div>
           </Card>
@@ -135,12 +148,12 @@ export default function ManagementReporting() {
       {editingId && (() => {
         const r = rowsFiltrees.find((x) => x.id === editingId)
         if (!r) return null
-        const draft = drafts[r.id] ?? { appreciation: r.appreciation_superviseur ?? '', recommandations: r.recommandations_superviseur ?? '' }
-        return <Modal open onClose={() => setEditingId(null)} title="Visa du superviseur" description={r.profiles?.full_name ? `Reporting de ${r.profiles.full_name}` : 'Complétez le visa du reporting'}>
+        const draft = drafts[r.id] ?? { appreciation: isAdmin ? r.appreciation_admin ?? '' : r.appreciation_superviseur ?? '', recommandations: isAdmin ? r.recommandations_admin ?? '' : r.recommandations_superviseur ?? '' }
+        return <Modal open onClose={() => setEditingId(null)} title={isAdmin ? 'Avis de l’administrateur' : 'Visa du superviseur'} description={r.profiles?.full_name ? `Reporting de ${r.profiles.full_name}` : 'Complétez votre retour sur le reporting'}>
           <div className="space-y-3">
-            <textarea value={draft.appreciation} onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: { ...draft, appreciation: e.target.value } }))} placeholder="Appréciation du superviseur…" rows={4} className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm" />
-            <textarea value={draft.recommandations} onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: { ...draft, recommandations: e.target.value } }))} placeholder="Recommandations…" rows={4} className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm" />
-            <div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setEditingId(null)}>Annuler</Button><Button loading={saving === r.id} onClick={() => viser(r.id)}>Enregistrer le visa</Button></div>
+            <textarea value={draft.appreciation} onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: { ...draft, appreciation: e.target.value } }))} placeholder={isAdmin ? "Votre appréciation sur le reporting…" : "Appréciation du superviseur…"} rows={4} className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm" />
+            <textarea value={draft.recommandations} onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: { ...draft, recommandations: e.target.value } }))} placeholder={isAdmin ? "Vos recommandations à l’équipe…" : "Recommandations…"} rows={4} className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm" />
+            <div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setEditingId(null)}>Annuler</Button><Button loading={saving === r.id} onClick={() => viser(r.id)}>{isAdmin ? 'Enregistrer mon avis' : 'Enregistrer le visa'}</Button></div>
           </div>
         </Modal>
       })()}
