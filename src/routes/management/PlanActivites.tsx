@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { IconCalendar, IconCheckCircle, IconPlus } from '@/components/ui/icons'
+import { IconCalendar, IconPlus } from '@/components/ui/icons'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { nowBenin } from '@/lib/time'
@@ -12,7 +12,7 @@ import type { Database } from '@/types/database'
 import dayjs from 'dayjs'
 
 type Equipe = Database['public']['Tables']['equipes']['Row']
-type Plan = Database['public']['Tables']['plans_activites_mensuels']['Row'] & { statut?: 'BROUILLON' | 'SOUMIS' | 'VALIDE' | 'REFUSE'; motif_rejet?: string | null; valide_at?: string | null; valide_par?: string | null }
+type Plan = Database['public']['Tables']['plans_activites_mensuels']['Row'] & { statut?: 'BROUILLON' | 'SOUMIS' | 'VALIDE' | 'REFUSE'; motif_rejet?: string | null; valide_at?: string | null; valide_par?: string | null; profiles?: { full_name: string } | null }
 
 function moisOptions() {
   // Mois courant + 3 suivants (le plan porte "sur le mois suivant", soumis avant le 25 du mois précédent)
@@ -44,7 +44,7 @@ export default function ManagementPlanActivites() {
   async function load() {
     const [{ data: eq }, { data: pl }, se] = await Promise.all([
       supabase.from('equipes').select('*').order('nom'),
-      supabase.from('plans_activites_mensuels').select('*').order('mois', { ascending: false }),
+      (supabase.from('plans_activites_mensuels' as any).select('*, profiles:profiles!plans_activites_mensuels_superviseur_id_fkey(full_name)').order('mois', { ascending: false }) as any),
       profile?.role === 'superviseur'
         ? supabase.from('superviseur_equipes').select('equipe_id').eq('superviseur_id', profile.id)
         : Promise.resolve({ data: [] as { equipe_id: string }[] })
@@ -80,12 +80,12 @@ export default function ManagementPlanActivites() {
     setSaving(true)
     setNotice(null)
     const existant = plans.find((p) => p.equipe_id === equipeId && p.mois === mois)
-    const payload: Database['public']['Tables']['plans_activites_mensuels']['Insert'] = {
+    const payload: any = {
       id: existant?.id, equipe_id: equipeId, superviseur_id: profile.id, mois, contenu: { texte }, statut: 'SOUMIS', motif_rejet: null
     }
     // upsert plutôt que select-puis-insert/update : deux superviseurs (ou deux onglets) soumettant
     // en même temps pour la même équipe/mois ne se heurtent alors plus à la contrainte unique.
-    const { error } = await supabase.from('plans_activites_mensuels').upsert(payload, { onConflict: 'equipe_id,mois' })
+    const { error } = await (supabase.from('plans_activites_mensuels' as any).upsert(payload, { onConflict: 'equipe_id,mois' }) as any)
     setSaving(false)
     if (error) setNotice({ type: 'error', text: error.message })
     else {
@@ -216,6 +216,7 @@ export default function ManagementPlanActivites() {
               <thead>
                 <tr className="border-b border-ink-100 bg-ink-50/60 text-xs text-ink-500">
                   <th className="px-4 py-3 text-left font-semibold">Équipe</th>
+                  <th className="px-4 py-3 text-left font-semibold">Soumis par</th>
                   <th className="px-4 py-3 text-left font-semibold">Mois</th>
                   <th className="px-4 py-3 text-left font-semibold">Soumis le</th>
                   <th className="px-4 py-3 text-left font-semibold">Statut</th>
@@ -226,6 +227,7 @@ export default function ManagementPlanActivites() {
                 {plans.filter((p) => isAdmin || supervisedIds.includes(p.equipe_id)).map((p) => (
                   <tr key={p.id}>
                     <td className="px-4 py-3 font-semibold text-ink-800">{equipeNomById[p.equipe_id]}</td>
+                    <td className="px-4 py-3 text-ink-600">{p.profiles?.full_name ?? 'Superviseur'}</td>
                     <td className="px-4 py-3 text-ink-500">{dayjs(p.mois).format('MMMM YYYY')}</td>
                     <td className="px-4 py-3 text-ink-500">{dayjs(p.soumis_at).format('DD/MM/YYYY HH:mm')}</td>
                     <td className="px-4 py-3">{p.statut === 'VALIDE' ? <Badge tone="success">Validé</Badge> : p.statut === 'SOUMIS' ? <Badge tone="info">À valider</Badge> : p.statut === 'REFUSE' ? <Badge tone="danger">À corriger</Badge> : <Badge tone="warning">Brouillon</Badge>}</td>
