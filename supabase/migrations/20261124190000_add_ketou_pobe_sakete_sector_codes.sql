@@ -1,0 +1,2 @@
+ALTER TYPE public.secteur_code ADD VALUE IF NOT EXISTS 'KETOU-POBE';
+ALTER TYPE public.secteur_code ADD VALUE IF NOT EXISTS 'SAKETE';
