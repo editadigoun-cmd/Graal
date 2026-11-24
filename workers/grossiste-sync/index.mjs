@@ -180,9 +180,10 @@ async function manualUbipharmSync(request,env) {
    await timed(page.waitForTimeout(800),2500,"protected_page_wait");
   }
   const protectedDiagnostics=await timed(diagnostics(page),LIMIT.diagnostics,"protected_page_diagnostics");
-  if(protectedDiagnostics.loginVisible||protectedDiagnostics.verificationRequired) {
+  const stockPageVerified=protectedDiagnostics.tables.some(t=>{const headers=(t.headers||[]).map(h=>String(h).trim().toLowerCase());return headers.includes("produit")&&headers.includes("stock")&&headers.includes("vente mois")&&t.rowCount>0;});
+  if(protectedDiagnostics.loginVisible||protectedDiagnostics.verificationRequired||!stockPageVerified) {
    await savePreviewPages(env,run.id,[{url:page.url(),title:"Vérification de session UBIPHARM",text:JSON.stringify(protectedDiagnostics,null,2),tables:[],diagnostics:protectedDiagnostics}]);
-   await patchRun(env,run.id,{status:"needs_human",finished_at:new Date().toISOString(),error_code:"session_not_verified",summary:"Le formulaire de connexion réapparaît sur une page protégée. Aucune donnée de stock n'a été enregistrée.",metadata:{portal_authentication:"not_confirmed",protected_page:protectedDiagnostics}});
+   await patchRun(env,run.id,{status:"needs_human",finished_at:new Date().toISOString(),error_code:"session_not_verified",summary:"La page protégée ne confirme pas l'accès aux données de stock (ou le formulaire de connexion réapparaît). Aucune donnée de stock n'a été enregistrée.",metadata:{portal_authentication:"not_confirmed",stock_page_verified:stockPageVerified,protected_page:protectedDiagnostics}});
    return json({status:"session_not_verified",run_id:run.id,error:"Le portail n'a pas conservé la session après connexion."},502);
   }
   stage="extract_pages"; const extracted=[await timed(extractPage(page),LIMIT.diagnostics,"extract_current_page")];
