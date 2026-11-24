@@ -35,7 +35,7 @@ export default function ManagementReporting() {
   const [drafts, setDrafts] = useState<Record<string, { appreciation: string; recommandations: string }>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const semaineDebut = isoWeekMonday().format('YYYY-MM-DD')
+  const [semaineDebut, setSemaineDebut] = useState(() => isoWeekMonday().format('YYYY-MM-DD'))
 
   async function load() {
     const [{ data }, { data: eq }] = await Promise.all([
@@ -51,7 +51,7 @@ export default function ManagementReporting() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [semaineDebut])
 
   const rowsFiltrees = equipeFilter ? rows.filter((r) => r.profiles?.equipe_id === equipeFilter) : rows
 
@@ -78,7 +78,7 @@ export default function ManagementReporting() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-ink-800 font-display">Reporting hebdomadaire</h1>
-          <p className="text-sm text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')}</p>
+          <p className="text-sm text-ink-400">Semaine du {dayjs(semaineDebut).format('DD/MM/YYYY')} au {dayjs(semaineDebut).add(4, 'day').format('DD/MM/YYYY')}</p>
         </div>
         {equipes.length > 0 && (
           <select value={equipeFilter} onChange={(e) => setEquipeFilter(e.target.value)}
@@ -88,6 +88,17 @@ export default function ManagementReporting() {
           </select>
         )}
       </div>
+
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-3">
+        <div className="flex items-center gap-2">
+          <button type="button" aria-label="Semaine précédente" onClick={() => setSemaineDebut(dayjs(semaineDebut).subtract(7, 'day').format('YYYY-MM-DD'))} className="rounded-lg border px-3 py-2 text-sm font-semibold">←</button>
+          <button type="button" aria-label="Semaine suivante" disabled={dayjs(semaineDebut).add(7, 'day').isAfter(isoWeekMonday())} onClick={() => setSemaineDebut(dayjs(semaineDebut).add(7, 'day').format('YYYY-MM-DD'))} className="rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-40">→</button>
+          <button type="button" onClick={() => setSemaineDebut(isoWeekMonday().format('YYYY-MM-DD'))} className="rounded-lg bg-royal-50 px-3 py-2 text-xs font-semibold text-royal-700">Cette semaine</button>
+        </div>
+        <label className="text-xs font-semibold text-ink-500">Choisir une semaine
+          <input type="date" value={semaineDebut} onChange={(e) => { if (e.target.value) setSemaineDebut(dayjs(e.target.value).startOf('week').add(1, 'day').format('YYYY-MM-DD')) }} className="ml-2 rounded-lg border border-ink-200 px-3 py-2 text-sm" />
+        </label>
+      </Card>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <StatCard label="Reportings soumis" value={rowsFiltrees.length} tone="royal" icon={<IconChat className="h-4 w-4" />} />
