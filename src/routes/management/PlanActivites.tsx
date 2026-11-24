@@ -12,7 +12,7 @@ import type { Database } from '@/types/database'
 import dayjs from 'dayjs'
 
 type Equipe = Database['public']['Tables']['equipes']['Row']
-type Plan = Database['public']['Tables']['plans_activites_mensuels']['Row']
+type Plan = Database['public']['Tables']['plans_activites_mensuels']['Row'] & { statut?: 'BROUILLON' | 'SOUMIS' | 'VALIDE' | 'REFUSE'; motif_rejet?: string | null; valide_at?: string | null; valide_par?: string | null }
 
 function moisOptions() {
   // Mois courant + 3 suivants (le plan porte "sur le mois suivant", soumis avant le 25 du mois précédent)
@@ -32,6 +32,7 @@ export default function ManagementPlanActivites() {
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [clock, setClock] = useState(Date.now())
+  const [motifs, setMotifs] = useState<Record<string, string>>({})
   useEffect(() => { const timer = window.setInterval(() => setClock(Date.now()), 1000); return () => window.clearInterval(timer) }, [])
   const deadline = new Date(dayjs(mois).subtract(1, 'month').date(25).hour(23).minute(59).second(59).millisecond(0).format('YYYY-MM-DDTHH:mm:ss') + '+01:00')
   const remaining = Math.max(0, deadline.getTime() - clock)
@@ -80,7 +81,7 @@ export default function ManagementPlanActivites() {
     setNotice(null)
     const existant = plans.find((p) => p.equipe_id === equipeId && p.mois === mois)
     const payload: Database['public']['Tables']['plans_activites_mensuels']['Insert'] = {
-      id: existant?.id, equipe_id: equipeId, superviseur_id: profile.id, mois, contenu: { texte }
+      id: existant?.id, equipe_id: equipeId, superviseur_id: profile.id, mois, contenu: { texte }, statut: 'SOUMIS', motif_rejet: null
     }
     // upsert plutôt que select-puis-insert/update : deux superviseurs (ou deux onglets) soumettant
     // en même temps pour la même équipe/mois ne se heurtent alors plus à la contrainte unique.
@@ -88,10 +89,24 @@ export default function ManagementPlanActivites() {
     setSaving(false)
     if (error) setNotice({ type: 'error', text: error.message })
     else {
-      setNotice({ type: 'success', text: 'Plan enregistré.' })
+      setNotice({ type: 'success', text: 'Plan soumis à l’administrateur pour validation.' })
       setFormOpen(false)
       load()
     }
+  }
+
+  async function decision(plan: Plan, statut: 'VALIDE' | 'REFUSE') {
+    const motif = (motifs[plan.id] ?? '').trim()
+    if (statut === 'REFUSE' && !motif) { setNotice({ type: 'error', text: 'Le motif du retour pour correction est obligatoire.' }); return }
+    setSaving(true); setNotice(null)
+    const { error } = await (supabase.from('plans_activites_mensuels' as any).update({
+      statut, motif_rejet: statut === 'REFUSE' ? motif : null,
+      valide_at: new Date().toISOString(), valide_par: profile?.id
+    }).eq('id', plan.id) as any)
+    setSaving(false)
+    if (error) { setNotice({ type: 'error', text: error.message }); return }
+    setNotice({ type: 'success', text: statut === 'VALIDE' ? 'Plan d’activité validé.' : 'Plan renvoyé au superviseur pour correction.' })
+    await load()
   }
 
   if (loading) return <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-64" /></div>
@@ -117,11 +132,11 @@ export default function ManagementPlanActivites() {
           <Card className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <p className="text-sm font-bold text-ink-800">Plans d'action mensuels</p>
-              <p className="mt-1 text-xs text-ink-400">La liste reste visible. Le formulaire s'ouvre uniquement lors d'une création ou modification.</p>
+              <p className="mt-1 text-xs text-ink-400">{isAdmin ? 'Contrôlez les plans soumis et rendez votre décision.' : 'Soumettez le plan mensuel de votre équipe. Il sera appliqué uniquement après validation administrative.'}</p>
             </div>
-            <Button size="sm" icon={<IconPlus className="h-4 w-4" />} onClick={() => setFormOpen(true)}>
+            {!isAdmin && <Button size="sm" icon={<IconPlus className="h-4 w-4" />} onClick={() => setFormOpen(true)}>
               Nouveau plan
-            </Button>
+            </Button>}
           </Card>
           {notice && (
             <p className={`text-xs rounded-xl px-3 py-2.5 ${notice.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
@@ -131,7 +146,7 @@ export default function ManagementPlanActivites() {
         </div>
       )}
 
-      <Modal
+      {!isAdmin && <Modal
         open={formOpen}
         onClose={() => setFormOpen(false)}
         title="Plan d'action mensuel"
@@ -167,10 +182,10 @@ export default function ManagementPlanActivites() {
             <Button type="submit" loading={saving} disabled={!texte.trim() || (late && profile?.role !== 'admin')}>Soumettre le plan</Button>
           </div>
         </form>
-      </Modal>
+      </Modal>}
 
       <div>
-        <p className="text-sm font-bold text-ink-600 mb-3">Statut par équipe</p>
+        <p className="text-sm font-bold text-ink-600 mb-3">{isAdmin ? 'État des plans par équipe' : 'État de vos plans par équipe'}</p>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {equipesVisibles.map((eq) => {
             const soumisPourMois = plans.filter((p) => p.equipe_id === eq.id)
@@ -184,7 +199,7 @@ export default function ManagementPlanActivites() {
                   </p>
                 </div>
                 {dernier ? (
-                  <Badge tone="success"><IconCheckCircle className="h-3 w-3 mr-1 inline" />À jour</Badge>
+                  <Badge tone={dernier.statut === 'VALIDE' ? 'success' : dernier.statut === 'SOUMIS' ? 'info' : dernier.statut === 'REFUSE' ? 'danger' : 'warning'}>{dernier.statut === 'VALIDE' ? 'Validé' : dernier.statut === 'SOUMIS' ? 'En attente' : dernier.statut === 'REFUSE' ? 'À corriger' : 'Brouillon'}</Badge>
                 ) : (
                   <Badge tone="warning"><IconCalendar className="h-3 w-3 mr-1 inline" />Manquant</Badge>
                 )}
@@ -203,6 +218,8 @@ export default function ManagementPlanActivites() {
                   <th className="px-4 py-3 text-left font-semibold">Équipe</th>
                   <th className="px-4 py-3 text-left font-semibold">Mois</th>
                   <th className="px-4 py-3 text-left font-semibold">Soumis le</th>
+                  <th className="px-4 py-3 text-left font-semibold">Statut</th>
+                  <th className="px-4 py-3 text-left font-semibold">Contenu / décision</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
@@ -211,6 +228,18 @@ export default function ManagementPlanActivites() {
                     <td className="px-4 py-3 font-semibold text-ink-800">{equipeNomById[p.equipe_id]}</td>
                     <td className="px-4 py-3 text-ink-500">{dayjs(p.mois).format('MMMM YYYY')}</td>
                     <td className="px-4 py-3 text-ink-500">{dayjs(p.soumis_at).format('DD/MM/YYYY HH:mm')}</td>
+                    <td className="px-4 py-3">{p.statut === 'VALIDE' ? <Badge tone="success">Validé</Badge> : p.statut === 'SOUMIS' ? <Badge tone="info">À valider</Badge> : p.statut === 'REFUSE' ? <Badge tone="danger">À corriger</Badge> : <Badge tone="warning">Brouillon</Badge>}</td>
+                    <td className="px-4 py-3 min-w-[280px]">
+                      <p className="max-w-md whitespace-pre-wrap text-xs text-ink-600">{(p.contenu as { texte?: string } | null)?.texte ?? '—'}</p>
+                      {p.statut === 'REFUSE' && p.motif_rejet && <p className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700">Motif : {p.motif_rejet}</p>}
+                      {isAdmin && p.statut === 'SOUMIS' && <div className="mt-2 space-y-2">
+                        <textarea value={motifs[p.id] ?? ''} onChange={e => setMotifs(v => ({ ...v, [p.id]: e.target.value }))} rows={2} placeholder="Motif obligatoire si vous demandez une correction…" className="w-full rounded-lg border border-ink-200 px-2 py-1.5 text-xs" />
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" onClick={() => void decision(p, 'VALIDE')} loading={saving}>Valider le plan</Button>
+                          <Button size="sm" variant="danger" onClick={() => void decision(p, 'REFUSE')} loading={saving} disabled={!(motifs[p.id] ?? '').trim()}>Demander une correction</Button>
+                        </div>
+                      </div>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
