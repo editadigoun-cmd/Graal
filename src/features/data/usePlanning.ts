@@ -81,15 +81,17 @@ export function usePlanning() {
     // Lire les deux semaines en parallèle : on évite deux allers-retours réseau successifs.
     const [
       { data: programmeActuel, error: erreurProgrammeActuel },
-      { data: programmeSuivant, error: erreurProgrammeSuivant }
+      { data: programmeSuivant, error: erreurProgrammeSuivant },
+      { data: secteursVM, error: erreurSecteursVM }
     ] = await Promise.all([
       supabase.from('programmes_hebdomadaires').select('*')
         .eq('vm_id', vmId).eq('semaine_debut', semaineActuelle).maybeSingle(),
       supabase.from('programmes_hebdomadaires').select('*')
-        .eq('vm_id', vmId).eq('semaine_debut', semaineSuivante).maybeSingle()
+        .eq('vm_id', vmId).eq('semaine_debut', semaineSuivante).maybeSingle(),
+      (supabase as any).from('vm_secteurs').select('secteur').eq('vm_id', vmId)
     ])
-    if (erreurProgrammeActuel || erreurProgrammeSuivant) {
-      setError(erreurProgrammeActuel?.message ?? erreurProgrammeSuivant?.message ?? 'Impossible de charger le programme.')
+    if (erreurProgrammeActuel || erreurProgrammeSuivant || erreurSecteursVM) {
+      setError(erreurProgrammeActuel?.message ?? erreurProgrammeSuivant?.message ?? erreurSecteursVM?.message ?? 'Impossible de charger le programme.')
       setLoading(false)
       return
     }
@@ -97,12 +99,18 @@ export function usePlanning() {
     const delaiActif = !!programmeActuel?.delai_supplementaire_jusqu_a &&
       new Date(programmeActuel.delai_supplementaire_jusqu_a).getTime() > Date.now()
     const semaineDebut = programmeActuel && delaiActif && !statutTermine ? semaineActuelle : semaineSuivante
-    // Alterner le secteur uniquement lors de la préparation de la semaine suivante.
-    const secteurProgramme = profile?.secteur === 'MONO' || profile?.secteur === 'COUFFOU'
-      ? profile.secteur
-      : semaineDebut === semaineSuivante
-        ? (profile?.secteur === 'A' ? 'B' : profile?.secteur === 'B' ? 'A' : null)
-        : profile?.secteur ?? null
+    // Un VM disposant de plusieurs secteurs autorisés travaille sur l'ensemble
+    // de ces secteurs : aucune alternance A/B ne doit limiter son portefeuille.
+    const secteursAutorises = new Set<string>((secteursVM ?? []).map((item: { secteur: string }) => item.secteur))
+    const multiSecteurs = secteursAutorises.size > 1
+    // Alterner le secteur uniquement pour les VM ayant un secteur unique A/B.
+    const secteurProgramme = multiSecteurs
+      ? null
+      : profile?.secteur === 'MONO' || profile?.secteur === 'COUFFOU'
+        ? profile.secteur
+        : semaineDebut === semaineSuivante
+          ? (profile?.secteur === 'A' ? 'B' : profile?.secteur === 'B' ? 'A' : null)
+          : profile?.secteur ?? null
 
     let prog = semaineDebut === semaineActuelle ? programmeActuel : programmeSuivant
 
@@ -139,9 +147,9 @@ export function usePlanning() {
         prog = existing
       }
     }
-    if ((estOdypharm2 && prog!.secteur !== null || !!secteurProgramme && prog!.secteur !== secteurProgramme) && prog!.statut === 'BROUILLON') {
+    if ((multiSecteurs && prog!.secteur !== null || estOdypharm2 && prog!.secteur !== null || !!secteurProgramme && prog!.secteur !== secteurProgramme) && prog!.statut === 'BROUILLON') {
       const { data: secteurCorrige, error: erreurSecteur } = await supabase
-        .from('programmes_hebdomadaires').update({ secteur: estOdypharm2 ? null : secteurProgramme }).eq('id', prog!.id).select('*').maybeSingle()
+        .from('programmes_hebdomadaires').update({ secteur: multiSecteurs || estOdypharm2 ? null : secteurProgramme }).eq('id', prog!.id).select('*').maybeSingle()
       if (erreurSecteur) {
         setError(erreurSecteur.message)
         setLoading(false)
@@ -221,7 +229,10 @@ export function usePlanning() {
       // La dérogation GENERALISTE autorise les deux secteurs, mais n'ajoute aucun client externe.
       if (!idsPortefeuille.has(client.id) && !zoneLibre) return false
       const estBongoSylvestre = vmId === 'db3b946a-165e-4a20-91e0-073c2e170a72'
-      return estBongoSylvestre || client.specialite === 'PHARMACIE' || zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || !prog!.secteur || client.secteur === prog!.secteur
+      const secteurAutorise = multiSecteurs
+        ? secteursAutorises.has(client.secteur ?? '')
+        : !prog!.secteur || client.secteur === prog!.secteur
+      return estBongoSylvestre || client.specialite === 'PHARMACIE' || zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || secteurAutorise
     })
     setPortefeuille(clientsPourPlanning)
     setLignes((lignesData as Ligne[]) ?? [])
