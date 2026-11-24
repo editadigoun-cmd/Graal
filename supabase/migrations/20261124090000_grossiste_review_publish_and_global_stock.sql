@@ -41,6 +41,13 @@ with latest as (
 select grossiste_id, code_externe, produit_id, report_month,
        cumulative_quantity as quantite_cumulee, created_at
 from latest;
+-- A later approved capture on the same calendar day must replace an earlier automatic capture.
+drop policy if exists "Admins update grossiste sales snapshots" on public.grossiste_ventes_snapshots;
+create policy "Admins update grossiste sales snapshots"
+  on public.grossiste_ventes_snapshots for update to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+grant update on public.grossiste_ventes_snapshots to authenticated;
+
 grant select on public.grossiste_ventes_mensuelles to authenticated;
 
 create or replace view public.grossiste_ventes_mensuelles_globales
@@ -131,8 +138,9 @@ begin
   set reviewed = true
   where sync_run_id = p_sync_run_id;
 
-  -- Every approved cumulative quantity becomes a dated snapshot. The unique key makes
-  -- repeat approvals harmless and preserves the original reference for that date.
+  -- Every approved cumulative quantity becomes a dated snapshot. If a second,
+  -- later capture is approved on the same day, it replaces the earlier capture.
+  -- Re-approving the same run remains idempotent.
   insert into public.grossiste_ventes_snapshots
     (grossiste_id, code_externe, produit_source, mois_reference, date_capture,
      cumul_mois, raw_row, created_at)
@@ -151,7 +159,12 @@ begin
   where s.sync_run_id = p_sync_run_id
     and s.code_externe is not null
     and s.cumulative_quantity is not null
-  on conflict (grossiste_id, code_externe, mois_reference, date_capture) do nothing;
+  on conflict (grossiste_id, code_externe, mois_reference, date_capture)
+  do update set produit_source = excluded.produit_source,
+                cumul_mois = excluded.cumul_mois,
+                raw_row = excluded.raw_row,
+                created_at = excluded.created_at
+  where excluded.created_at > public.grossiste_ventes_snapshots.created_at;
   get diagnostics v_daily_rows = row_count;
 
   -- Replace the weekly stock point with the latest approved stock for that week.
