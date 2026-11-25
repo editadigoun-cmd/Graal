@@ -173,7 +173,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
     if(isAdmin && mode==='superviseurs' && !newClient.superviseurId){setNotice('Sélectionnez le superviseur responsable de ce client.');return}
     setSaving('new-client');setNotice('')
     if(isSupervisor){
-      const {data:createdId,error:rpcError}=await supabase.rpc('superviseur_creer_client_portefeuille',{
+      const {error:rpcError}=await supabase.rpc('superviseur_creer_client_portefeuille',{
         p_nom:newClient.nom.trim(),p_centre:newClient.centre.trim()||null,
         p_specialite:newClient.specialite,p_potentiel:newClient.potentiel,p_secteur:newClient.secteur,
         p_frequence:Number(newClient.frequence_visite_mensuelle)||1,
