@@ -117,18 +117,19 @@ export default function Profil() {
         </Card>
       )}
 
-      {pushSupported && (
+      {(
         <Card>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-ink-100 p-2 text-ink-600"><IconBell className="h-5 w-5" /></div>
               <div>
                 <p className="text-sm font-bold text-ink-800">Notifications push</p>
-                <p className="text-[11px] text-ink-400">Rappels et alertes même app fermée</p>
+                <p className="text-[11px] text-ink-400">{pushSupported ? 'Rappels et alertes même app fermée' : 'Notifications Android : activation native à configurer'}</p>
               </div>
             </div>
-            <Switch checked={pushEnabled} onChange={togglePush} loading={pushBusy} label="Notifications push" />
+            <Switch checked={pushEnabled} onChange={togglePush} disabled={!pushSupported} loading={pushBusy} label="Notifications push" />
           </div>
+          {!pushSupported && <p className="mt-3 text-xs leading-relaxed text-amber-700">Le réglage reste visible, mais les notifications push ne sont pas encore disponibles sur cette installation. L’activation nécessitera une mise à jour native Android.</p>}
           {pushError && <p className="mt-2 text-[11px] text-red-500">{pushError}</p>}
         </Card>
       )}
