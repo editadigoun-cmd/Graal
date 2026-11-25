@@ -236,8 +236,9 @@ function NouvelleVisiteGarde({ gardeId, jour, onDone, onCancel }: { gardeId: str
 function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
   const { session } = useAuth()
   const geo = useGeolocation()
-  const [photo, setPhoto] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
+  const previewUrlsRef = useRef<string[]>([])
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -250,10 +251,8 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
     video.srcObject = cameraStream
     void video.play().catch(() => setError('Impossible d’afficher le flux de la caméra.'))
   }, [cameraStream, cameraOpen])
-  useEffect(() => () => {
-    cameraStream?.getTracks().forEach((track) => track.stop())
-    if (photoPreview) URL.revokeObjectURL(photoPreview)
-  }, [cameraStream, photoPreview])
+  useEffect(() => () => { cameraStream?.getTracks().forEach((track) => track.stop()) }, [cameraStream])
+  useEffect(() => () => { previewUrlsRef.current.forEach((preview) => URL.revokeObjectURL(preview)) }, [])
   async function handlePhoto() {
     setError(null)
     try {
@@ -275,8 +274,10 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
     canvas.toBlob((blob) => {
       if (!blob) { setError('La photo n’a pas pu être créée.'); return }
       const file = new File([blob], 'garde-' + Date.now() + '.jpg', { type: 'image/jpeg' })
-      setPhoto(file)
-      setPhotoPreview(URL.createObjectURL(file))
+      const preview = URL.createObjectURL(file)
+      previewUrlsRef.current.push(preview)
+      setPhotos(current => [...current, file])
+      setPhotoPreviews(current => [...current, preview])
       cameraStream?.getTracks().forEach((track) => track.stop())
       setCameraStream(null)
       setCameraOpen(false)
@@ -290,20 +291,24 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
   }
   async function valider() {
     if (!session) { setError('Session utilisateur introuvable.'); return }
-    if (!photo) { setError('La photo de fin de garde est obligatoire.'); return }
+    if (photos.length === 0) { setError('Au moins une photo de fin de garde est obligatoire.'); return }
     if (geo.status !== 'ok' || geo.latitude === null || geo.longitude === null) { setError('Position GPS requise pour terminer la garde.'); return }
     setSaving(true)
     setError(null)
 
     try {
       const jour = todayBenin().format('YYYY-MM-DD')
-      const extension = photo.type.includes('png') ? 'png' : photo.type.includes('webp') ? 'webp' : 'jpg'
-      const path = session.user.id + '/garde-' + jour + '-' + Date.now() + '.' + extension
-      const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: photo.type || 'image/jpeg' })
-      if (uploadError) throw new Error('Envoi de la photo impossible : ' + uploadError.message)
+      const paths: string[] = []
+      for (const [index, photo] of photos.entries()) {
+        const extension = photo.type.includes('png') ? 'png' : photo.type.includes('webp') ? 'webp' : 'jpg'
+        const path = session.user.id + '/garde-' + jour + '-' + Date.now() + '-' + (index + 1) + '.' + extension
+        const { error: uploadError } = await supabase.storage.from('fiches-papier').upload(path, photo, { contentType: photo.type || 'image/jpeg' })
+        if (uploadError) throw new Error('Envoi de la photo ' + (index + 1) + ' impossible : ' + uploadError.message)
+        paths.push(path)
+      }
 
       const { error: rpcError } = await supabase.rpc('terminer_garde', {
-        p_photo_path: path, p_photo_latitude: geo.latitude, p_photo_longitude: geo.longitude
+        p_photo_paths: paths, p_photo_latitude: geo.latitude, p_photo_longitude: geo.longitude
       })
       if (rpcError) throw new Error('Photo envoyée, mais enregistrement de la fin de garde impossible : ' + rpcError.message)
 
@@ -335,11 +340,17 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
       <Card>
         <div className="mb-3 flex items-center justify-between gap-2">
           <p className="text-sm font-bold text-ink-800">Photo de fin de garde</p>
-          <span className="text-xs text-ink-400">{photo ? '1 photo' : '0 photo'}</span>
+          <span className="text-xs text-ink-400">{photos.length} photo{photos.length > 1 ? 's' : ''}</span>
         </div>
-        {photoPreview && (
-          <div className="mb-3">
-            <img src={photoPreview} alt="Photo de fin de garde" className="h-36 w-full rounded-xl object-cover" />
+        {photoPreviews.length > 0 && (
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            {photoPreviews.map((src, index) => (
+              <div key={src} className="relative">
+                <img src={src} alt={'Photo de fin de garde ' + (index + 1)} className="h-32 w-full rounded-xl object-cover" />
+                <button type="button" onClick={() => { setPhotos(current => current.filter((_, i) => i !== index)); setPhotoPreviews(current => current.filter((_, i) => i !== index)) }} className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-1 text-xs font-bold text-white">Retirer</button>
+                <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-[10px] text-white">Photo {index + 1}</span>
+              </div>
+            ))}
           </div>
         )}
         {cameraOpen ? (
@@ -354,13 +365,13 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
         ) : (
           <button type="button" onClick={handlePhoto} className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-6 text-royal-600">
             <IconCamera className="h-7 w-7" />
-            <span className="text-sm font-semibold">{photo ? 'Reprendre la photo' : 'Activer la caméra et prendre une photo'}</span>
+            <span className="text-sm font-semibold">{photos.length ? 'Ajouter une autre photo' : 'Activer la caméra et prendre une photo'}</span>
             <span className="text-[11px] text-ink-400">La caméra s’ouvre directement dans Provisit</span>
           </button>
         )}
       </Card>
 
-      <Button fullWidth loading={saving} onClick={valider} disabled={!photo || saving}>Confirmer la fin de garde</Button>
+      <Button fullWidth loading={saving} onClick={valider} disabled={photos.length === 0 || saving}>Confirmer la fin de garde ({photos.length} photo{photos.length > 1 ? 's' : ''})</Button>
     </div>
   )
 }
