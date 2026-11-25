@@ -246,7 +246,8 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
     if (photoPreview) URL.revokeObjectURL(photoPreview)
   }, [photoPreview])
 
-  // Capture via la caméra native Capacitor : évite la perte d'état de la WebView Android
+  // Capture via la caméra native Capacitor : évite la perte d'état de la WebView Android.
+  // Le plugin est installé dans le projet et synchronisé dans le lockfile npm.
   // lorsque le système suspend/recrée l'activité pendant l'ouverture de la caméra.
   async function handlePhoto() {
     setError(null)
