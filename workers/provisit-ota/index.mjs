@@ -6,7 +6,7 @@ function json(data, status = 200) {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "access-control-allow-origin": "*",
-      "access-control-allow-methods": "POST, GET, OPTIONS",
+      "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
       "access-control-allow-headers": "Content-Type"
     }
   });
@@ -29,7 +29,7 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: {
         "access-control-allow-origin": "*",
-        "access-control-allow-methods": "POST, GET, OPTIONS",
+        "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
         "access-control-allow-headers": "Content-Type"
       }});
     }
@@ -38,14 +38,35 @@ export default {
       return json({ ok: true, service: "Provisit OTA", storage: "Cloudflare R2" });
     }
 
-    if (url.pathname === "/updates" && request.method === "POST") {
-      let app;
-      try {
-        app = await request.json();
-      } catch {
-        return json({ error: "invalid_json" }, 400);
+    if (url.pathname === "/channel_self") {
+      if (request.method === "GET") {
+        if (url.searchParams.get("app_id") !== APP_ID) return json({ status: "error", error: "unknown_app" }, 403);
+        return json([{ id: 1, name: "production", public: true, allow_self_set: false }]);
       }
 
+      if (request.method === "PUT") {
+        let app;
+        try { app = await request.json(); } catch { return json({ status: "error", error: "invalid_json" }, 400); }
+        if (app?.app_id !== APP_ID) return json({ status: "error", error: "unknown_app" }, 403);
+        return json({ status: "ok", channel: "production", allowSet: false, message: "", error: "" });
+      }
+
+      if (request.method === "POST") {
+        return json({
+          status: "error",
+          error: "public_channel_self_set_not_allowed",
+          message: "Provisit uses the production channel."
+        }, 403);
+      }
+
+      if (request.method === "DELETE") {
+        return json({ status: "ok", message: "Production channel restored" });
+      }
+    }
+
+    if (url.pathname === "/updates" && request.method === "POST") {
+      let app;
+      try { app = await request.json(); } catch { return json({ error: "invalid_json" }, 400); }
       if (app?.app_id !== APP_ID) return json({ error: "unknown_app" }, 403);
       if (app?.platform !== "android" && app?.platform !== "ios") {
         return json({ message: "Unsupported platform" });
