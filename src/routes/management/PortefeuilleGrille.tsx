@@ -116,7 +116,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
     setSaving(c.id+field);setNotice('')
     const numeric=['frequence_visite_mensuelle'].includes(field)
     const payload:Record<string,unknown>={[field]:numeric?Number(value):field==='actif'?value==='true':value===''?null:value}
-    const {error}=await supabase.from('clients').update(payload).eq('id',c.id)
+    const {error}=await supabase.from('clients').update(payload as any).eq('id',c.id)
     setSaving(null)
     if(error){setNotice('Modification refusée : '+error.message);return}
     setClients(rows=>rows.map(x=>x.id===c.id?{...x,...payload} as Client:x))
