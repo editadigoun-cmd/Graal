@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PotentielBadge } from '@/components/ui/Badge'
@@ -239,37 +238,56 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
   const geo = useGeolocation()
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !cameraStream) return
+    video.srcObject = cameraStream
+    void video.play().catch(() => setError('Impossible d’afficher le flux de la caméra.'))
+  }, [cameraStream, cameraOpen])
   useEffect(() => () => {
+    cameraStream?.getTracks().forEach((track) => track.stop())
     if (photoPreview) URL.revokeObjectURL(photoPreview)
-  }, [photoPreview])
-
-  // Capture via la caméra native Capacitor : évite la perte d'état de la WebView Android.
-  // Le plugin est installé dans le projet et synchronisé dans le lockfile npm.
-  // lorsque le système suspend/recrée l'activité pendant l'ouverture de la caméra.
+  }, [cameraStream, photoPreview])
   async function handlePhoto() {
     setError(null)
     try {
-      const capture = await Camera.getPhoto({
-        quality: 85,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Camera,
-      })
-      if (!capture.webPath) throw new Error('La caméra n’a retourné aucun fichier photo.')
-      const response = await fetch(capture.webPath)
-      if (!response.ok) throw new Error('Impossible de lire la photo capturée.')
-      const blob = await response.blob()
-      const file = new File([blob], 'garde-' + Date.now() + '.jpg', { type: blob.type || 'image/jpeg' })
+      const stream = await navigator.mediaDevices?.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1600 }, height: { ideal: 1200 } } })
+      if (!stream) throw new Error('Caméra indisponible. Vérifiez les autorisations et HTTPS.')
+      setCameraStream(stream)
+      setCameraOpen(true)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Impossible d’accéder à la caméra.') }
+  }
+  function capturerPhoto() {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas || !video.videoWidth || !video.videoHeight) { setError('La caméra n’est pas encore prête.'); return }
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const context = canvas.getContext('2d')
+    if (!context) { setError('Impossible de préparer la photo.'); return }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+    canvas.toBlob((blob) => {
+      if (!blob) { setError('La photo n’a pas pu être créée.'); return }
+      const file = new File([blob], 'garde-' + Date.now() + '.jpg', { type: 'image/jpeg' })
       setPhoto(file)
       setPhotoPreview(URL.createObjectURL(file))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'La capture photo a échoué.')
-    }
+      cameraStream?.getTracks().forEach((track) => track.stop())
+      setCameraStream(null)
+      setCameraOpen(false)
+      setError(null)
+    }, 'image/jpeg', 0.88)
   }
-
+  function annulerCamera() {
+    cameraStream?.getTracks().forEach((track) => track.stop())
+    setCameraStream(null)
+    setCameraOpen(false)
+  }
   async function valider() {
     if (!session) { setError('Session utilisateur introuvable.'); return }
     if (!photo) { setError('La photo de fin de garde est obligatoire.'); return }
@@ -324,15 +342,22 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
             <img src={photoPreview} alt="Photo de fin de garde" className="h-36 w-full rounded-xl object-cover" />
           </div>
         )}
-        <button
-          type="button"
-          onClick={handlePhoto}
-          className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-6 text-royal-600"
-        >
-          <IconCamera className="h-7 w-7" />
-          <span className="text-sm font-semibold">{photo ? 'Reprendre la photo' : 'Ouvrir la caméra et prendre une photo'}</span>
-          <span className="text-[11px] text-ink-400">Touchez ici pour ouvrir la caméra</span>
-        </button>
+        {cameraOpen ? (
+          <div className="space-y-3">
+            <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-xl bg-black aspect-[4/3] object-cover" />
+            <canvas ref={canvasRef} className="hidden" />
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={annulerCamera} className="rounded-xl bg-ink-100 py-3 text-sm font-semibold text-ink-600">Annuler</button>
+              <button type="button" onClick={capturerPhoto} className="rounded-xl bg-royal-600 py-3 text-sm font-semibold text-white">Capturer la photo</button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" onClick={handlePhoto} className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-6 text-royal-600">
+            <IconCamera className="h-7 w-7" />
+            <span className="text-sm font-semibold">{photo ? 'Reprendre la photo' : 'Activer la caméra et prendre une photo'}</span>
+            <span className="text-[11px] text-ink-400">La caméra s’ouvre directement dans Provisit</span>
+          </button>
+        )}
       </Card>
 
       <Button fullWidth loading={saving} onClick={valider} disabled={!photo || saving}>Confirmer la fin de garde</Button>
