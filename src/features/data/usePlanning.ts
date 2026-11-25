@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { isoWeekMonday } from '@/lib/time'
+import dayjs from 'dayjs'
 import type { Database } from '@/types/database'
 import { getOfflineSnapshot, saveOfflineSnapshot } from '@/lib/offlineCache'
 
@@ -9,8 +10,8 @@ type Programme = Database['public']['Tables']['programmes_hebdomadaires']['Row']
 type Ligne = Database['public']['Tables']['programme_lignes']['Row'] & {
   clients: Pick<Database['public']['Tables']['clients']['Row'], 'id' | 'nom' | 'potentiel' | 'specialite' | 'centre'> | null
 }
-type ClientRow = Pick<Database['public']['Tables']['clients']['Row'], 'id' | 'nom' | 'centre' | 'specialite' | 'potentiel' | 'secteur' | 'actif'>
-type PlanningSnapshot = { programme: Programme; lignes: Ligne[]; portefeuille: ClientRow[]; zone: boolean; potentiel: boolean; generaliste: boolean }
+type ClientRow = Pick<Database['public']['Tables']['clients']['Row'], 'id' | 'nom' | 'centre' | 'specialite' | 'potentiel' | 'secteur' | 'actif' | 'frequence_visite_mensuelle'>
+type PlanningSnapshot = { programme: Programme; lignes: Ligne[]; portefeuille: ClientRow[]; visitesMois?: Record<string, number>; zone: boolean; potentiel: boolean; generaliste: boolean }
 
 export function targetSemaineDebut() {
   return isoWeekMonday().add(7, 'day').format('YYYY-MM-DD')
@@ -25,6 +26,7 @@ export function usePlanning() {
   const [programme, setProgramme] = useState<Programme | null>(null)
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [portefeuille, setPortefeuille] = useState<ClientRow[]>([])
+  const [visitesMois, setVisitesMois] = useState<Record<string, number>>({})
   const [derogationZoneActive, setDerogationZoneActive] = useState(false)
   const [derogationPotentielActive, setDerogationPotentielActive] = useState(false)
   const [derogationGeneralisteActive, setDerogationGeneralisteActive] = useState(false)
@@ -57,6 +59,7 @@ export function usePlanning() {
       setProgramme(cached.data.programme)
       setLignes(cached.data.lignes)
       setPortefeuille(cached.data.portefeuille)
+      setVisitesMois(cached.data.visitesMois ?? {})
       setDerogationZoneActive(cached.data.zone)
       setDerogationPotentielActive(cached.data.potentiel)
       setDerogationGeneralisteActive(cached.data.generaliste)
@@ -81,17 +84,15 @@ export function usePlanning() {
     // Lire les deux semaines en parallèle : on évite deux allers-retours réseau successifs.
     const [
       { data: programmeActuel, error: erreurProgrammeActuel },
-      { data: programmeSuivant, error: erreurProgrammeSuivant },
-      { data: secteursVM, error: erreurSecteursVM }
+      { data: programmeSuivant, error: erreurProgrammeSuivant }
     ] = await Promise.all([
       supabase.from('programmes_hebdomadaires').select('*')
         .eq('vm_id', vmId).eq('semaine_debut', semaineActuelle).maybeSingle(),
       supabase.from('programmes_hebdomadaires').select('*')
-        .eq('vm_id', vmId).eq('semaine_debut', semaineSuivante).maybeSingle(),
-      (supabase as any).from('vm_secteurs').select('secteur').eq('vm_id', vmId)
+        .eq('vm_id', vmId).eq('semaine_debut', semaineSuivante).maybeSingle()
     ])
-    if (erreurProgrammeActuel || erreurProgrammeSuivant || erreurSecteursVM) {
-      setError(erreurProgrammeActuel?.message ?? erreurProgrammeSuivant?.message ?? erreurSecteursVM?.message ?? 'Impossible de charger le programme.')
+    if (erreurProgrammeActuel || erreurProgrammeSuivant) {
+      setError(erreurProgrammeActuel?.message ?? erreurProgrammeSuivant?.message ?? 'Impossible de charger le programme.')
       setLoading(false)
       return
     }
@@ -99,24 +100,14 @@ export function usePlanning() {
     const delaiActif = !!programmeActuel?.delai_supplementaire_jusqu_a &&
       new Date(programmeActuel.delai_supplementaire_jusqu_a).getTime() > Date.now()
     const semaineDebut = programmeActuel && delaiActif && !statutTermine ? semaineActuelle : semaineSuivante
-    // Un VM disposant de plusieurs secteurs autorisés travaille sur l'ensemble
-    // de ces secteurs : aucune alternance A/B ne doit limiter son portefeuille.
-    const secteursAutorises = new Set<string>((secteursVM ?? []).map((item: { secteur: string }) => item.secteur))
-    const multiSecteurs = secteursAutorises.size > 1
-    // Alterner le secteur uniquement pour les VM ayant un secteur unique A/B.
-    const secteurProgramme = multiSecteurs
-      ? null
-      : profile?.secteur === 'MONO' || profile?.secteur === 'COUFFOU'
-        ? profile.secteur
-        : semaineDebut === semaineSuivante
-          ? (profile?.secteur === 'A' ? 'B' : profile?.secteur === 'B' ? 'A' : null)
-          : profile?.secteur ?? null
+    // Le secteur n'intervient plus dans la programmation : le portefeuille complet
+    // du VM est éligible, sous réserve des fréquences mensuelles et des autres règles métier.
 
     let prog = semaineDebut === semaineActuelle ? programmeActuel : programmeSuivant
 
     if (!prog) {
       const { data: created, error: createError } = await supabase
-        .from('programmes_hebdomadaires').insert({ vm_id: vmId, semaine_debut: semaineDebut, ...(estOdypharm2 ? { secteur: null } : secteurProgramme ? { secteur: secteurProgramme } : {}) }).select('*').maybeSingle()
+        .from('programmes_hebdomadaires').insert({ vm_id: vmId, semaine_debut: semaineDebut, secteur: null }).select('*').maybeSingle()
       if (createError) {
         if (createError.code === '23505') {
           const { data: existing, error: refetchError } = await supabase
@@ -147,24 +138,23 @@ export function usePlanning() {
         prog = existing
       }
     }
-    if ((multiSecteurs && prog!.secteur !== null || estOdypharm2 && prog!.secteur !== null || !!secteurProgramme && prog!.secteur !== secteurProgramme) && prog!.statut === 'BROUILLON') {
+    if (prog!.secteur !== null && prog!.statut === 'BROUILLON') {
       const { data: secteurCorrige, error: erreurSecteur } = await supabase
-        .from('programmes_hebdomadaires').update({ secteur: multiSecteurs || estOdypharm2 ? null : secteurProgramme }).eq('id', prog!.id).select('*').maybeSingle()
-      if (erreurSecteur) {
-        setError(erreurSecteur.message)
-        setLoading(false)
-        return
-      }
+        .from('programmes_hebdomadaires').update({ secteur: null }).eq('id', prog!.id).select('*').maybeSingle()
+      if (erreurSecteur) { setError(erreurSecteur.message); setLoading(false); return }
       if (secteurCorrige) prog = secteurCorrige
     }
     setProgramme(prog)
 
-    const [{ data: lignesData, error: lignesError }, { data: portefeuilleData, error: portefeuilleError }] = await Promise.all([
+    const debutMois = dayjs(semaineDebut).startOf('month').format('YYYY-MM-DD')
+    const finMois = dayjs(semaineDebut).add(4, 'day').startOf('month').add(1, 'month').format('YYYY-MM-DD')
+    const [{ data: lignesData, error: lignesError }, { data: portefeuilleData, error: portefeuilleError }, { data: visitesData, error: visitesError }] = await Promise.all([
       supabase.from('programme_lignes').select('*, clients(id, nom, potentiel, specialite, centre)').eq('programme_id', prog!.id).order('ordre'),
-      supabase.from('portefeuille').select('client_id').eq('vm_id', vmId)
+      supabase.from('portefeuille').select('client_id').eq('vm_id', vmId),
+      supabase.from('visites').select('client_id, jour').eq('vm_id', vmId).in('statut', ['REALISEE', 'HORS_PROGRAMME']).gte('jour', debutMois).lt('jour', finMois)
     ])
-    if (lignesError || portefeuilleError) {
-      setError(lignesError?.message ?? portefeuilleError?.message ?? 'Impossible de charger les clients.')
+    if (lignesError || portefeuilleError || visitesError) {
+      setError(lignesError?.message ?? portefeuilleError?.message ?? visitesError?.message ?? 'Impossible de charger les clients.')
       setLoading(false)
       return
     }
@@ -193,7 +183,7 @@ export function usePlanning() {
     let clientsData: ClientRow[] = []
     if (zoneLibre && !prog!.mode_pharmacie_uniquement) {
       const { data, error: clientsError } = await supabase
-        .from('clients').select('id, nom, centre, specialite, potentiel, secteur, actif').eq('actif', true).order('nom')
+        .from('clients').select('id, nom, centre, specialite, potentiel, secteur, actif, frequence_visite_mensuelle').eq('actif', true).order('nom')
       if (clientsError) {
         setError(clientsError.message)
         hasLoaded.current = true
@@ -213,8 +203,15 @@ export function usePlanning() {
       clientsData = data ?? []
     }
 
-    // Ne proposer que les clients actifs du portefeuille appartenant au secteur
-    // du programme de la semaine.
+    const compteVisites: Record<string, number> = {}
+    for (const visite of visitesData ?? []) {
+      const mois = String(visite.jour).slice(0, 7)
+      const cle = `${visite.client_id}:${mois}`
+      compteVisites[cle] = (compteVisites[cle] ?? 0) + 1
+    }
+    setVisitesMois(compteVisites)
+
+    // Le portefeuille complet est éligible, quel que soit le secteur du client.
     const clientsPourPlanning = (clientsData ?? []).filter((client) => {
       // Le potentiel G+ n'est visible que si au moins une fiche G+ appartient
       // réellement au portefeuille du VM, même lorsqu'une dérogation de zone
@@ -228,11 +225,7 @@ export function usePlanning() {
       // Toute dérogation de spécialité reste limitée aux clients du portefeuille du VM.
       // La dérogation GENERALISTE autorise les deux secteurs, mais n'ajoute aucun client externe.
       if (!idsPortefeuille.has(client.id) && !zoneLibre) return false
-      const estBongoSylvestre = vmId === 'db3b946a-165e-4a20-91e0-073c2e170a72'
-      const secteurAutorise = multiSecteurs
-        ? secteursAutorises.has(client.secteur ?? '')
-        : !prog!.secteur || client.secteur === prog!.secteur
-      return estBongoSylvestre || client.specialite === 'PHARMACIE' || zoneLibre || estFawaz || estFagbede || (generalisteDerogation === true && client.specialite === 'GENERALISTE') || secteurAutorise
+      return true
     })
     setPortefeuille(clientsPourPlanning)
     setLignes((lignesData as Ligne[]) ?? [])
@@ -243,6 +236,7 @@ export function usePlanning() {
       programme: prog!,
       lignes: (lignesData as Ligne[]) ?? [],
       portefeuille: clientsPourPlanning,
+      visitesMois: compteVisites,
       zone: zoneLibre, potentiel: potentielLibre, generaliste: generalisteLibre
     })
   }, [session, profile?.secteur, profile?.equipe_id, profile?.id])
@@ -253,5 +247,5 @@ export function usePlanning() {
     return () => window.removeEventListener('online', load)
   }, [load])
 
-  return { programme, lignes, portefeuille, loading, error, setError, reload: load, retirerLigne, estFawaz, estFagbede, estOdypharm2, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive }
+  return { programme, lignes, portefeuille, visitesMois, loading, error, setError, reload: load, retirerLigne, estFawaz, estFagbede, estOdypharm2, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive }
 }
