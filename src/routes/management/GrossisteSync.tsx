@@ -52,17 +52,33 @@ export default function GrossisteSync(){
  }
  async function saveSalesMapping(row:SalesRow){const productId=choices['sales:'+row.grossiste_id+':'+row.code_externe]||row.produit_id;if(!productId){setError('Choisissez un produit du catalogue avant de mémoriser la correspondance.');return;}setSalesBusy(row.code_externe);setError('');const {error}=await (supabase as any).from('mappings_produits_grossistes').upsert({grossiste_id:row.grossiste_id,code_externe:row.code_externe,produit_id:productId},{onConflict:'grossiste_id,code_externe'});if(error){setError('Correspondance non sauvegardée : '+error.message);setSalesBusy('');return;}const {error:snapshotError}=await (supabase as any).from('grossiste_sales_snapshots').update({produit_id:productId}).eq('grossiste_id',row.grossiste_id).eq('code_externe',row.code_externe);if(snapshotError){setError('Correspondance mémorisée, mais les relevés existants ne sont pas encore actualisés : '+snapshotError.message);setSalesBusy('');return;}const {data:approvedRuns}=await (supabase as any).from('grossiste_sync_runs').select('id').eq('grossiste_id',row.grossiste_id).in('status',['success','needs_human']);for(const run of approvedRuns??[]){const {data:runPages}=await (supabase as any).from('grossiste_sync_preview_pages').select('review_status').eq('sync_run_id',run.id);if(!runPages?.length||runPages.some((p:any)=>p.review_status!=='approved'))continue;const {count:unmappedCount}=await (supabase as any).from('grossiste_sales_snapshots').select('id',{count:'exact',head:true}).eq('sync_run_id',run.id).is('produit_id',null);if((unmappedCount??0)>0)continue;const {error:publishError}=await (supabase as any).rpc('approve_grossiste_sync_run',{p_sync_run_id:run.id});if(publishError){setError('Correspondance enregistrée. Réintégration du relevé '+run.id+' à reprendre : '+publishError.message);setSalesBusy('');return;}}await reload();setSalesBusy('');}
  async function approveWholeRun(){
-  if(!current){return;}
+  if(!current)return;
   setBusy(current.id);setError('');setSyncMessage('');
-  const pending=pages.filter(p=>p.review_status!=='approved');
-  for(const page of pending){
-   const {error:pageError}=await (supabase as any).from('grossiste_sync_preview_pages').update({review_status:'approved',reviewed_by:profile?.id,reviewed_at:new Date().toISOString()}).eq('id',page.id);
-   if(pageError){setError('Validation interrompue : '+pageError.message);setBusy('');return;}
+  try{
+   const pending=pages.filter(p=>p.review_status!=='approved');
+   for(const page of pending){
+    const {error:pageError}=await (supabase as any).from('grossiste_sync_preview_pages')
+      .update({review_status:'approved',reviewed_by:profile?.id,reviewed_at:new Date().toISOString()})
+      .eq('id',page.id);
+    if(pageError)throw new Error('Validation des pages interrompue : '+pageError.message);
+   }
+   const {data:publishResult,error:publishError}=await (supabase as any).rpc('approve_grossiste_sync_run',{p_sync_run_id:current.id});
+   if(publishError)throw new Error(publishError.message);
+   const posted=publishResult?.daily_sales_postings_inserted??0;
+   const unmapped=publishResult?.unmapped_rows_skipped??0;
+   const dates=publishResult?.daily_capture_dates_published??0;
+   const message=unmapped>0
+    ? 'Intégration partielle : '+posted+' lignes de ventes publiées sur '+dates+' date(s). '+unmapped+' référence(s) restent à associer au catalogue; elles pourront être intégrées après leur rapprochement.'
+    : 'Relevé validé : '+posted+' lignes de ventes publiées sur '+dates+' date(s), avec mise à jour des stocks et commandes.';
+   await reload('run:'+current.id);
+   setSyncMessage(message);
+  }catch(error){
+   const message=error instanceof Error?error.message:'Erreur inconnue pendant la validation.';
+   await reload('run:'+current.id);
+   setError('Validation impossible : '+message);
+  }finally{
+   setBusy('');
   }
-  const {data:publishResult,error:publishError}=await (supabase as any).rpc('approve_grossiste_sync_run',{p_sync_run_id:current.id});
-  if(publishError){setError('Validation impossible : '+publishError.message);setBusy('');await reload('run:'+current.id);return;}
-  setSyncMessage('Relevé validé. '+(publishResult?.daily_sales_postings_inserted??0)+' lignes de ventes de la veille intégrées, avec mise à jour des stocks et commandes.');
-  await reload('run:'+current.id);setBusy('');
  }
  async function review(page:Page,status:'approved'|'rejected'){
   setBusy(page.id);setError('');
