@@ -11,13 +11,11 @@ as $function$
 declare
   v_run public.grossiste_sync_runs%rowtype;
   v_capture_date date;
-  v_latest_capture_date date;
   v_month date;
   v_daily_rows integer := 0;
   v_stock_rows integer := 0;
   v_posted_rows integer := 0;
   v_weekly_rows integer := 0;
-  v_published_dates integer := 0;
   v_unmapped_rows integer := 0;
 begin
   if not public.is_admin() then
@@ -76,10 +74,6 @@ begin
   do update set quantite=excluded.quantite,updated_at=now();
   get diagnostics v_stock_rows = row_count;
 
-  select max(date_capture) into v_latest_capture_date
-  from public.grossiste_ventes_snapshots
-  where grossiste_id=v_run.grossiste_id and mois_reference=v_month;
-
   with inserted_postings as (
     insert into public.grossiste_ventes_integrations
       (grossiste_id,code_externe,produit_id,mois_reference,date_capture,date_vente,quantite)
@@ -87,7 +81,7 @@ begin
     from public.grossiste_ventes_journalieres d
     where d.grossiste_id=v_run.grossiste_id
       and d.mois_reference=v_month
-      and d.date_capture<=coalesce(v_latest_capture_date,v_capture_date)
+      and d.date_capture=v_capture_date
       and d.status='calculated' and d.produit_id is not null
       and coalesce(d.ventes_jour_precedent,0)>0
     on conflict (grossiste_id,code_externe,mois_reference,date_capture) do nothing
@@ -106,9 +100,8 @@ begin
     returning 1
   )
   select (select count(*) from inserted_postings),
-         (select count(*) from weekly_upsert),
-         (select count(distinct date_capture) from inserted_postings)
-  into v_posted_rows,v_weekly_rows,v_published_dates;
+         (select count(*) from weekly_upsert)
+  into v_posted_rows,v_weekly_rows;
 
   update public.grossiste_sync_runs
   set status=case when v_unmapped_rows>0 then 'needs_human' else 'success' end,
