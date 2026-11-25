@@ -28,6 +28,8 @@ export default function ManagementPlanActivites() {
   const [mois, setMois] = useState(moisOptions()[1])
   const [equipeId, setEquipeId] = useState('')
   const [texte, setTexte] = useState('')
+  const [fichiersSelectionnes, setFichiersSelectionnes] = useState<File[]>([])
+  const [fichiersUrls, setFichiersUrls] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -53,6 +55,15 @@ export default function ManagementPlanActivites() {
     ])
     setEquipes(eq ?? [])
     setPlans(pl ?? [])
+    const fichiers = (pl ?? []).flatMap((p: Plan) => {
+      const contenu = p.contenu as { fichiers?: { path: string }[] } | null
+      return (contenu?.fichiers ?? []).map((f) => f.path)
+    })
+    const urls = await Promise.all(fichiers.map(async (filePath: string) => {
+      const { data } = await supabase.storage.from('plans-activites').createSignedUrl(filePath, 3600)
+      return data?.signedUrl ? [filePath, data.signedUrl] as const : null
+    }))
+    setFichiersUrls(Object.fromEntries(urls.filter((v): v is readonly [string, string] => !!v)))
     setSupervisedIds((se.data ?? []).map((s) => s.equipe_id))
     setLoading(false)
   }
@@ -72,6 +83,7 @@ export default function ManagementPlanActivites() {
     const existant = plans.find((p) => p.equipe_id === equipeId && p.mois === mois)
     const contenu = existant?.contenu as { texte?: string } | null
     setTexte(contenu?.texte ?? '')
+    setFichiersSelectionnes([])
   }, [equipeId, mois, plans])
 
   async function soumettre(e: React.FormEvent) {
@@ -82,17 +94,51 @@ export default function ManagementPlanActivites() {
     setSaving(true)
     setNotice(null)
     const existant = plans.find((p) => p.equipe_id === equipeId && p.mois === mois)
-    if (existant && !['BROUILLON', 'REFUSE'].includes(existant.statut ?? 'SOUMIS')) { setNotice({ type: 'error', text: 'Ce plan est déjà soumis ou validé et ne peut plus être modifié.' }); return }
+    if (existant && !['BROUILLON', 'REFUSE'].includes(existant.statut ?? 'SOUMIS')) {
+      setSaving(false)
+      setNotice({ type: 'error', text: 'Ce plan est déjà soumis ou validé et ne peut plus être modifié.' })
+      return
+    }
+    const contenuExistant = existant?.contenu as { fichiers?: { path: string; name: string; type: string; size: number }[] } | null
+    const fichiersExistants = contenuExistant?.fichiers ?? []
+    if (fichiersExistants.length + fichiersSelectionnes.length > 5) {
+      setSaving(false)
+      setNotice({ type: 'error', text: 'Vous pouvez joindre 5 fichiers maximum au total.' })
+      return
+    }
+    if (fichiersSelectionnes.some((file) => file.size > 20 * 1024 * 1024)) {
+      setSaving(false)
+      setNotice({ type: 'error', text: 'Chaque fichier doit faire 20 Mo maximum.' })
+      return
+    }
+    const nouveauxFichiers: { path: string; name: string; type: string; size: number }[] = []
+    for (const [index, file] of fichiersSelectionnes.entries()) {
+      const safeName = file.name.normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(-100)
+      const storagePath = `${profile.id}/${mois}/${Date.now()}-${index}-${safeName}`
+      const { error: uploadError } = await supabase.storage.from('plans-activites').upload(storagePath, file, { contentType: file.type, upsert: false })
+      if (uploadError) {
+        if (nouveauxFichiers.length) await supabase.storage.from('plans-activites').remove(nouveauxFichiers.map((f) => f.path))
+        setSaving(false)
+        setNotice({ type: 'error', text: `Impossible d'ajouter ${file.name} : ${uploadError.message}` })
+        return
+      }
+      nouveauxFichiers.push({ path: storagePath, name: file.name, type: file.type, size: file.size })
+    }
     const payload: any = {
-      id: existant?.id, equipe_id: equipeId, superviseur_id: profile.id, mois, contenu: { texte }, statut: 'SOUMIS', motif_rejet: null, soumis_at: new Date().toISOString(), valide_at: null, valide_par: null
+      id: existant?.id, equipe_id: equipeId, superviseur_id: profile.id, mois,
+      contenu: { texte, fichiers: [...fichiersExistants, ...nouveauxFichiers] },
+      statut: 'SOUMIS', motif_rejet: null, soumis_at: new Date().toISOString(), valide_at: null, valide_par: null
     }
     // upsert plutôt que select-puis-insert/update : deux superviseurs (ou deux onglets) soumettant
     // en même temps pour la même équipe/mois ne se heurtent alors plus à la contrainte unique.
     const { error } = await (supabase.from('plans_activites_mensuels' as any).upsert(payload, { onConflict: 'equipe_id,mois' }) as any)
     setSaving(false)
-    if (error) setNotice({ type: 'error', text: error.message })
-    else {
-      setNotice({ type: 'success', text: 'Plan soumis à l’administrateur pour validation.' })
+    if (error) {
+      if (nouveauxFichiers.length) await supabase.storage.from('plans-activites').remove(nouveauxFichiers.map((f) => f.path))
+      setNotice({ type: 'error', text: error.message })
+    } else {
+      setFichiersSelectionnes([])
+      setNotice({ type: 'success', text: 'Plan et pièces jointes soumis à l’administrateur pour validation.' })
       setFormOpen(false)
       load()
     }
@@ -182,6 +228,30 @@ export default function ManagementPlanActivites() {
               placeholder="Objectifs, actions prévues, formations, challenges, points d'attention pour le mois…"
               className="w-full rounded-xl border border-ink-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal-400 focus:ring-4 focus:ring-royal-100" />
           </div>
+          <div className="space-y-2 rounded-xl border border-dashed border-ink-200 p-3">
+            <label className="block text-xs font-semibold text-ink-600">Documents à joindre (facultatif)</label>
+            <input
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp"
+              onChange={(e) => {
+                const ajout = Array.from(e.target.files ?? [])
+                setFichiersSelectionnes((actuels) => [...actuels, ...ajout].slice(0, Math.max(0, 5 - ((planSelectionne?.contenu as any)?.fichiers?.length ?? 0))))
+                e.currentTarget.value = ''
+              }}
+              className="block w-full text-xs text-ink-600 file:mr-3 file:rounded-lg file:border-0 file:bg-royal-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-royal-700"
+            />
+            <p className="text-[11px] text-ink-400">PDF, Word, Excel, PowerPoint ou images · 20 Mo maximum par fichier · 5 fichiers maximum.</p>
+            {((planSelectionne?.contenu as any)?.fichiers ?? []).map((file: { path: string; name: string }) => (
+              <p key={file.path} className="text-xs text-ink-500">Déjà joint : {file.name}</p>
+            ))}
+            {fichiersSelectionnes.map((file, index) => (
+              <div key={`${file.name}-${file.lastModified}-${index}`} className="flex items-center justify-between gap-2 text-xs text-ink-600">
+                <span className="truncate">{file.name}</span>
+                <button type="button" onClick={() => setFichiersSelectionnes((actuels) => actuels.filter((_, i) => i !== index))} className="text-red-600">Retirer</button>
+              </div>
+            ))}
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>Annuler</Button>
             <Button type="submit" loading={saving} disabled={!texte.trim() || planVerrouille || (late && profile?.role !== 'admin')}>Soumettre le plan</Button>
@@ -238,6 +308,12 @@ export default function ManagementPlanActivites() {
                     <td className="px-4 py-3">{p.statut === 'VALIDE' ? <Badge tone="success">Validé</Badge> : p.statut === 'SOUMIS' ? <Badge tone="info">À valider</Badge> : p.statut === 'REFUSE' ? <Badge tone="danger">À corriger</Badge> : p.statut === 'ARCHIVE' ? <Badge tone="neutral">Historique</Badge> : <Badge tone="warning">Brouillon</Badge>}</td>
                     <td className="px-4 py-3 min-w-[280px]">
                       <p className="max-w-md whitespace-pre-wrap text-xs text-ink-600">{(p.contenu as { texte?: string } | null)?.texte ?? '—'}</p>
+                      {((p.contenu as any)?.fichiers ?? []).length > 0 && <div className="mt-2 space-y-1">
+                        <p className="text-[11px] font-semibold text-ink-500">Pièces jointes</p>
+                        {((p.contenu as any).fichiers as { path: string; name: string }[]).map((file) => (
+                          <p key={file.path} className="text-xs"><a href={fichiersUrls[file.path] ?? '#'} target="_blank" rel="noreferrer" className="text-royal-700 underline">{file.name}</a></p>
+                        ))}
+                      </div>}
                       {p.statut === 'REFUSE' && p.motif_rejet && <p className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700">Motif : {p.motif_rejet}</p>}
                       {isAdmin && p.statut === 'SOUMIS' && <div className="mt-2 space-y-2">
                         <textarea value={motifs[p.id] ?? ''} onChange={e => setMotifs(v => ({ ...v, [p.id]: e.target.value }))} rows={2} placeholder="Motif obligatoire si vous demandez une correction…" className="w-full rounded-lg border border-ink-200 px-2 py-1.5 text-xs" />
