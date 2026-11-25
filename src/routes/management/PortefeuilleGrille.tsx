@@ -166,11 +166,26 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
     setSaving(null);setNotice('Client supprimé.')
   }
   async function createClient(){
-    if(!isAdmin){setNotice('Seul un administrateur peut créer un client.');return}
+    const isSupervisor = profile?.role === 'superviseur'
+    if(!isAdmin && !isSupervisor){setNotice('Vous ne disposez pas des droits nécessaires pour créer un client.');return}
     if(!newClient.nom.trim()){setNotice('Le nom du client est obligatoire.');return}
     if(mode==='vm' && newClient.vmIds.length===0){setNotice('Associez au moins un VM à ce client.');return}
-    if(mode==='superviseurs' && !newClient.superviseurId){setNotice('Sélectionnez le superviseur responsable de ce client.');return}
+    if(isAdmin && mode==='superviseurs' && !newClient.superviseurId){setNotice('Sélectionnez le superviseur responsable de ce client.');return}
     setSaving('new-client');setNotice('')
+    if(isSupervisor){
+      const {data:createdId,error:rpcError}=await supabase.rpc('superviseur_creer_client_portefeuille',{
+        p_nom:newClient.nom.trim(),p_centre:newClient.centre.trim()||null,
+        p_specialite:newClient.specialite,p_potentiel:newClient.potentiel,p_secteur:newClient.secteur,
+        p_frequence:Number(newClient.frequence_visite_mensuelle)||1,
+        p_contacts:newClient.contacts.trim()||null,p_observations:newClient.observations.trim()||null,
+        p_vm_ids:newClient.vmIds
+      })
+      if(rpcError){setNotice('Création impossible : '+rpcError.message);setSaving(null);return}
+      await load()
+      setNewClient({nom:'',centre:'',specialite:'GENERALISTE',potentiel:'MOYEN',secteur:'A',frequence_visite_mensuelle:'1',contacts:'',observations:'',vmIds:[],superviseurId:''})
+      setNewClientOpen(false);setSaving(null);setNotice('Nouveau client créé et ajouté à votre portefeuille.')
+      return
+    }
     const {data,error}=await supabase.from('clients').insert({
       nom:newClient.nom.trim(),centre:newClient.centre.trim()||null,
       specialite:newClient.specialite,potentiel:newClient.potentiel,secteur:newClient.secteur,
@@ -195,7 +210,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
   if(loading)return <div className="space-y-3"><Skeleton className="h-20"/><Skeleton className="h-72"/></div>
   const title=mode==='superviseurs'?'Portefeuille superviseurs':'Portefeuille VM'
   return <div className="space-y-5 pb-8">
-    <div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[.16em] text-royal-600">Gestion des portefeuilles</p><h1 className="provisit-page-title mt-1">{!isAdmin && mode==='superviseurs'?'Mon portefeuille':title}</h1><p className="mt-1 text-sm text-ink-400">{isAdmin?'Vue globale avec modification directe des fiches et affectations.':'Clients des VM de vos équipes et portefeuille qui vous est attribué.'}</p></div>{isAdmin&&<button onClick={()=>setNewClientOpen(v=>!v)} className="shrink-0 rounded-xl bg-royal-600 px-4 py-3 text-sm font-bold text-white shadow-sm">+ Nouveau client</button>}</div>
+    <div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[.16em] text-royal-600">Gestion des portefeuilles</p><h1 className="provisit-page-title mt-1">{!isAdmin && mode==='superviseurs'?'Mon portefeuille':title}</h1><p className="mt-1 text-sm text-ink-400">{isAdmin?'Vue globale avec modification directe des fiches et affectations.':'Clients des VM de vos équipes et portefeuille qui vous est attribué.'}</p></div>{(isAdmin||profile?.role==='superviseur')&&<button onClick={()=>setNewClientOpen(v=>!v)} className="shrink-0 rounded-xl bg-royal-600 px-4 py-3 text-sm font-bold text-white shadow-sm">+ Nouveau client</button>}</div>
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3"><Card><p className="text-xs text-ink-400">Clients affichés</p><p className="mt-1 text-2xl font-extrabold">{visible.length}</p></Card><Card><p className="text-xs text-ink-400">Clients actifs</p><p className="mt-1 text-2xl font-extrabold">{visible.filter(c=>c.actif).length}</p></Card><Card><p className="text-xs text-ink-400">Enregistrements par page</p><p className="mt-1 text-2xl font-extrabold">{pageSize}</p></Card></div>
     <Card className="space-y-3">
       <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher un client, un centre…" className="w-full rounded-xl border border-ink-200 px-3 py-2.5 text-sm"/>
@@ -218,7 +233,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
         <input placeholder="Contacts" value={newClient.contacts} onChange={e=>setNewClient(x=>({...x,contacts:e.target.value}))} className="rounded-xl border px-3 py-2 text-sm"/>
         <input placeholder="Observations" value={newClient.observations} onChange={e=>setNewClient(x=>({...x,observations:e.target.value}))} className="rounded-xl border px-3 py-2 text-sm"/>
       </div>
-      <div><p className="mb-2 text-xs font-semibold text-ink-600">Superviseur responsable (facultatif)</p><select value={newClient.superviseurId} onChange={e=>setNewClient(x=>({...x,superviseurId:e.target.value}))} className="w-full rounded-xl border px-3 py-2 text-sm"><option value="">Aucun superviseur</option>{superviseurs.map(v=><option key={v.id} value={v.id}>{v.full_name}</option>)}</select></div><div><p className="mb-2 text-xs font-semibold text-ink-600">Associer plusieurs VM (facultatif)</p><div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">{vms.map(v=><label key={v.id} className="flex items-center gap-2 rounded-lg border p-2 text-xs"><input type="checkbox" checked={newClient.vmIds.includes(v.id)} onChange={e=>setNewClient(x=>({...x,vmIds:e.target.checked?[...x.vmIds,v.id]:x.vmIds.filter(id=>id!==v.id)}))}/>{v.full_name}</label>)}</div></div>
+      {isAdmin?<div><p className="mb-2 text-xs font-semibold text-ink-600">Superviseur responsable (facultatif)</p><select value={newClient.superviseurId} onChange={e=>setNewClient(x=>({...x,superviseurId:e.target.value}))} className="w-full rounded-xl border px-3 py-2 text-sm"><option value="">Aucun superviseur</option>{superviseurs.map(v=><option key={v.id} value={v.id}>{v.full_name}</option>)}</select></div>:<p className="rounded-xl bg-royal-50 px-3 py-2 text-xs text-royal-700">Ce client sera automatiquement ajouté à votre portefeuille de superviseur.</p>}<div><p className="mb-2 text-xs font-semibold text-ink-600">Associer plusieurs VM (facultatif)</p><div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">{vms.filter(v=>!allowedVmIds||allowedVmIds.includes(v.id)).map(v=><label key={v.id} className="flex items-center gap-2 rounded-lg border p-2 text-xs"><input type="checkbox" checked={newClient.vmIds.includes(v.id)} onChange={e=>setNewClient(x=>({...x,vmIds:e.target.checked?[...x.vmIds,v.id]:x.vmIds.filter(id=>id!==v.id)}))}/>{v.full_name}</label>)}</div></div>
       <div className="flex justify-end"><button disabled={saving==='new-client'} onClick={()=>void createClient()} className="rounded-xl bg-royal-600 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving==='new-client'?'Création…':'Créer le client'}</button></div>
     </Card>}{notice&&<p className="rounded-xl bg-royal-50 px-3 py-2 text-xs text-royal-700">{notice}</p>}</>
     <Card className="overflow-hidden p-0">
