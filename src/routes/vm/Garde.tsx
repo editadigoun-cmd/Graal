@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PotentielBadge } from '@/components/ui/Badge'
@@ -240,20 +241,32 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => () => {
     if (photoPreview) URL.revokeObjectURL(photoPreview)
   }, [photoPreview])
 
-  // Même mécanisme HTML que la clôture normale : compatible navigateur et Android WebView.
-  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    e.target.value = ''
-    if (!f) return
-    setPhoto(f)
-    setPhotoPreview(URL.createObjectURL(f))
+  // Capture via la caméra native Capacitor : évite la perte d'état de la WebView Android
+  // lorsque le système suspend/recrée l'activité pendant l'ouverture de la caméra.
+  async function handlePhoto() {
     setError(null)
+    try {
+      const capture = await Camera.getPhoto({
+        quality: 85,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera,
+      })
+      if (!capture.webPath) throw new Error('La caméra n’a retourné aucun fichier photo.')
+      const response = await fetch(capture.webPath)
+      if (!response.ok) throw new Error('Impossible de lire la photo capturée.')
+      const blob = await response.blob()
+      const file = new File([blob], 'garde-' + Date.now() + '.jpg', { type: blob.type || 'image/jpeg' })
+      setPhoto(file)
+      setPhotoPreview(URL.createObjectURL(file))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'La capture photo a échoué.')
+    }
   }
 
   async function valider() {
@@ -305,16 +318,6 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
           <p className="text-sm font-bold text-ink-800">Photo de fin de garde</p>
           <span className="text-xs text-ink-400">{photo ? '1 photo' : '0 photo'}</span>
         </div>
-        <input
-          key={photoPreview ?? 'empty'}
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onClick={(e) => { e.currentTarget.value = '' }}
-          onChange={handlePhoto}
-        />
         {photoPreview && (
           <div className="mb-3">
             <img src={photoPreview} alt="Photo de fin de garde" className="h-36 w-full rounded-xl object-cover" />
@@ -322,7 +325,7 @@ function TerminerGarde({ onDone, onCancel }: { onDone: () => void; onCancel: () 
         )}
         <button
           type="button"
-          onClick={() => fileRef.current?.click()}
+          onClick={handlePhoto}
           className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-royal-200 py-6 text-royal-600"
         >
           <IconCamera className="h-7 w-7" />
