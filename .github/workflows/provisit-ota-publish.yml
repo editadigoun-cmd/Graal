@@ -63,13 +63,20 @@ jobs:
             --name "provisit-$BUNDLE_VERSION" \
             --json > bundle-info.json
           cat bundle-info.json
-          ZIP_FILE="$(find . -type f -name "provisit-$BUNDLE_VERSION.zip" -not -path './node_modules/*' -print -quit)"
+          # Capgo CLI's filename field is the archive basename and may not
+          # include the .zip suffix. Search both forms and retain a fallback.
+          ZIP_FILE="$(find . -type f \( -name "provisit-$BUNDLE_VERSION" -o -name "provisit-$BUNDLE_VERSION.zip" -o -name '*.zip' \) -not -path './node_modules/*' -print -quit)"
           if [ -z "$ZIP_FILE" ]; then
-            ZIP_FILE="$(find . -type f -name '*.zip' -not -path './node_modules/*' -print -quit)"
+            echo "Archive not found. Files created by Capgo CLI:"
+            find . -maxdepth 3 -type f -not -path './node_modules/*' -printf '%p (%s bytes)\n' | sort | tail -80
+            exit 1
           fi
-          test -n "$ZIP_FILE"
           CHECKSUM="$(node -e "const d=JSON.parse(require('fs').readFileSync('bundle-info.json','utf8')); process.stdout.write(d.checksum || d.sha256 || d.bundle?.checksum || '')")"
-          test -n "$CHECKSUM"
+          if [ -z "$CHECKSUM" ]; then
+            echo "Capgo CLI did not return a checksum."
+            exit 1
+          fi
+          echo "Using OTA archive: $ZIP_FILE"
           echo "OTA_ZIP_FILE=$ZIP_FILE" >> "$GITHUB_ENV"
           echo "OTA_CHECKSUM=$CHECKSUM" >> "$GITHUB_ENV"
 
