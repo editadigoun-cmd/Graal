@@ -94,3 +94,20 @@ jobs:
 
       - name: Verify OTA Worker health
         run: curl --fail --silent --show-error https://provisit-ota.ccds22431.workers.dev/health
+
+      - name: Verify Android update discovery and bundle download
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE="$(curl --fail --silent --show-error \
+            -X POST "https://provisit-ota.ccds22431.workers.dev/updates" \
+            -H "Content-Type: application/json" \
+            --data '{"app_id":"com.provisit.provisit","platform":"android","version_name":"1.1.0","version_build":"2","version_code":"2"}')"
+          echo "$RESPONSE"
+          node -e "const d=JSON.parse(process.argv[1]); if(d.version !== process.env.BUNDLE_VERSION || !d.url || d.checksum !== process.env.OTA_CHECKSUM) { console.error('Unexpected OTA response', d); process.exit(1); }" "$RESPONSE"
+          curl --fail --silent --show-error "$(
+            node -e "process.stdout.write(JSON.parse(process.argv[1]).url)" "$RESPONSE"
+          )" -o downloaded-bundle.zip
+          ACTUAL_CHECKSUM="$(sha256sum downloaded-bundle.zip | cut -d ' ' -f1)"
+          test "$ACTUAL_CHECKSUM" = "$OTA_CHECKSUM"
+          unzip -t downloaded-bundle.zip
