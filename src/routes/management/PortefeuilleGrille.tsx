@@ -168,6 +168,8 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
   async function createClient(){
     if(!isAdmin){setNotice('Seul un administrateur peut créer un client.');return}
     if(!newClient.nom.trim()){setNotice('Le nom du client est obligatoire.');return}
+    if(mode==='vm' && newClient.vmIds.length===0){setNotice('Associez au moins un VM à ce client.');return}
+    if(mode==='superviseurs' && !newClient.superviseurId){setNotice('Sélectionnez le superviseur responsable de ce client.');return}
     setSaving('new-client');setNotice('')
     const {data,error}=await supabase.from('clients').insert({
       nom:newClient.nom.trim(),centre:newClient.centre.trim()||null,
