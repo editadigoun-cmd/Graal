@@ -93,7 +93,7 @@ function selectionGrosCountSafe(selection: Set<string>, portefeuille: Database['
 }
 
 export default function Planning() {
-  const { programme, lignes, portefeuille, loading, error, setError, reload, estFawaz, estFagbede, estOdypharm2, derogationZoneActive, derogationPotentielActive, derogationGeneralisteActive, retirerLigne } = usePlanning()
+  const { programme, lignes, portefeuille, visitesMois, loading, error, setError, reload, estFawaz, estFagbede, estOdypharm2, derogationPotentielActive, retirerLigne } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
   const [picking, setPicking] = useState<TypeVisite | null>(null)
   const [recherche, setRecherche] = useState('')
@@ -233,11 +233,11 @@ export default function Planning() {
     // ne doit pas mélanger les catégories de clients.
     if (picking === 'PHARMACIE' && c.specialite !== 'PHARMACIE') return false
     if (picking === 'MEDICAL' && c.specialite === 'PHARMACIE') return false
-    // Le programme fixe le secteur autorisé pour cette semaine : secteur courant cette semaine,
-    // secteur opposé pour la semaine suivante. Le serveur applique la même règle.
-    if (programme?.vm_id !== 'db3b946a-165e-4a20-91e0-073c2e170a72' && c.specialite !== 'PHARMACIE' && !pharmacieUniquement && !derogationZoneActive && !(derogationGeneralisteActive && c.specialite === 'GENERALISTE') && !estFawaz && !estFagbede && programme?.secteur && c.secteur !== programme.secteur) return false
-    // Afficher les clients du secteur autorisé même si leur potentiel ne permet pas de les
-    // programmer le jour sélectionné ; les règles de potentiel restent appliquées plus bas.
+    // Un client reste disponible tant que sa fréquence mensuelle n'est pas consommée.
+    const dateVisitePrevue = dayjs(programme?.semaine_debut ?? semaineDebut).add(JOURS.indexOf(jourActif), 'day')
+    const moisPrevu = dateVisitePrevue.format('YYYY-MM')
+    const frequence = c.frequence_visite_mensuelle
+    if (frequence != null && frequence > 0 && (visitesMois[`${c.id}:${moisPrevu}`] ?? 0) >= frequence) return false
     if (clientIdsUtilises.has(c.id)) return false
     if (recherche) {
       // Accepter les mots dans n'importe quel ordre : « Pharmacie Togoudo »
@@ -260,7 +260,7 @@ export default function Planning() {
   const moyenJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'MOYEN').length + countSelection('MOYEN')
   const grosJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'GROS').length + countSelection('GROS')
   const faibleJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'FAIBLE').length + countSelection('FAIBLE')
-  const grosMoyenRestant = portefeuille.some((c) => !clientIdsUtilises.has(c.id) && !selection.has(c.id) && c.actif && (c.potentiel === 'GROS' || c.potentiel === 'MOYEN') && (pharmacieUniquement || derogationZoneActive || estFawaz || estFagbede || !programme?.secteur || c.secteur === programme.secteur))
+  const grosMoyenRestant = portefeuille.some((c) => !clientIdsUtilises.has(c.id) && !selection.has(c.id) && c.actif && (c.potentiel === 'GROS' || c.potentiel === 'MOYEN'))
 
   function quotaPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId)) return false
