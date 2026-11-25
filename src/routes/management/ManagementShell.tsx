@@ -79,7 +79,9 @@ const groups: NavGroup[] = [
     icon: IconUsers,
     children: [
       { to: '/admin/equipes', label: 'Équipes & VM', icon: IconUsers },
-      { to: '/admin/portefeuille', label: 'Mon portefeuille', icon: IconUsers },
+      { to: '/admin/mon-portefeuille', label: 'Mon portefeuille', icon: IconUsers },
+      { to: '/admin/portefeuille-superviseurs', label: 'Portefeuille superviseurs', icon: IconUsers, adminOnly: true },
+      { to: '/admin/portefeuille-vm', label: 'Portefeuille VM', icon: IconUsers },
       { to: '/admin/clients', label: 'Clients', icon: IconUsers, adminOnly: true },
       { to: '/admin/produits', label: 'Produits', icon: IconPill, adminOnly: true },
     ],
@@ -116,12 +118,12 @@ export function ManagementShell() {
     '/admin/terrain', '/admin/suivi-terrain', '/admin/vad-plan', '/admin/quotas-vad',
     '/admin/rapport-activite-hebdo', '/admin/controle-frequence',
     '/admin/rapports-duo', '/admin/animation-equipe', '/admin/equipes',
-    '/admin/portefeuille', '/admin/activite', '/admin/profil'
+    '/admin/portefeuille', '/admin/mon-portefeuille', '/admin/portefeuille-vm', '/admin/activite', '/admin/profil'
   ])
   const visibleGroups = useMemo(() => {
     if (profile?.role === 'admin') {
       return groups
-        .map((g) => ({ ...g, children: g.children.filter((item) => item.to !== '/admin/portefeuille') }))
+        .map((g) => ({ ...g, children: g.children.filter((item) => item.to !== '/admin/mon-portefeuille') }))
         .filter((g) => g.children.length > 0)
     }
     if (profile?.role === 'superviseur') {
