@@ -1,0 +1,89 @@
+name: Publish Provisit OTA to Cloudflare
+
+concurrency:
+  group: provisit-cloudflare-ota
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'capacitor.config.ts'
+      - 'workers/provisit-ota/**'
+      - '.github/workflows/provisit-ota-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      VITE_SUPABASE_URL: https://bjwcsfdvucrwtlheivuu.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yw_ecNheum1JSgS56I4SSg_PKTuAuFK
+      VITE_APP_TIMEZONE: Africa/Porto-Novo
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Provisit web bundle
+        run: npm run build
+
+      - name: Deploy Cloudflare OTA Worker
+        run: npx wrangler@4 deploy --config workers/provisit-ota/wrangler.jsonc
+
+      - name: Create Capgo-compatible OTA archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE_VERSION="1.2.${GITHUB_RUN_NUMBER}"
+          echo "BUNDLE_VERSION=$BUNDLE_VERSION" >> "$GITHUB_ENV"
+          npx @capgo/cli@latest bundle zip com.provisit.provisit \
+            --path ./dist \
+            --bundle "$BUNDLE_VERSION" \
+            --name "provisit-$BUNDLE_VERSION" \
+            --json > bundle-info.json
+          cat bundle-info.json
+          ZIP_FILE="$(find . -type f -name "provisit-$BUNDLE_VERSION.zip" -not -path './node_modules/*' -print -quit)"
+          if [ -z "$ZIP_FILE" ]; then
+            ZIP_FILE="$(find . -type f -name '*.zip' -not -path './node_modules/*' -print -quit)"
+          fi
+          test -n "$ZIP_FILE"
+          CHECKSUM="$(node -e "const d=JSON.parse(require('fs').readFileSync('bundle-info.json','utf8')); process.stdout.write(d.checksum || d.sha256 || d.bundle?.checksum || '')")"
+          test -n "$CHECKSUM"
+          echo "OTA_ZIP_FILE=$ZIP_FILE" >> "$GITHUB_ENV"
+          echo "OTA_CHECKSUM=$CHECKSUM" >> "$GITHUB_ENV"
+
+      - name: Upload versioned bundle to Cloudflare R2
+        run: |
+          npx wrangler@4 r2 object put "provisit-ota/bundles/provisit-$BUNDLE_VERSION.zip" \
+            --file "$OTA_ZIP_FILE" --remote
+
+      - name: Publish latest OTA manifest
+        shell: bash
+        run: |
+          node -e "require('fs').writeFileSync('latest.json', JSON.stringify({version: process.env.BUNDLE_VERSION, file: 'provisit-' + process.env.BUNDLE_VERSION + '.zip', checksum: process.env.OTA_CHECKSUM, commit: process.env.GITHUB_SHA, published_at: new Date().toISOString()}))"
+          npx wrangler@4 r2 object put "provisit-ota/latest.json" \
+            --file latest.json --content-type application/json --remote
+
+      - name: Verify OTA Worker health
+        run: curl --fail --silent --show-error https://provisit-ota.ccds22431.workers.dev/health
