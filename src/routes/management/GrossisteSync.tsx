@@ -66,10 +66,9 @@ export default function GrossisteSync(){
    if(publishError)throw new Error(publishError.message);
    const posted=publishResult?.daily_sales_postings_inserted??0;
    const unmapped=publishResult?.unmapped_rows_skipped??0;
-   const dates=publishResult?.daily_capture_dates_published??0;
    const message=unmapped>0
-    ? 'Intégration partielle : '+posted+' lignes de ventes publiées sur '+dates+' date(s). '+unmapped+' référence(s) restent à associer au catalogue; elles pourront être intégrées après leur rapprochement.'
-    : 'Relevé validé : '+posted+' lignes de ventes publiées sur '+dates+' date(s), avec mise à jour des stocks et commandes.';
+    ? 'Intégration partielle : '+posted+' lignes de ventes publiées. '+unmapped+' référence(s) restent à associer au catalogue; elles pourront être intégrées après leur rapprochement.'
+    : 'Relevé validé : '+posted+' lignes de ventes publiées, avec mise à jour des stocks et commandes.';
    await reload('run:'+current.id);
    setSyncMessage(message);
   }catch(error){
