@@ -34,7 +34,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
   const [notice,setNotice] = useState('')
   const [page,setPage] = useState(1)
   const [newClientOpen,setNewClientOpen] = useState(false)
-  const [newClient,setNewClient] = useState({nom:'',centre:'',specialite:'GENERALISTE',potentiel:'MOYEN',secteur:'A',frequence_visite_mensuelle:'1',contacts:'',observations:'',vmIds:[] as string[]})
+  const [newClient,setNewClient] = useState({nom:'',centre:'',specialite:'GENERALISTE',potentiel:'MOYEN',secteur:'A',frequence_visite_mensuelle:'1',contacts:'',observations:'',vmIds:[] as string[],superviseurId:''})
   const pageSize = 100
   const vmById = useMemo(()=>Object.fromEntries(vms.map(v=>[v.id,v.full_name])),[vms])
   const supervisorById = useMemo(()=>Object.fromEntries(superviseurs.map(v=>[v.id,v.full_name])),[superviseurs])
@@ -176,13 +176,18 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
       contacts:newClient.contacts.trim()||null,observations:newClient.observations.trim()||null,actif:true
     }).select('id,nom,centre,specialite,potentiel,secteur,frequence_visite_mensuelle,contacts,observations,actif').single()
     if(error){setNotice('Création impossible : '+error.message);setSaving(null);return}
+    if(mode==='superviseurs' && newClient.superviseurId){
+      const {error:supervisorError}=await supabase.from('portefeuille_superviseurs').insert({client_id:data.id,superviseur_id:newClient.superviseurId})
+      if(supervisorError){setNotice('Client créé, mais son affectation au superviseur a échoué : '+supervisorError.message);await load();setSaving(null);return}
+      setSupervisorLinks(rows=>[...rows,{client_id:data.id,superviseur_id:newClient.superviseurId}])
+    }
     if(newClient.vmIds.length){
       const {error:assignError}=await supabase.from('portefeuille').insert(newClient.vmIds.map(vm_id=>({client_id:data.id,vm_id})))
       if(assignError){setNotice('Client créé, mais certaines affectations VM ont échoué : '+assignError.message);await load();setSaving(null);return}
       setVmLinks(rows=>[...rows,...newClient.vmIds.map(vm_id=>({client_id:data.id,vm_id}))])
     }
     setClients(rows=>[...rows,data as Client].sort((a,b)=>a.nom.localeCompare(b.nom)))
-    setNewClient({nom:'',centre:'',specialite:'GENERALISTE',potentiel:'MOYEN',secteur:'A',frequence_visite_mensuelle:'1',contacts:'',observations:'',vmIds:[]})
+    setNewClient({nom:'',centre:'',specialite:'GENERALISTE',potentiel:'MOYEN',secteur:'A',frequence_visite_mensuelle:'1',contacts:'',observations:'',vmIds:[],superviseurId:''})
     setNewClientOpen(false);setSaving(null);setNotice('Nouveau client créé.')
   }
   if(loading)return <div className="space-y-3"><Skeleton className="h-20"/><Skeleton className="h-72"/></div>
@@ -211,7 +216,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
         <input placeholder="Contacts" value={newClient.contacts} onChange={e=>setNewClient(x=>({...x,contacts:e.target.value}))} className="rounded-xl border px-3 py-2 text-sm"/>
         <input placeholder="Observations" value={newClient.observations} onChange={e=>setNewClient(x=>({...x,observations:e.target.value}))} className="rounded-xl border px-3 py-2 text-sm"/>
       </div>
-      <div><p className="mb-2 text-xs font-semibold text-ink-600">Associer plusieurs VM (facultatif)</p><div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">{vms.map(v=><label key={v.id} className="flex items-center gap-2 rounded-lg border p-2 text-xs"><input type="checkbox" checked={newClient.vmIds.includes(v.id)} onChange={e=>setNewClient(x=>({...x,vmIds:e.target.checked?[...x.vmIds,v.id]:x.vmIds.filter(id=>id!==v.id)}))}/>{v.full_name}</label>)}</div></div>
+      <div><p className="mb-2 text-xs font-semibold text-ink-600">Superviseur responsable (facultatif)</p><select value={newClient.superviseurId} onChange={e=>setNewClient(x=>({...x,superviseurId:e.target.value}))} className="w-full rounded-xl border px-3 py-2 text-sm"><option value="">Aucun superviseur</option>{superviseurs.map(v=><option key={v.id} value={v.id}>{v.full_name}</option>)}</select></div><div><p className="mb-2 text-xs font-semibold text-ink-600">Associer plusieurs VM (facultatif)</p><div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">{vms.map(v=><label key={v.id} className="flex items-center gap-2 rounded-lg border p-2 text-xs"><input type="checkbox" checked={newClient.vmIds.includes(v.id)} onChange={e=>setNewClient(x=>({...x,vmIds:e.target.checked?[...x.vmIds,v.id]:x.vmIds.filter(id=>id!==v.id)}))}/>{v.full_name}</label>)}</div></div>
       <div className="flex justify-end"><button disabled={saving==='new-client'} onClick={()=>void createClient()} className="rounded-xl bg-royal-600 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving==='new-client'?'Création…':'Créer le client'}</button></div>
     </Card>}{notice&&<p className="rounded-xl bg-royal-50 px-3 py-2 text-xs text-royal-700">{notice}</p>}</>
     <Card className="overflow-hidden p-0">
