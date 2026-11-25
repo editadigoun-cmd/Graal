@@ -177,8 +177,7 @@ export function usePlanning() {
     setDerogationPotentielActive(potentielLibre)
     setDerogationGeneralisteActive(generalisteLibre)
 
-    // Charger uniquement les fiches utiles au VM. Le scan complet de la table
-    // clients n'est utile qu'en cas de dérogation de zone hors portefeuille.
+    // Charger le portefeuille du VM ; une dérogation de zone peut aussi ouvrir les fiches externes.
     const idsPortefeuille = new Set((portefeuilleData ?? []).map((item) => item.client_id))
     let clientsData: ClientRow[] = []
     if (zoneLibre && !prog!.mode_pharmacie_uniquement) {
@@ -193,7 +192,7 @@ export function usePlanning() {
       clientsData = data ?? []
     } else if (idsPortefeuille.size > 0) {
       const { data, error: clientsError } = await supabase
-        .from('clients').select('id, nom, centre, specialite, potentiel, secteur, actif').eq('actif', true).in('id', Array.from(idsPortefeuille)).order('nom')
+        .from('clients').select('id, nom, centre, specialite, potentiel, secteur, actif, frequence_visite_mensuelle').eq('actif', true).in('id', Array.from(idsPortefeuille)).order('nom')
       if (clientsError) {
         setError(clientsError.message)
         hasLoaded.current = true
@@ -215,15 +214,14 @@ export function usePlanning() {
     const clientsPourPlanning = (clientsData ?? []).filter((client) => {
       // Le potentiel G+ n'est visible que si au moins une fiche G+ appartient
       // réellement au portefeuille du VM, même lorsqu'une dérogation de zone
-      // lui permet de consulter des clients d'autres secteurs.
+      // lui permet de consulter des clients externes.
       if (client.potentiel === 'G+' && !idsPortefeuille.has(client.id)) return false
       // En mode « pharmacie uniquement », la liste est strictement limitée aux
       // pharmacies assignées à CE VM, tous secteurs et potentiels confondus.
       if (prog!.mode_pharmacie_uniquement) {
         return idsPortefeuille.has(client.id) && client.specialite === 'PHARMACIE'
       }
-      // Toute dérogation de spécialité reste limitée aux clients du portefeuille du VM.
-      // La dérogation GENERALISTE autorise les deux secteurs, mais n'ajoute aucun client externe.
+      // Hors dérogation de zone, les clients restent limités au portefeuille du VM.
       if (!idsPortefeuille.has(client.id) && !zoneLibre) return false
       return true
     })
