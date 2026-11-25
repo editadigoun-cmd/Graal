@@ -346,18 +346,34 @@ export default function Planning() {
   // En mode pharmacie uniquement, les règles de minimums médicaux et pharmaceutiques sont désactivées.
   const comptePotentielMedical = (j: Jour, potentiel: Potentiel) =>
     lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === potentiel).length
+  // Le minimum de potentiel ne peut jamais dépasser le stock réellement programmable
+  // pour cette journée : portefeuille actif, fréquence mensuelle disponible, et clients
+  // non affectés à un autre jour de la même semaine.
+  const minimumPotentielDisponible = (j: Jour, potentiel: Potentiel, minimum: number) => {
+    const datePrevue = dayjs(programme?.semaine_debut ?? semaineDebut).add(JOURS.indexOf(j), 'day')
+    const mois = datePrevue.format('YYYY-MM')
+    const affectesAutresJours = new Set(lignes.filter((l) => l.jour !== j).map((l) => l.client_id))
+    const stockProgrammable = portefeuille.filter((c) =>
+      c.actif &&
+      c.potentiel === potentiel &&
+      !affectesAutresJours.has(c.id) &&
+      (c.frequence_visite_mensuelle == null || c.frequence_visite_mensuelle <= 0 ||
+        (visitesMois[`${c.id}:${mois}`] ?? 0) < c.frequence_visite_mensuelle)
+    ).length
+    return Math.min(minimum, stockProgrammable)
+  }
   const jourOk = (j: Jour) => estOdypharm2
     ? quotaPharmacieRespecte(j)
     : pharmacieUniquement
       ? true
       : quotasPersonnalisesLydieSylvestre
         ? ['LUNDI','MARDI','MERCREDI'].includes(j)
-          ? comptePotentielMedical(j, 'GROS') >= 7
+          ? comptePotentielMedical(j, 'GROS') >= minimumPotentielDisponible(j, 'GROS', 7)
             && parJour[j].pharmacie >= 2
             && comptePotentielMedical(j, 'MOYEN') <= 7
             && comptePotentielMedical(j, 'FAIBLE') <= 2
           : parJour[j].medical >= 16
-            && comptePotentielMedical(j, 'GROS') >= 2
+            && comptePotentielMedical(j, 'GROS') >= minimumPotentielDisponible(j, 'GROS', 2)
             && parJour[j].pharmacie >= 2
         : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
