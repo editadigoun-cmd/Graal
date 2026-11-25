@@ -115,7 +115,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
     if(String(c[field]??'')===value)return
     setSaving(c.id+field);setNotice('')
     const numeric=['frequence_visite_mensuelle'].includes(field)
-    const payload:Record<string,unknown>={[field]:numeric?Number(value):value===''?null:value}
+    const payload:Record<string,unknown>={[field]:numeric?Number(value):field==='actif'?value==='true':value===''?null:value}
     const {error}=await supabase.from('clients').update(payload).eq('id',c.id)
     setSaving(null)
     if(error){setNotice('Modification refusée : '+error.message);return}
@@ -161,14 +161,14 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
           <thead className="sticky top-0 z-20 bg-ink-50"><tr>{['Nom du client','Centre','Spécialité','Potentiel','Secteur','Fréquence/mois',...(mode==='vm'?['Visiteur médical']:['Superviseur']),'Contacts','Observations','Statut'].map((h,i)=><th key={h} className={'whitespace-nowrap border-b border-ink-200 px-3 py-3 text-left font-bold text-ink-600 '+(i===0?'sticky left-0 z-30 min-w-[230px] bg-ink-50':'')}>{h}</th>)}</tr></thead>
           <tbody>{shown.map(c=><tr key={c.id} className="group hover:bg-royal-50/40">
             <td className="sticky left-0 z-10 border-b border-ink-100 bg-white px-3 py-2 font-bold text-ink-800 group-hover:bg-royal-50 min-w-[230px]">{c.nom}</td>
-            <td className="border-b border-ink-100 p-1"><Cell value={c.centre??''} busy={saving===c.id+'centre'} onSave={v=>saveCell(c,'centre',v)}/></td>
+            <td className="border-b border-ink-100 p-1"><Cell value={c.centre??''} onSave={v=>saveCell(c,'centre',v)}/></td>
             <td className="border-b border-ink-100 p-1"><select value={c.specialite} onChange={e=>saveCell(c,'specialite',e.target.value)} className="w-40 rounded-lg border border-transparent bg-transparent p-2 hover:border-ink-200 focus:border-royal-400">{SPECIALITES.map(s=><option key={s} value={s}>{LABELS[s]??s}</option>)}</select></td>
             <td className="border-b border-ink-100 p-1"><select value={c.potentiel} onChange={e=>saveCell(c,'potentiel',e.target.value)} className="rounded-lg border border-transparent bg-transparent p-2 hover:border-ink-200"><option>G+</option><option>GROS</option><option>MOYEN</option><option>FAIBLE</option></select></td>
             <td className="border-b border-ink-100 p-1"><select value={c.secteur} onChange={e=>saveCell(c,'secteur',e.target.value)} className="rounded-lg border border-transparent bg-transparent p-2 hover:border-ink-200"><option>A</option><option>B</option></select></td>
-            <td className="border-b border-ink-100 p-1"><Cell value={String(c.frequence_visite_mensuelle)} type="number" busy={saving===c.id+'frequence_visite_mensuelle'} onSave={v=>saveCell(c,'frequence_visite_mensuelle',v)}/></td>
+            <td className="border-b border-ink-100 p-1"><Cell value={String(c.frequence_visite_mensuelle)} type="number" onSave={v=>saveCell(c,'frequence_visite_mensuelle',v)}/></td>
             {mode==='vm'?<td className="border-b border-ink-100 p-1"><select disabled={!isAdmin} value={vmLinks.find(x=>x.client_id===c.id)?.vm_id??''} onChange={e=>saveAssignment(c,'vm_id',e.target.value)} className="w-44 rounded-lg border border-transparent bg-transparent p-2 disabled:opacity-60 hover:border-ink-200"><option value="">Non affecté</option>{vms.filter(v=>!allowedVmIds||allowedVmIds.includes(v.id)).map(v=><option key={v.id} value={v.id}>{v.full_name}</option>)}</select></td>:<td className="border-b border-ink-100 p-1"><select disabled={!isAdmin} value={supervisorLinks.find(x=>x.client_id===c.id)?.superviseur_id??''} onChange={e=>saveAssignment(c,'superviseur_id',e.target.value)} className="w-44 rounded-lg border border-transparent bg-transparent p-2 disabled:opacity-60 hover:border-ink-200"><option value="">Non affecté</option>{superviseurs.map(v=><option key={v.id} value={v.id}>{v.full_name}</option>)}</select></td>}
-            <td className="border-b border-ink-100 p-1"><Cell value={c.contacts??''} busy={saving===c.id+'contacts'} onSave={v=>saveCell(c,'contacts',v)}/></td>
-            <td className="border-b border-ink-100 p-1"><Cell value={c.observations??''} busy={saving===c.id+'observations'} onSave={v=>saveCell(c,'observations',v)}/></td>
+            <td className="border-b border-ink-100 p-1"><Cell value={c.contacts??''} onSave={v=>saveCell(c,'contacts',v)}/></td>
+            <td className="border-b border-ink-100 p-1"><Cell value={c.observations??''} onSave={v=>saveCell(c,'observations',v)}/></td>
             <td className="border-b border-ink-100 p-1"><select value={String(c.actif)} onChange={e=>saveCell(c,'actif',e.target.value==='true'?'true':'false')} className="rounded-lg border border-transparent bg-transparent p-2"><option value="true">Actif</option><option value="false">Inactif</option></select></td>
           </tr>)}</tbody>
         </table>
@@ -179,7 +179,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
     <p className="text-[11px] text-ink-400">Saisie directe : cliquez dans une cellule texte puis validez avec Entrée ou en quittant la cellule. Les listes déroulantes enregistrent immédiatement. {saving?'Enregistrement en cours…':''}</p>
   </div>
 }
-function Cell({value,type='text',busy,onSave}:{value:string;type?:string;busy:boolean;onSave:(v:string)=>void}){
+function Cell({value,type='text',onSave}:{value:string;type?:string;busy?:boolean;onSave:(v:string)=>void}){
   const [draft,setDraft]=useState(value)
   useEffect(()=>setDraft(value),[value])
   return <input value={draft} type={type} onChange={e=>setDraft(e.target.value)} onBlur={()=>{if(draft!==value)onSave(draft)}} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur()}} className="w-40 rounded-lg border border-transparent bg-transparent px-2 py-2 text-xs outline-none hover:border-ink-200 focus:border-royal-400 focus:bg-white" aria-label="Modifier la cellule" />
