@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
       autoUpdate: 'always',
       autoSplashscreen: true,
       keepUrlPathAfterReload: true,
-      version: '1.1.0',
+      version: '1.2.3',
       updateUrl: 'https://provisit-ota.ccds22431.workers.dev/updates',
       channelUrl: 'https://provisit-ota.ccds22431.workers.dev/channel_self',
       statsUrl: ''
