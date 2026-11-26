@@ -16,6 +16,21 @@ const text=(document.body?.innerText||"").trim().slice(0,12000);
 const links=[...document.querySelectorAll("a")].filter(visible).map(a=>({text:(a.innerText||a.textContent||"").trim().slice(0,120),url:a.href})).filter(a=>a.text&&/^https?:/.test(a.url)).slice(0,100);
 const downloads=[...document.querySelectorAll("a[href],button")].filter(visible).map(e=>({label:(e.innerText||e.textContent||"").trim().slice(0,120),url:e.href||"",download:e.getAttribute("download")||"",type:e.getAttribute("type")||""})).filter(x=>/pdf|csv|excel|export|télécharg|download|rapport/i.test(x.label+" "+x.url+" "+x.download)).slice(0,50);
 return{url:location.href,title:document.title,text,tables,links,downloadCandidates:downloads}})}
+async function promoLogin(page,env){
+ const user=page.locator('input[name="name1"]').first();
+ const pass=page.locator('input[name="name2"]').first();
+ if(!(await timed(user.count(),8000,"promo_login_form"))||!(await timed(pass.count(),8000,"promo_login_form")))return{ok:false,reason:"promo_login_form_not_found",diagnostics:await timed(diagnostics(page),LIMIT.diagnostics,"promo_login_diagnostics")};
+ await timed(user.fill(env.PROMO_USERNAME),10000,"promo_login_fill");
+ await timed(pass.fill(env.PROMO_PASSWORD),10000,"promo_login_fill");
+ const form=page.locator("form").first();
+ await timed(form.evaluate(f=>f.requestSubmit()),12000,"promo_login_submit");
+ try{await timed(page.waitForLoadState("domcontentloaded",{timeout:15000}),16000,"promo_post_login")}catch{}
+ await timed(page.waitForTimeout(2200),4000,"promo_post_login_wait");
+ const d=await timed(diagnostics(page),LIMIT.diagnostics,"promo_post_login_diagnostics");
+ if(d.verificationRequired)return{ok:false,reason:"verification_required",diagnostics:d};
+ if(d.loginVisible)return{ok:false,reason:"promo_login_failed_or_rejected",diagnostics:d};
+ return{ok:true,diagnostics:d};
+}
 async function login(page,env){const login=page.locator('input[name="Login"], input[placeholder="Login"], input[name="login"], input[type="text"]').first(),pass=page.locator('input[name="Password"], input[type="password"]').first();
 if(!(await timed(login.count(),8000,"login_form"))||!(await timed(pass.count(),8000,"login_form")))return{ok:false,reason:"login_form_not_found"};
 await timed(login.fill(env.UBIPHARM_USERNAME),10000,"login_fill");await timed(pass.fill(env.UBIPHARM_PASSWORD),10000,"login_fill");
@@ -27,10 +42,10 @@ if(d.verificationRequired)return{ok:false,reason:"verification_required",diagnos
 if(d.loginVisible)return{ok:false,reason:"login_failed_or_rejected",diagnostics:d};
 return{ok:true,diagnostics:d}}
 export default{async scheduled(controller,env,ctx){ctx.waitUntil(dailyCollection(env).catch(e=>console.error(JSON.stringify({event:"grossiste_daily_sync_failed",message:String(e)}))))},async fetch(request,env){const url=new URL(request.url);if(request.method==="OPTIONS")return new Response(null,{status:204,headers:CORS});if(request.method==="GET"&&url.pathname==="/health")return json({service:"provisit-grossiste-sync",status:"ok",mode:"read-only-portal-extraction",provider:"ubipharm"});
-const route=url.pathname.replace(/\/+$/,"")||"/";if(route==="/sync/ubipharm")return manualUbipharmSync(request,env);if(request.method!=="POST"||!["/inspect/ubipharm","/inspect/ubipharm/authenticated","/extract/ubipharm","/inspect/promo"].includes(route))return json({error:"Not found"},404);
-if(!authorized(request,env))return json({error:"Unauthorized"},401);if(route!=="/inspect/ubipharm"&&(!env.UBIPHARM_USERNAME||!env.UBIPHARM_PASSWORD))return json({status:"credentials_missing"},503);if(!env.BROWSER)return json({status:"browser_binding_missing"},503);
+const route=url.pathname.replace(/\/+$/,"")||"/";if(route==="/sync/ubipharm")return manualUbipharmSync(request,env);if(request.method!=="POST"||!["/inspect/ubipharm","/inspect/ubipharm/authenticated","/extract/ubipharm","/inspect/promo","/inspect/promo/authenticated"].includes(route))return json({error:"Not found"},404);
+if(!authorized(request,env))return json({error:"Unauthorized"},401);if(route==="/inspect/promo/authenticated"&&(!env.PROMO_USERNAME||!env.PROMO_PASSWORD))return json({provider:"promo",status:"credentials_missing"},503);if(route!=="/inspect/promo"&&route!=="/inspect/promo/authenticated"&&route!=="/inspect/ubipharm"&&(!env.UBIPHARM_USERNAME||!env.UBIPHARM_PASSWORD))return json({status:"credentials_missing"},503);if(!env.BROWSER)return json({status:"browser_binding_missing"},503);
 let browser,stage="browser_launch",started=Date.now();try{const{launch}=await import("@cloudflare/playwright");browser=await timed(launch(env.BROWSER),LIMIT.launch,stage);stage="new_page";const page=await timed(browser.newPage(),10000,stage);page.setDefaultNavigationTimeout(LIMIT.navigation);stage="navigation";await timed(page.goto(route==="/inspect/promo"?PROMO_PORTAL:PORTAL,{waitUntil:"domcontentloaded",timeout:LIMIT.navigation}),LIMIT.navigation+3000,stage);stage="initial_wait";await timed(page.waitForTimeout(1200),3000,stage);
-if(route==="/inspect/promo"){const d=await timed(diagnostics(page),LIMIT.diagnostics,"promo_initial_diagnostics");return json({provider:"promo",status:"portal_inspected",mode:"read-only",source:PROMO_PORTAL,diagnostics:d,elapsedMs:Date.now()-started});}
+if(route==="/inspect/promo"){const d=await timed(diagnostics(page),LIMIT.diagnostics,"promo_initial_diagnostics");return json({provider:"promo",status:"portal_inspected",mode:"read-only",source:PROMO_PORTAL,diagnostics:d,elapsedMs:Date.now()-started});}\nif(route==="/inspect/promo/authenticated"){stage="promo_login";const auth=await promoLogin(page,env);if(!auth.ok)return json({provider:"promo",status:auth.reason,mode:"read-only",source:PROMO_PORTAL,diagnostics:auth.diagnostics,secondPasswordConfigured:Boolean(env.PROMO_SECOND_PASSWORD),elapsedMs:Date.now()-started},auth.reason==="verification_required"?409:502);const extracted=await timed(extractPage(page),LIMIT.diagnostics,"promo_extract_preview");return json({provider:"promo",status:"authenticated_page_inspected",mode:"read-only",source:PROMO_PORTAL,authenticated:true,diagnostics:auth.diagnostics,preview:extracted,secondPasswordConfigured:Boolean(env.PROMO_SECOND_PASSWORD),reviewRequired:true,imported:false,elapsedMs:Date.now()-started});}
 if(route!=="/inspect/ubipharm"){stage="login";const auth=await login(page,env);if(!auth.ok)return json({provider:"ubipharm",status:auth.reason,diagnostics:auth.diagnostics||await timed(diagnostics(page),LIMIT.diagnostics,"diagnostics"),elapsedMs:Date.now()-started},auth.reason==="verification_required"?409:502);
 if(route==="/inspect/ubipharm/authenticated")return json({provider:"ubipharm",status:"authenticated_page_inspected",diagnostics:auth.diagnostics,elapsedMs:Date.now()-started});
 stage="extract_current_page";const current=await timed(extractPage(page),LIMIT.diagnostics,stage);
@@ -40,7 +55,7 @@ for(const link of candidateLinks){if(visited.has(link.path)||pages.length>=4)con
 return json({provider:"ubipharm",status:"extraction_preview",mode:"read-only",authenticationStatus:"confirmed_by_session_check",authenticated:true,source:PORTAL,extractedAt:new Date().toISOString(),pages,diagnostics:auth.diagnostics,reviewRequired:true,imported:false,elapsedMs:Date.now()-started});
 }
 stage="diagnostics";const d=await timed(diagnostics(page),LIMIT.diagnostics,stage);return json({provider:"ubipharm",status:"portal_inspected",diagnostics:d,elapsedMs:Date.now()-started})
-}catch(error){return json({provider:"ubipharm",status:error?.code||(String(error).includes("429")?"browser_rate_limit":"browser_error"),stage,error:String(error).slice(0,400),elapsedMs:Date.now()-started},502)}finally{if(browser)try{await timed(browser.close(),LIMIT.close,"browser_close")}catch{}}}};
+}catch(error){return json({provider:route.includes("promo")?"promo":"ubipharm",status:error?.code||(String(error).includes("429")?"browser_rate_limit":"browser_error"),stage,error:String(error).slice(0,400),elapsedMs:Date.now()-started},502)}finally{if(browser)try{await timed(browser.close(),LIMIT.close,"browser_close")}catch{}}}};
 
 const UBIPHARM_ID="c7af99dc-93fd-4c93-a5d8-504ebcb4cba8";
 function beninDateParts(d=new Date()){return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Porto-Novo",year:"numeric",month:"2-digit",day:"2-digit"}).format(d)}
