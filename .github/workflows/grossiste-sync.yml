@@ -60,6 +60,19 @@ jobs:
           fi
         env:
           SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
+      - name: Inspect authenticated PROMO portal (read-only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          http_code=$(curl --silent --show-error --output promo-auth-response.json --write-out "%{http_code}" --max-time 95 --connect-timeout 15 \
+            -X POST "https://provisit-grossiste-sync.ccds22431.workers.dev/inspect/promo/authenticated" \
+            -H "Authorization: Bearer $SYNC_TOKEN" -H "Content-Type: application/json") || curl_status=$?
+          echo "PROMO authenticated inspection HTTP status: ${http_code:-no-response}"
+          if [ -f promo-auth-response.json ]; then
+            jq '{provider,status,authenticated,source,elapsedMs,secondPasswordConfigured,diagnostics:{title:.diagnostics.title,url:.diagnostics.url,headings:.diagnostics.headings,loginVisible:.diagnostics.loginVisible,verificationRequired:.diagnostics.verificationRequired,forms:.diagnostics.forms,inputs:.diagnostics.inputs,links:(.diagnostics.links|map({text,path})|.[:60]),tables:.diagnostics.tables,pageTextSignals:.diagnostics.pageTextSignals},preview:{title:.preview.title,url:.preview.url,text:(.preview.text|.[0:3500]),tables:.preview.tables,downloadCandidates:.preview.downloadCandidates}}' promo-auth-response.json 2>/dev/null || cat promo-auth-response.json
+          fi
+          if [ "${curl_status:-0}" -ne 0 ]; then echo "PROMO authenticated preview failed or timed out."; exit 0; fi
+        env:
+          SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
       - name: Read-only UBIPHARM extraction preview
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         run: |
