@@ -135,8 +135,8 @@ export default function Tournees(){
       {expandedNow&&<div className="mt-3 space-y-3">{datesEntre(t.date_debut,t.date_fin).map(day=>{
        const j=js.find(x=>x.jour===day);const r=j?reportsByDay[j.id]:undefined;const list=r?(encountersByReport[r.id]??[]):[]
        return <div key={day} className="rounded-xl border border-ink-100 p-3 space-y-3">
-        <div className="flex items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-800">{fmt(day)}</p><p className="text-[11px] text-ink-400">{j?.statut==='TERMINEE'?'Rapport soumis':j?.statut==='EN_COURS'?'Journée en cours':'À démarrer'}</p></div>
-        {!j&&isVm&&t.demandeur_id===profile.id&&day===today&&<Button size="sm" onClick={()=>demarrer(t,day)} loading={busy}><IconClock className="h-4 w-4"/> Démarrer</Button>}
+        <div className="flex items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-800">{fmt(day)}</p><p className="text-[11px] text-ink-400">{j?.statut==='TERMINEE'?'Rapport soumis':j?.statut==='EFFECTUEE'?'Tournée effectuée — rapport à remplir':j?.statut==='EN_COURS'?'Journée en cours':'À démarrer'}</p></div>
+        {j?.statut==='A_DEMARRER'&&isVm&&t.demandeur_id===profile.id&&day===today&&<Button size="sm" onClick={()=>demarrer(t,day)} loading={busy}><IconClock className="h-4 w-4"/> Démarrer</Button>}
         {j?.statut==='EN_COURS'&&isVm&&t.demandeur_id===profile.id&&<Button size="sm" variant="secondary" onClick={()=>marquerEffectuee(j)} loading={busy}><IconCheckCircle className="h-4 w-4"/> Tournée effectuée</Button>}
         {j?.statut==='EFFECTUEE'&&isVm&&t.demandeur_id===profile.id&&r&&!r.soumis_at&&<Button size="sm" onClick={()=>setRapportOuvert(v=>({...v,[r.id]:!v[r.id]}))}>{rapportOuvert[r.id]?'Masquer le rapport':'Rapport de tournée'}</Button>}
         </div>
