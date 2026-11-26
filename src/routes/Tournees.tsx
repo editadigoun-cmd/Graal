@@ -13,12 +13,12 @@ type Jour = { id: string; tournee_id: string; jour: string; statut: string }
 type Rapport = { id: string; tournee_jour_id: string; resume: string; observations: string | null; soumis_at: string | null }
 type Rencontre = { id: string; rapport_id: string; nom: string; centre: string | null; specialite: string | null; potentiel: string | null; telephone: string | null; notes: string | null; nouveau_prescripteur: boolean }
 type Client = { id: string; nom: string; centre: string | null; specialite: string; potentiel: string }
-const SPECIALITES = ['GENERALISTE','GYNECOLOGUE','PEDIATRE','CARDIOLOGUE','RHUMATOLOGUE','ORL','AUTRE_SPECIALITE','MATERNITE','DISPENSAIRE','PHARMACIE']
+const SPECIALITES = ['GENERALISTE','GYNECOLOGUE','PEDIATRE','CARDIOLOGUE','RHUMATOLOGUE','ORL','AUTRE_SPECIALITE','MATERNITE','DISPENSAIRE','PHARMACIE','IDE','ANESTHESISTE','CHIRURGIEN','CHIRURGIEN_PEDIATRIQUE','DERMATOLOGUE','DIABETOLOGUE','ENDOCRINOLOGUE','GASTROENTEROLOGUE','SAGE_FEMME','NEPHROLOGUE','NEUROLOGUE','NEUROCHIRURGIEN','NUTRITIONNISTE','ONCOLOGUE','PNEUMOLOGUE','REANIMATEUR','TRAUMATOLOGUE','URGENTISTE','UROLOGUE','INTERNISTE','PSYCHOLOGUE','DREPANOCYTOSE','CUMAS','CUGO','URGENCE','REANIMATION_ANESTHESIE','CHIRURGIE_GENERALE']
 const POTENTIELS = ['GROS','MOYEN','FAIBLE']
 const labelStatut: Record<string,string> = { EN_ATTENTE:'En attente de validation', APPROUVEE:'Approuvée', REFUSEE:'Refusée', EN_COURS:'En cours', TERMINEE:'Terminée' }
 const fmt = (d:string) => new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})
-function datesEntre(a:string,b:string) { const out:string[]=[]; const d=new Date(a+'T12:00:00'); const end=new Date(b+'T12:00:00'); while(d<=end && out.length<32){out.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1)} return out }
-function todayLocal(){const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Porto-Novo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());return p}
+function datesEntre(a:string,b:string) { const out:string[]=[]; const d=new Date(a+'T00:00:00Z'); const end=new Date(b+'T00:00:00Z'); while(d<=end && out.length<366){out.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1)} return out }
+function todayLocal(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Porto-Novo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const v=Object.fromEntries(parts.map(p=>[p.type,p.value]));return v.year+'-'+v.month+'-'+v.day}
 
 export default function Tournees(){
  const {profile}=useAuth()
@@ -28,6 +28,8 @@ export default function Tournees(){
  const [rencontres,setRencontres]=useState<Rencontre[]>([])
  const [noms,setNoms]=useState<Record<string,string>>({})
  const [clients,setClients]=useState<Client[]>([])
+ const [hasPortfolio,setHasPortfolio]=useState(false)
+ const [rapportOuvert,setRapportOuvert]=useState<Record<string,boolean>>({})
  const [loading,setLoading]=useState(true)
  const [busy,setBusy]=useState(false)
  const [error,setError]=useState('')
@@ -68,8 +70,12 @@ export default function Tournees(){
   const userIds=[...new Set(list.map(x=>x.demandeur_id))]
   if(userIds.length){const {data:pd}=await supabase.from('profiles').select('id,full_name').in('id',userIds);setNoms(Object.fromEntries((pd??[]).map((p:any)=>[p.id,p.full_name])))}
   if(profile.role==='vm'){
-   const {data:pf}=await supabase.from('portefeuille').select('client_id,clients(id,nom,centre,specialite,potentiel)').eq('vm_id',profile.id)
+   const [{data:pf},{count}] = await Promise.all([
+    supabase.from('portefeuille').select('client_id,clients(id,nom,centre,specialite,potentiel)').eq('vm_id',profile.id),
+    supabase.from('portefeuille').select('id',{count:'exact',head:true}).eq('vm_id',profile.id)
+   ])
    setClients((pf??[]).map((x:any)=>x.clients).filter(Boolean) as Client[])
+   setHasPortfolio((count??0)>0)
   }
   setLoading(false)
  },[profile?.id,profile?.role])
@@ -101,7 +107,8 @@ export default function Tournees(){
   }
   setRencontreNom(v=>({...v,[r.id]:''}));setRencontreCentre(v=>({...v,[r.id]:''}));setRencontreNotes(v=>({...v,[r.id]:''}));setTelephone(v=>({...v,[r.id]:''}));setNotice('Personne ajoutée au rapport.');await load()
  })}
- async function submitReport(j:Jour){await action(async()=>{const {error:e}=await supabase.rpc('soumettre_rapport_tournee',{p_jour_id:j.id});if(e)throw e;setNotice('Rapport soumis. Journée clôturée.');await load()})}
+ async function marquerEffectuee(j:Jour){await action(async()=>{const {error:e}=await supabase.rpc('marquer_tournee_effectuee',{p_jour_id:j.id});if(e)throw e;setNotice('Tournée déclarée effectuée. Vous pouvez maintenant compléter le rapport.');await load()})}
+ async function submitReport(j:Jour,r:Rapport){await action(async()=>{const {error:saveError}=await supabase.from('tournee_rapports').update({resume:resume[r.id]??r.resume,observations:observations[r.id]??r.observations}).eq('id',r.id);if(saveError)throw saveError;const {error:e}=await supabase.rpc('soumettre_rapport_tournee',{p_jour_id:j.id});if(e)throw e;setNotice('Rapport soumis. Journée clôturée.');await load()})}
 
  if(!profile)return null
  return <div className="space-y-5 pb-8">
@@ -112,7 +119,7 @@ export default function Tournees(){
    <div><h2 className="font-bold text-ink-800">Nouvelle demande de tournée</h2><p className="mt-1 text-xs text-ink-500">Votre nom et votre rôle sont automatiquement repris de votre compte. La demande doit être approuvée par l’administrateur.</p></div>
    <div><label className="mb-1 block text-xs font-semibold text-ink-600">Zone / localité</label><input value={zone} onChange={e=>setZone(e.target.value)} placeholder="Ex. : Porto-Novo, Adjarra…" className="w-full rounded-xl border border-ink-200 px-3 py-3 text-sm"/></div>
    <div className="grid grid-cols-2 gap-3"><div><label className="mb-1 block text-xs font-semibold text-ink-600">Date de début</label><input type="date" min={today} value={dateDebut} onChange={e=>{setDateDebut(e.target.value);if(dateFin<e.target.value)setDateFin(e.target.value)}} className="w-full rounded-xl border border-ink-200 px-3 py-3 text-sm"/></div><div><label className="mb-1 block text-xs font-semibold text-ink-600">Date de fin</label><input type="date" min={dateDebut} value={dateFin} onChange={e=>setDateFin(e.target.value)} className="w-full rounded-xl border border-ink-200 px-3 py-3 text-sm"/></div></div>
-   <div className="rounded-xl bg-ink-50 p-3 text-xs text-ink-600">{clients.length>0?'Mode portefeuille : vous pourrez sélectionner vos clients et ajouter les nouveaux prescripteurs découverts.':'Mode sans portefeuille : les personnes rencontrées seront consignées dans le rapport, sans ajout automatique au portefeuille.'}</div>
+   <div className="rounded-xl bg-ink-50 p-3 text-xs text-ink-600">{hasPortfolio?'Mode portefeuille : vous pourrez sélectionner vos clients et ajouter les nouveaux prescripteurs découverts.':'Mode sans portefeuille : les personnes rencontrées seront consignées dans le rapport, sans ajout automatique au portefeuille.'}</div>
    <Button fullWidth onClick={demander} loading={busy} disabled={!zone.trim()||!dateDebut||!dateFin||dateFin<dateDebut}><IconPlus className="h-4 w-4"/> Envoyer la demande</Button>
   </Card>}
   <div className="space-y-3">
@@ -130,12 +137,14 @@ export default function Tournees(){
        return <div key={day} className="rounded-xl border border-ink-100 p-3 space-y-3">
         <div className="flex items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-800">{fmt(day)}</p><p className="text-[11px] text-ink-400">{j?.statut==='TERMINEE'?'Rapport soumis':j?.statut==='EN_COURS'?'Journée en cours':'À démarrer'}</p></div>
         {!j&&isVm&&t.demandeur_id===profile.id&&day===today&&<Button size="sm" onClick={()=>demarrer(t,day)} loading={busy}><IconClock className="h-4 w-4"/> Démarrer</Button>}
-        {j?.statut==='EN_COURS'&&isVm&&t.demandeur_id===profile.id&&r&&!r.soumis_at&&<Button size="sm" variant="secondary" onClick={()=>submitReport(j)} loading={busy}><IconCheckCircle className="h-4 w-4"/> Soumettre</Button>}
+        {j?.statut==='EN_COURS'&&isVm&&t.demandeur_id===profile.id&&<Button size="sm" variant="secondary" onClick={()=>marquerEffectuee(j)} loading={busy}><IconCheckCircle className="h-4 w-4"/> Tournée effectuée</Button>}
+        {j?.statut==='EFFECTUEE'&&isVm&&t.demandeur_id===profile.id&&r&&!r.soumis_at&&<Button size="sm" onClick={()=>setRapportOuvert(v=>({...v,[r.id]:!v[r.id]}))}>{rapportOuvert[r.id]?'Masquer le rapport':'Rapport de tournée'}</Button>}
         </div>
-        {j?.statut==='EN_COURS'&&r&&!r.soumis_at&&isVm&&t.demandeur_id===profile.id&&<div className="space-y-2">
+        {j?.statut==='EFFECTUEE'&&r&&!r.soumis_at&&isVm&&t.demandeur_id===profile.id&&rapportOuvert[r.id]&&<div className="space-y-2">
          <label className="block text-xs font-semibold text-ink-600">Résumé de la tournée</label><textarea value={resume[r.id]??r.resume} onChange={e=>setResume(v=>({...v,[r.id]:e.target.value}))} rows={3} className="w-full rounded-xl border border-ink-200 p-3 text-sm" placeholder="Décrivez les activités et résultats de la journée…"/>
          <label className="block text-xs font-semibold text-ink-600">Observations</label><textarea value={observations[r.id]??r.observations??''} onChange={e=>setObservations(v=>({...v,[r.id]:e.target.value}))} rows={2} className="w-full rounded-xl border border-ink-200 p-3 text-sm" placeholder="Difficultés, constats, suites à donner…"/>
-         <Button size="sm" variant="secondary" onClick={()=>saveReport(r)} loading={busy}>Enregistrer le rapport</Button>
+         <Button size="sm" variant="secondary" onClick={()=>saveReport(r)} loading={busy}>Enregistrer le brouillon</Button>
+         <Button size="sm" onClick={()=>submitReport(j,r)} loading={busy}><IconCheckCircle className="h-4 w-4"/> Soumettre le rapport</Button>
          <div className="border-t border-ink-100 pt-3"><p className="mb-2 text-xs font-bold text-ink-700">Personnes rencontrées ({list.length})</p>
           {list.map(x=><div key={x.id} className="mb-2 rounded-lg bg-ink-50 p-2"><p className="text-sm font-semibold text-ink-800">{x.nom}{x.nouveau_prescripteur?' · Nouveau prescripteur':''}</p><p className="text-xs text-ink-500">{[x.centre,x.specialite,x.telephone].filter(Boolean).join(' · ')}</p>{x.notes&&<p className="mt-1 text-xs text-ink-500">{x.notes}</p>}</div>)}
           {t.avec_portefeuille&&<label className="mb-2 flex items-center gap-2 text-xs font-semibold text-ink-600"><input type="checkbox" checked={!!newPrescriber[r.id]} onChange={e=>setNewPrescriber(v=>({...v,[r.id]:e.target.checked}))}/> Nouveau prescripteur à ajouter au portefeuille</label>}
