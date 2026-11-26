@@ -33,6 +33,18 @@ jobs:
           echo "$response" | jq .
         env:
           SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
+      - name: Inspect PROMO portal login page (read-only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          http_code=$(curl --silent --show-error --output promo-response.json --write-out "%{http_code}" --max-time 95 --connect-timeout 15 \
+            -X POST "https://provisit-grossiste-sync.ccds22431.workers.dev/inspect/promo" \
+            -H "Authorization: Bearer $SYNC_TOKEN" -H "Content-Type: application/json") || curl_status=$?
+          echo "PROMO inspector HTTP status: ${http_code:-no-response}"
+          if [ -f promo-response.json ]; then
+            jq '{provider,status,source,elapsedMs,diagnostics:{title:.diagnostics.title,url:.diagnostics.url,headings:.diagnostics.headings,loginVisible:.diagnostics.loginVisible,verificationRequired:.diagnostics.verificationRequired,forms:.diagnostics.forms,inputs:.diagnostics.inputs,links:(.diagnostics.links|map({text,path})|.[:40]),tables:.diagnostics.tables,pageTextSignals:.diagnostics.pageTextSignals}}' promo-response.json 2>/dev/null || cat promo-response.json
+          fi
+        env:
+          SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
       - name: Read-only UBIPHARM extraction preview
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         run: |
