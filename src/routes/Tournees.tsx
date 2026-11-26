@@ -16,6 +16,7 @@ type Planification = { id:string; tournee_jour_id:string; client_id:string; clie
 type Client = { id: string; nom: string; centre: string | null; specialite: string; potentiel: string }
 const SPECIALITES = ['GENERALISTE','GYNECOLOGUE','PEDIATRE','CARDIOLOGUE','RHUMATOLOGUE','ORL','AUTRE_SPECIALITE','MATERNITE','DISPENSAIRE','PHARMACIE','IDE','ANESTHESISTE','CHIRURGIEN','CHIRURGIEN_PEDIATRIQUE','DERMATOLOGUE','DIABETOLOGUE','ENDOCRINOLOGUE','GASTROENTEROLOGUE','SAGE_FEMME','NEPHROLOGUE','NEUROLOGUE','NEUROCHIRURGIEN','NUTRITIONNISTE','ONCOLOGUE','PNEUMOLOGUE','REANIMATEUR','TRAUMATOLOGUE','URGENTISTE','UROLOGUE','INTERNISTE','PSYCHOLOGUE','DREPANOCYTOSE','CUMAS','CUGO','URGENCE','REANIMATION_ANESTHESIE','CHIRURGIE_GENERALE']
 const POTENTIELS = ['GROS','MOYEN','FAIBLE']
+const SECTEURS = ['A','B','MONO','COUFFO','KETOU-POBE','SAKETE']
 const labelStatut: Record<string,string> = { EN_ATTENTE:'En attente de validation', APPROUVEE:'Approuvée', REFUSEE:'Refusée', EN_COURS:'En cours', TERMINEE:'Terminée' }
 const fmt = (d:string) => new Date(d+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})
 function datesEntre(a:string,b:string) { const out:string[]=[]; const d=new Date(a+'T00:00:00Z'); const end=new Date(b+'T00:00:00Z'); while(d<=end && out.length<366){out.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1)} return out }
@@ -51,6 +52,7 @@ export default function Tournees(){
  const [newPrescriber,setNewPrescriber]=useState<Record<string,boolean>>({})
  const [specialite,setSpecialite]=useState<Record<string,string>>({})
  const [potentiel,setPotentiel]=useState<Record<string,string>>({})
+ const [secteur,setSecteur]=useState<Record<string,string>>({})
  const [telephone,setTelephone]=useState<Record<string,string>>({})
 
  const load=useCallback(async()=>{
@@ -103,7 +105,7 @@ export default function Tournees(){
  async function saveReport(r:Rapport){await action(async()=>{const {error:e}=await supabase.from('tournee_rapports').update({resume:resume[r.id]??r.resume,observations:observations[r.id]??r.observations}).eq('id',r.id);if(e)throw e;setNotice('Rapport enregistré.');await load()})}
  async function addEncounter(r:Rapport,t:Tournee){await action(async()=>{
   if(t.avec_portefeuille && newPrescriber[r.id]){
-   const {error:e}=await supabase.rpc('ajouter_nouveau_prescripteur_tournee',{p_rapport_id:r.id,p_nom:rencontreNom[r.id]??'',p_centre:rencontreCentre[r.id]??'',p_specialite:specialite[r.id]??null,p_potentiel:potentiel[r.id]??null,p_contacts:telephone[r.id]??'',p_notes:rencontreNotes[r.id]??''});if(e)throw e
+   const {error:e}=await supabase.rpc('ajouter_nouveau_prescripteur_tournee',{p_rapport_id:r.id,p_nom:rencontreNom[r.id]??'',p_centre:rencontreCentre[r.id]??'',p_specialite:specialite[r.id]??null,p_potentiel:potentiel[r.id]??null,p_secteur:profile.secteur??secteur[r.id]??null,p_contacts:telephone[r.id]??'',p_notes:rencontreNotes[r.id]??''});if(e)throw e
   }else{
    let c:Client|undefined
    if(t.avec_portefeuille){c=clients.find(x=>x.id===selectedClient[r.id]);if(!c)throw new Error('Sélectionnez un client du portefeuille.')}
@@ -164,10 +166,11 @@ export default function Tournees(){
            <input value={rencontreNom[r.id]??''} onChange={e=>setRencontreNom(v=>({...v,[r.id]:e.target.value}))} placeholder="Nom de la personne rencontrée" className="w-full rounded-xl border border-ink-200 px-3 py-2.5 text-sm"/>
            <input value={rencontreCentre[r.id]??''} onChange={e=>setRencontreCentre(v=>({...v,[r.id]:e.target.value}))} placeholder="Centre / établissement" className="w-full rounded-xl border border-ink-200 px-3 py-2.5 text-sm"/>
            {t.avec_portefeuille&&newPrescriber[r.id]&&<div className="grid grid-cols-2 gap-2"><select value={specialite[r.id]??''} onChange={e=>setSpecialite(v=>({...v,[r.id]:e.target.value}))} className="rounded-xl border border-ink-200 px-2 py-2.5 text-xs"><option value="">Spécialité</option>{SPECIALITES.map(s=><option key={s} value={s}>{s.replaceAll('_',' ')}</option>)}</select><select value={potentiel[r.id]??''} onChange={e=>setPotentiel(v=>({...v,[r.id]:e.target.value}))} className="rounded-xl border border-ink-200 px-2 py-2.5 text-xs"><option value="">Potentiel</option>{POTENTIELS.map(p=><option key={p}>{p}</option>)}</select></div>}
+           {t.avec_portefeuille&&newPrescriber[r.id]&&!profile.secteur&&<select value={secteur[r.id]??''} onChange={e=>setSecteur(v=>({...v,[r.id]:e.target.value}))} className="w-full rounded-xl border border-ink-200 px-3 py-2.5 text-sm"><option value="">Secteur du nouveau prescripteur</option>{SECTEURS.map(s=><option key={s}>{s}</option>)}</select>}
            <input value={telephone[r.id]??''} onChange={e=>setTelephone(v=>({...v,[r.id]:e.target.value}))} placeholder="Téléphone / contact" className="w-full rounded-xl border border-ink-200 px-3 py-2.5 text-sm"/>
           </div>}
           <textarea value={rencontreNotes[r.id]??''} onChange={e=>setRencontreNotes(v=>({...v,[r.id]:e.target.value}))} rows={2} placeholder="Notes sur la rencontre" className="mt-2 w-full rounded-xl border border-ink-200 p-3 text-sm"/>
-          <Button size="sm" onClick={()=>addEncounter(r,t)} loading={busy}><IconPlus className="h-4 w-4"/> Ajouter au rapport</Button>
+          <Button size="sm" onClick={()=>addEncounter(r,t)} loading={busy} disabled={t.avec_portefeuille&&newPrescriber[r.id]&&(!specialite[r.id]||!potentiel[r.id]||(!profile.secteur&&!secteur[r.id]))}><IconPlus className="h-4 w-4"/> Ajouter au rapport</Button>
          </div>
         </div>}
         {j?.statut==='TERMINEE'&&r&&<div className="space-y-2"><p className="text-xs font-bold text-emerald-700">Rapport soumis</p><p className="whitespace-pre-wrap text-sm text-ink-700">{r.resume}</p>{r.observations&&<p className="whitespace-pre-wrap text-xs text-ink-500">{r.observations}</p>}{list.map(x=><p key={x.id} className="text-xs text-ink-600">• {x.nom}{x.nouveau_prescripteur?' (nouveau prescripteur)':''}</p>)}</div>}
