@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core'
 import { supabase } from './supabase'
 
 function urlBase64ToUint8Array(base64Url: string): Uint8Array {
@@ -8,7 +9,7 @@ function urlBase64ToUint8Array(base64Url: string): Uint8Array {
 }
 
 export function isPushSupported(): boolean {
-  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+  return !Capacitor.isNativePlatform() && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
 export async function isSubscribedToPush(): Promise<boolean> {
