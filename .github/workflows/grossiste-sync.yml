@@ -34,7 +34,7 @@ jobs:
         env:
           SYNC_TOKEN: ${{ secrets.PROVISIT_SYNC_TOKEN }}
       - name: Inspect PROMO portal login page (read-only)
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         run: |
           http_code=$(curl --silent --show-error --output promo-response.json --write-out "%{http_code}" --max-time 95 --connect-timeout 15 \
             -X POST "https://provisit-grossiste-sync.ccds22431.workers.dev/inspect/promo" \
