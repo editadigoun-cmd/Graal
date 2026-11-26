@@ -132,6 +132,13 @@ begin
   update public.tournees set statut=case when p_approuver then 'APPROUVEE' else 'REFUSEE' end,
     decision_admin_id=auth.uid(),decision_at=now(),motif_refus=case when p_approuver then null else nullif(trim(coalesce(p_motif,'')),'') end,updated_at=now()
   where id=p_tournee_id;
+  if p_approuver then
+    insert into public.tournee_jours(tournee_id,jour)
+    select p_tournee_id, g::date
+    from public.tournees t, generate_series(t.date_debut::timestamp,t.date_fin::timestamp,interval '1 day') g
+    where t.id=p_tournee_id
+    on conflict(tournee_id,jour) do nothing;
+  end if;
   insert into public.notifications(profile_id,type,titre,corps,metadata) values(
     v_demandeur,case when p_approuver then 'TOURNEE_APPROUVEE' else 'TOURNEE_REFUSEE' end,
     case when p_approuver then 'Tournée approuvée' else 'Tournée refusée' end,
