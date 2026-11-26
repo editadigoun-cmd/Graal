@@ -12,6 +12,7 @@ type Tournee = {
 type Jour = { id: string; tournee_id: string; jour: string; statut: string }
 type Rapport = { id: string; tournee_jour_id: string; resume: string; observations: string | null; soumis_at: string | null }
 type Rencontre = { id: string; rapport_id: string; nom: string; centre: string | null; specialite: string | null; potentiel: string | null; telephone: string | null; notes: string | null; nouveau_prescripteur: boolean }
+type Planification = { id:string; tournee_jour_id:string; client_id:string; clients?:{nom:string}|null }
 type Client = { id: string; nom: string; centre: string | null; specialite: string; potentiel: string }
 const SPECIALITES = ['GENERALISTE','GYNECOLOGUE','PEDIATRE','CARDIOLOGUE','RHUMATOLOGUE','ORL','AUTRE_SPECIALITE','MATERNITE','DISPENSAIRE','PHARMACIE','IDE','ANESTHESISTE','CHIRURGIEN','CHIRURGIEN_PEDIATRIQUE','DERMATOLOGUE','DIABETOLOGUE','ENDOCRINOLOGUE','GASTROENTEROLOGUE','SAGE_FEMME','NEPHROLOGUE','NEUROLOGUE','NEUROCHIRURGIEN','NUTRITIONNISTE','ONCOLOGUE','PNEUMOLOGUE','REANIMATEUR','TRAUMATOLOGUE','URGENTISTE','UROLOGUE','INTERNISTE','PSYCHOLOGUE','DREPANOCYTOSE','CUMAS','CUGO','URGENCE','REANIMATION_ANESTHESIE','CHIRURGIE_GENERALE']
 const POTENTIELS = ['GROS','MOYEN','FAIBLE']
@@ -26,6 +27,8 @@ export default function Tournees(){
  const [jours,setJours]=useState<Jour[]>([])
  const [rapports,setRapports]=useState<Rapport[]>([])
  const [rencontres,setRencontres]=useState<Rencontre[]>([])
+ const [planifications,setPlanifications]=useState<Planification[]>([])
+ const [clientAPlanifier,setClientAPlanifier]=useState<Record<string,string>>({})
  const [noms,setNoms]=useState<Record<string,string>>({})
  const [clients,setClients]=useState<Client[]>([])
  const [hasPortfolio,setHasPortfolio]=useState(false)
@@ -62,6 +65,7 @@ export default function Tournees(){
   if(je)setError(je.message)
   const dayList=(jd??[]) as Jour[];setJours(dayList)
   const dayIds=dayList.map(x=>x.id)
+  if(dayIds.length){const {data:pl,error:ple}=await supabase.from('tournee_programmations').select('id,tournee_jour_id,client_id,clients(nom)').in('tournee_jour_id',dayIds);if(ple)setError(ple.message);setPlanifications((pl??[]) as Planification[])}else setPlanifications([])
   let reportList:Rapport[]=[]
   if(dayIds.length){const {data:rd,error:re}=await supabase.from('tournee_rapports').select('*').in('tournee_jour_id',dayIds);if(re)setError(re.message);reportList=(rd??[]) as Rapport[]}
   setRapports(reportList)
@@ -88,10 +92,13 @@ export default function Tournees(){
  const daysByTour=useMemo(()=>{const m:Record<string,Jour[]>={};jours.forEach(j=>(m[j.tournee_id]??=[]).push(j));return m},[jours])
  const reportsByDay=useMemo(()=>Object.fromEntries(rapports.map(r=>[r.tournee_jour_id,r])),[rapports])
  const encountersByReport=useMemo(()=>{const m:Record<string,Rencontre[]>={};rencontres.forEach(r=>(m[r.rapport_id]??=[]).push(r));return m},[rencontres])
+ const plansByDay=useMemo(()=>{const m:Record<string,Planification[]>={};planifications.forEach(p=>(m[p.tournee_jour_id]??=[]).push(p));return m},[planifications])
 
  async function action(fn:()=>Promise<void>){setBusy(true);setError('');setNotice('');try{await fn();}catch(e:any){setError(e?.message??'Une erreur est survenue.')}finally{setBusy(false)}}
  async function demander(){await action(async()=>{const {error:e}=await supabase.rpc('demander_tournee',{p_zone:zone,p_date_debut:dateDebut,p_date_fin:dateFin});if(e)throw e;setZone('');setNotice('Votre demande de tournée a été envoyée à l’administration.');await load()})}
  async function decider(id:string,ok:boolean){await action(async()=>{const {error:e}=await supabase.rpc('decider_tournee',{p_tournee_id:id,p_approuver:ok,p_motif:motifs[id]??null});if(e)throw e;setNotice(ok?'Tournée approuvée.':'Demande refusée.');await load()})}
+ async function ajouterAuProgramme(jourId:string){await action(async()=>{const clientId=clientAPlanifier[jourId];if(!clientId)throw new Error('Choisissez un client du portefeuille.');const {error:e}=await supabase.from('tournee_programmations').insert({tournee_jour_id:jourId,client_id:clientId});if(e)throw e;setClientAPlanifier(v=>({...v,[jourId]:''}));setNotice('Visite ajoutée au programme de la journée.');await load()})}
+ async function retirerDuProgramme(id:string){await action(async()=>{const {error:e}=await supabase.from('tournee_programmations').delete().eq('id',id);if(e)throw e;await load()})}
  async function demarrer(t:Tournee,j:string){await action(async()=>{const {error:e}=await supabase.rpc('demarrer_journee_tournee',{p_tournee_id:t.id,p_jour:j});if(e)throw e;setExpanded(t.id);await load()})}
  async function saveReport(r:Rapport){await action(async()=>{const {error:e}=await supabase.from('tournee_rapports').update({resume:resume[r.id]??r.resume,observations:observations[r.id]??r.observations}).eq('id',r.id);if(e)throw e;setNotice('Rapport enregistré.');await load()})}
  async function addEncounter(r:Rapport,t:Tournee){await action(async()=>{
@@ -136,6 +143,11 @@ export default function Tournees(){
        const j=js.find(x=>x.jour===day);const r=j?reportsByDay[j.id]:undefined;const list=r?(encountersByReport[r.id]??[]):[]
        return <div key={day} className="rounded-xl border border-ink-100 p-3 space-y-3">
         <div className="flex items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-800">{fmt(day)}</p><p className="text-[11px] text-ink-400">{j?.statut==='TERMINEE'?'Rapport soumis':j?.statut==='EFFECTUEE'?'Tournée effectuée — rapport à remplir':j?.statut==='EN_COURS'?'Journée en cours':'À démarrer'}</p></div>
+        {t.avec_portefeuille&&j?.statut==='A_DEMARRER'&&<div className="space-y-2 rounded-lg bg-royal-50/60 p-3">
+         <p className="text-xs font-bold text-ink-700">Visites programmées ({(plansByDay[j.id]??[]).length})</p>
+         {(plansByDay[j.id]??[]).map(p=><div key={p.id} className="flex items-center justify-between gap-2 text-xs"><span className="text-ink-700">{p.clients?.nom??clients.find(x=>x.id===p.client_id)?.nom??'Client du portefeuille'}</span>{isVm&&t.demandeur_id===profile.id&&<button onClick={()=>retirerDuProgramme(p.id)} className="text-red-600">Retirer</button>}</div>)}
+         {isVm&&t.demandeur_id===profile.id&&<div className="flex gap-2"><select value={clientAPlanifier[j.id]??''} onChange={e=>setClientAPlanifier(v=>({...v,[j.id]:e.target.value}))} className="min-w-0 flex-1 rounded-lg border border-ink-200 bg-white px-2 py-2 text-xs"><option value="">Choisir un client</option>{clients.map(cl=><option key={cl.id} value={cl.id}>{cl.nom}</option>)}</select><Button size="sm" onClick={()=>ajouterAuProgramme(j.id)} loading={busy} disabled={!clientAPlanifier[j.id]}><IconPlus className="h-4 w-4"/> Ajouter</Button></div>}
+        </div>}
         {j?.statut==='A_DEMARRER'&&isVm&&t.demandeur_id===profile.id&&day===today&&<Button size="sm" onClick={()=>demarrer(t,day)} loading={busy}><IconClock className="h-4 w-4"/> Démarrer</Button>}
         {j?.statut==='EN_COURS'&&isVm&&t.demandeur_id===profile.id&&<Button size="sm" variant="secondary" onClick={()=>marquerEffectuee(j)} loading={busy}><IconCheckCircle className="h-4 w-4"/> Tournée effectuée</Button>}
         {j?.statut==='EFFECTUEE'&&isVm&&t.demandeur_id===profile.id&&r&&!r.soumis_at&&<Button size="sm" onClick={()=>setRapportOuvert(v=>({...v,[r.id]:!v[r.id]}))}>{rapportOuvert[r.id]?'Masquer le rapport':'Rapport de tournée'}</Button>}
