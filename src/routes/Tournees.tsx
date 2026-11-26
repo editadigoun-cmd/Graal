@@ -12,7 +12,7 @@ type Tournee = {
 type Jour = { id: string; tournee_id: string; jour: string; statut: string }
 type Rapport = { id: string; tournee_jour_id: string; resume: string; observations: string | null; soumis_at: string | null }
 type Rencontre = { id: string; rapport_id: string; nom: string; centre: string | null; specialite: string | null; potentiel: string | null; telephone: string | null; notes: string | null; nouveau_prescripteur: boolean }
-type Planification = { id:string; tournee_jour_id:string; client_id:string; clients?:{nom:string}|null }
+type Planification = { id:string; tournee_jour_id:string; client_id:string; clients?:{nom:string}[]|null }
 type Client = { id: string; nom: string; centre: string | null; specialite: string; potentiel: string }
 const SPECIALITES = ['GENERALISTE','GYNECOLOGUE','PEDIATRE','CARDIOLOGUE','RHUMATOLOGUE','ORL','AUTRE_SPECIALITE','MATERNITE','DISPENSAIRE','PHARMACIE','IDE','ANESTHESISTE','CHIRURGIEN','CHIRURGIEN_PEDIATRIQUE','DERMATOLOGUE','DIABETOLOGUE','ENDOCRINOLOGUE','GASTROENTEROLOGUE','SAGE_FEMME','NEPHROLOGUE','NEUROLOGUE','NEUROCHIRURGIEN','NUTRITIONNISTE','ONCOLOGUE','PNEUMOLOGUE','REANIMATEUR','TRAUMATOLOGUE','URGENTISTE','UROLOGUE','INTERNISTE','PSYCHOLOGUE','DREPANOCYTOSE','CUMAS','CUGO','URGENCE','REANIMATION_ANESTHESIE','CHIRURGIE_GENERALE']
 const POTENTIELS = ['GROS','MOYEN','FAIBLE']
@@ -147,7 +147,7 @@ export default function Tournees(){
         <div className="flex items-center justify-between gap-2"><div><p className="text-sm font-bold text-ink-800">{fmt(day)}</p><p className="text-[11px] text-ink-400">{j?.statut==='TERMINEE'?'Rapport soumis':j?.statut==='EFFECTUEE'?'Tournée effectuée — rapport à remplir':j?.statut==='EN_COURS'?'Journée en cours':'À démarrer'}</p></div>
         {t.avec_portefeuille&&j&&<div className="space-y-2 rounded-lg bg-royal-50/60 p-3">
          <p className="text-xs font-bold text-ink-700">Visites programmées ({(plansByDay[j.id]??[]).length})</p>
-         {(plansByDay[j.id]??[]).map(p=><div key={p.id} className="flex items-center justify-between gap-2 text-xs"><span className="text-ink-700">{p.clients?.nom??clients.find(x=>x.id===p.client_id)?.nom??'Client du portefeuille'}</span>{isVm&&t.demandeur_id===profile.id&&j?.statut==='A_DEMARRER'&&<button onClick={()=>retirerDuProgramme(p.id)} className="text-red-600">Retirer</button>}</div>)}
+         {(plansByDay[j.id]??[]).map(p=><div key={p.id} className="flex items-center justify-between gap-2 text-xs"><span className="text-ink-700">{p.clients?.[0]?.nom??clients.find(x=>x.id===p.client_id)?.nom??'Client du portefeuille'}</span>{isVm&&t.demandeur_id===profile.id&&j?.statut==='A_DEMARRER'&&<button onClick={()=>retirerDuProgramme(p.id)} className="text-red-600">Retirer</button>}</div>)}
          {isVm&&t.demandeur_id===profile.id&&j?.statut==='A_DEMARRER'&&<div className="flex gap-2"><select value={clientAPlanifier[j.id]??''} onChange={e=>setClientAPlanifier(v=>({...v,[j.id]:e.target.value}))} className="min-w-0 flex-1 rounded-lg border border-ink-200 bg-white px-2 py-2 text-xs"><option value="">Choisir un client</option>{clients.map(cl=><option key={cl.id} value={cl.id}>{cl.nom}</option>)}</select><Button size="sm" onClick={()=>ajouterAuProgramme(j.id)} loading={busy} disabled={!clientAPlanifier[j.id]}><IconPlus className="h-4 w-4"/> Ajouter</Button></div>}
         </div>}
         {j?.statut==='A_DEMARRER'&&isVm&&t.demandeur_id===profile.id&&day===today&&<Button size="sm" onClick={()=>demarrer(t,day)} loading={busy}><IconClock className="h-4 w-4"/> Démarrer</Button>}
