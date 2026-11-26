@@ -1,4 +1,7 @@
 -- Module Tournées : demande, validation administrative, exécution journalière et rapport.
+create schema if not exists private;
+revoke all on schema private from public;
+grant usage on schema private to authenticated;
 create table public.tournees (
   id uuid primary key default gen_random_uuid(),
   demandeur_id uuid not null references public.profiles(id) on delete cascade,
@@ -97,7 +100,7 @@ create policy tournee_encounter_owner_delete on public.tournee_rencontres for de
   exists (select 1 from public.tournee_rapports r join public.tournee_jours j on j.id=r.tournee_jour_id join public.tournees t on t.id=j.tournee_id where r.id=rapport_id and r.soumis_at is null and t.demandeur_id=auth.uid())
 );
 
-create or replace function public.demander_tournee(p_zone text, p_date_debut date, p_date_fin date)
+create or replace function private.demander_tournee_impl(p_zone text, p_date_debut date, p_date_fin date)
 returns uuid language plpgsql security definer set search_path=public as $$
 declare v_id uuid; v_role public.user_role; v_avec_portefeuille boolean;
 begin
@@ -119,7 +122,7 @@ begin
   return v_id;
 end; $$;
 
-create or replace function public.decider_tournee(p_tournee_id uuid,p_approuver boolean,p_motif text default null)
+create or replace function private.decider_tournee_impl(p_tournee_id uuid,p_approuver boolean,p_motif text default null)
 returns void language plpgsql security definer set search_path=public as $$
 declare v_demandeur uuid; v_zone text;
 begin
@@ -136,13 +139,13 @@ begin
     jsonb_build_object('tournee_id',p_tournee_id));
 end; $$;
 
-create or replace function public.demarrer_journee_tournee(p_tournee_id uuid,p_jour date)
+create or replace function private.demarrer_journee_tournee_impl(p_tournee_id uuid,p_jour date)
 returns uuid language plpgsql security definer set search_path=public as $$
 declare v_jour_id uuid; v_statut text;
 begin
   select statut into v_statut from public.tournees where id=p_tournee_id and demandeur_id=auth.uid() and statut in ('APPROUVEE','EN_COURS')
     and p_jour between date_debut and date_fin for update;
-  if v_statut is null then raise exception 'Tournée non approuvée ou date hors période.'; end if;
+  if v_statut is null or p_jour <> public.benin_today() then raise exception 'Tournée non approuvée ou la journée ne correspond pas à la date du jour.'; end if;
   insert into public.tournee_jours(tournee_id,jour,statut,demarree_at)
   values(p_tournee_id,p_jour,'EN_COURS',now())
   on conflict(tournee_id,jour) do update set statut='EN_COURS',demarree_at=coalesce(public.tournee_jours.demarree_at,now())
@@ -154,7 +157,7 @@ begin
   return v_jour_id;
 end; $$;
 
-create or replace function public.soumettre_rapport_tournee(p_jour_id uuid)
+create or replace function private.soumettre_rapport_tournee_impl(p_jour_id uuid)
 returns void language plpgsql security definer set search_path=public as $$
 declare v_tournee_id uuid; v_resume text;
 begin
@@ -171,7 +174,7 @@ begin
   end if;
 end; $$;
 
-create or replace function public.ajouter_nouveau_prescripteur_tournee(
+create or replace function private.ajouter_nouveau_prescripteur_tournee_impl(
  p_rapport_id uuid,p_nom text,p_centre text,p_specialite public.specialite_client,p_potentiel public.potentiel_client,p_contacts text,p_notes text
 ) returns uuid language plpgsql security definer set search_path=public as $$
 declare v_tournee public.tournees%rowtype; v_jour date; v_client uuid; v_secteur public.secteur_code;
@@ -191,6 +194,29 @@ begin
  return v_client;
 end; $$;
 
+-- Les fonctions privilégiées restent dans un schéma non exposé ; les RPC publiques
+-- sont SECURITY INVOKER et délèguent aux fonctions privées qui vérifient auth.uid() et le rôle.
+revoke all on function private.demander_tournee_impl(text,date,date) from public;
+revoke all on function private.decider_tournee_impl(uuid,boolean,text) from public;
+revoke all on function private.demarrer_journee_tournee_impl(uuid,date) from public;
+revoke all on function private.soumettre_rapport_tournee_impl(uuid) from public;
+revoke all on function private.ajouter_nouveau_prescripteur_tournee_impl(uuid,text,text,public.specialite_client,public.potentiel_client,text,text) from public;
+grant execute on function private.demander_tournee_impl(text,date,date) to authenticated;
+grant execute on function private.decider_tournee_impl(uuid,boolean,text) to authenticated;
+grant execute on function private.demarrer_journee_tournee_impl(uuid,date) to authenticated;
+grant execute on function private.soumettre_rapport_tournee_impl(uuid) to authenticated;
+grant execute on function private.ajouter_nouveau_prescripteur_tournee_impl(uuid,text,text,public.specialite_client,public.potentiel_client,text,text) to authenticated;
+
+create or replace function public.demander_tournee(p_zone text,p_date_debut date,p_date_fin date)
+returns uuid language sql security invoker set search_path=public,private as $ select private.demander_tournee_impl(p_zone,p_date_debut,p_date_fin); $;
+create or replace function public.decider_tournee(p_tournee_id uuid,p_approuver boolean,p_motif text default null)
+returns void language sql security invoker set search_path=public,private as $ select private.decider_tournee_impl(p_tournee_id,p_approuver,p_motif); $;
+create or replace function public.demarrer_journee_tournee(p_tournee_id uuid,p_jour date)
+returns uuid language sql security invoker set search_path=public,private as $ select private.demarrer_journee_tournee_impl(p_tournee_id,p_jour); $;
+create or replace function public.soumettre_rapport_tournee(p_jour_id uuid)
+returns void language sql security invoker set search_path=public,private as $ select private.soumettre_rapport_tournee_impl(p_jour_id); $;
+create or replace function public.ajouter_nouveau_prescripteur_tournee(p_rapport_id uuid,p_nom text,p_centre text,p_specialite public.specialite_client,p_potentiel public.potentiel_client,p_contacts text,p_notes text)
+returns uuid language sql security invoker set search_path=public,private as $ select private.ajouter_nouveau_prescripteur_tournee_impl(p_rapport_id,p_nom,p_centre,p_specialite,p_potentiel,p_contacts,p_notes); $;
 revoke all on function public.demander_tournee(text,date,date) from public;
 revoke all on function public.decider_tournee(uuid,boolean,text) from public;
 revoke all on function public.demarrer_journee_tournee(uuid,date) from public;
