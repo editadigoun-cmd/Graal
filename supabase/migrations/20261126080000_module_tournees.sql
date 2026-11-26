@@ -215,15 +215,15 @@ grant execute on function private.soumettre_rapport_tournee_impl(uuid) to authen
 grant execute on function private.ajouter_nouveau_prescripteur_tournee_impl(uuid,text,text,public.specialite_client,public.potentiel_client,text,text) to authenticated;
 
 create or replace function public.demander_tournee(p_zone text,p_date_debut date,p_date_fin date)
-returns uuid language sql security invoker set search_path=public,private as $ select private.demander_tournee_impl(p_zone,p_date_debut,p_date_fin); $;
+returns uuid language sql security invoker set search_path=public,private as $fn$ select private.demander_tournee_impl(p_zone,p_date_debut,p_date_fin); $fn$;
 create or replace function public.decider_tournee(p_tournee_id uuid,p_approuver boolean,p_motif text default null)
-returns void language sql security invoker set search_path=public,private as $ select private.decider_tournee_impl(p_tournee_id,p_approuver,p_motif); $;
+returns void language sql security invoker set search_path=public,private as $fn$ select private.decider_tournee_impl(p_tournee_id,p_approuver,p_motif); $fn$;
 create or replace function public.demarrer_journee_tournee(p_tournee_id uuid,p_jour date)
-returns uuid language sql security invoker set search_path=public,private as $ select private.demarrer_journee_tournee_impl(p_tournee_id,p_jour); $;
+returns uuid language sql security invoker set search_path=public,private as $fn$ select private.demarrer_journee_tournee_impl(p_tournee_id,p_jour); $fn$;
 create or replace function public.soumettre_rapport_tournee(p_jour_id uuid)
-returns void language sql security invoker set search_path=public,private as $ select private.soumettre_rapport_tournee_impl(p_jour_id); $;
+returns void language sql security invoker set search_path=public,private as $fn$ select private.soumettre_rapport_tournee_impl(p_jour_id); $fn$;
 create or replace function public.ajouter_nouveau_prescripteur_tournee(p_rapport_id uuid,p_nom text,p_centre text,p_specialite public.specialite_client,p_potentiel public.potentiel_client,p_contacts text,p_notes text)
-returns uuid language sql security invoker set search_path=public,private as $ select private.ajouter_nouveau_prescripteur_tournee_impl(p_rapport_id,p_nom,p_centre,p_specialite,p_potentiel,p_contacts,p_notes); $;
+returns uuid language sql security invoker set search_path=public,private as $fn$ select private.ajouter_nouveau_prescripteur_tournee_impl(p_rapport_id,p_nom,p_centre,p_specialite,p_potentiel,p_contacts,p_notes); $fn$;
 revoke all on function public.demander_tournee(text,date,date) from public;
 revoke all on function public.decider_tournee(uuid,boolean,text) from public;
 revoke all on function public.demarrer_journee_tournee(uuid,date) from public;
