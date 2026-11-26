@@ -7,6 +7,9 @@ test("health endpoint reports UBIPHARM read-only extraction mode", async () => {
 test("inspect endpoint requires token", async () => { assert.equal((await worker.fetch(req("/inspect/ubipharm","POST"),env)).status,401); });
 test("authenticated inspection requires token", async () => { assert.equal((await worker.fetch(req("/inspect/ubipharm/authenticated","POST"),env)).status,401); });
 test("extract endpoint requires token", async () => { assert.equal((await worker.fetch(req("/extract/ubipharm","POST"),env)).status,401); });
+test("PROMO authenticated inspection requires token", async () => { assert.equal((await worker.fetch(req("/inspect/promo/authenticated","POST"),env)).status,401); });
+test("PROMO authenticated inspection requires configured credentials", async () => { const res=await worker.fetch(req("/inspect/promo/authenticated","POST","test-token"),env); const data=await res.json(); assert.equal(res.status,503); assert.equal(data.status,"credentials_missing"); });
+test("PROMO initial inspection requires token", async () => { assert.equal((await worker.fetch(req("/inspect/promo","POST"),env)).status,401); });
 test("unknown route rejected", async () => { assert.equal((await worker.fetch(req("/inspect/other","POST","test-token"))).status,404); });
 test("missing browser binding returns safe configuration status", async () => { const res=await worker.fetch(req("/inspect/ubipharm","POST","test-token"),env); const data=await res.json(); assert.equal(res.status,503); assert.equal(data.status,"browser_binding_missing"); });
 test("authenticated route requires configured credentials", async () => { const res=await worker.fetch(req("/inspect/ubipharm/authenticated","POST","test-token"),env); const data=await res.json(); assert.equal(res.status,503); assert.equal(data.status,"credentials_missing"); });
