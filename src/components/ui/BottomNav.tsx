@@ -1,12 +1,13 @@
 import { NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import clsx from 'clsx'
-import { IconHome, IconCalendar, IconStethoscope, IconChat, IconUser } from './icons'
+import { IconHome, IconCalendar, IconStethoscope, IconChat, IconUser, IconMapPin } from './icons'
 
 const items = [
   { to: '/app', label: 'Accueil', icon: IconHome, end: true },
   { to: '/app/planning', label: 'Planning', icon: IconCalendar },
   { to: '/app/visites', label: 'Visites', icon: IconStethoscope },
+  { to: '/app/tournees', label: 'Tournées', icon: IconMapPin },
   { to: '/app/messages', label: 'Messages', icon: IconChat },
   { to: '/app/profil', label: 'Profil', icon: IconUser }
 ]
