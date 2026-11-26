@@ -9,6 +9,7 @@ import { IconMapPin, IconStethoscope, IconClipboard, IconAlert, IconTrendingUp, 
 type Item={path:string;title:string;description:string;icon:any;label:string;adminOnly?:boolean}
 const items:Item[]=[
  {path:'/admin/suivi-terrain',title:'Suivi terrain',description:'Suivre l’activité et les interventions sur le terrain.',icon:IconMapPin,label:'Suivi'},
+ {path:'/admin/tournees',title:'Tournées',description:'Autoriser les sorties terrain, suivre les journées et consulter les rapports de tournée.',icon:IconMapPin,label:'Tournées'},
  {path:'/admin/vad-plan',title:'VAD & Duo',description:'Planifier les VAD/Duo du mois et préparer les actions terrain.',icon:IconStethoscope,label:'Planification'},
  {path:'/admin/rapport-activite-hebdo',title:'Rapport hebdomadaire',description:'Consolider les points forts, difficultés, commandes et objectifs de chaque VM.',icon:IconClipboard,label:'Rapports'},
  {path:'/admin/controle-frequence',title:'Fréquence clients',description:'Surveiller les programmations répétées et les exceptions marketing.',icon:IconAlert,label:'Contrôle'},
@@ -19,7 +20,7 @@ const items:Item[]=[
 export default function TerrainHub(){
  const nav=useNavigate(); const {profile}=useAuth(); const [filter,setFilter]=useState('Tous')
  const visible=items.filter(x=>!x.adminOnly||profile?.role==='admin'); const shown=filter==='Tous'?visible:visible.filter(x=>x.label===filter)
- const filters=['Tous','Suivi','Planification','Rapports','Contrôle','Duo','Animation','Indicateurs']
+ const filters=['Tous','Suivi','Tournées','Planification','Rapports','Contrôle','Duo','Animation','Indicateurs']
  return <div className="space-y-6">
   <div className="flex flex-wrap items-start justify-between gap-3">
    <div><p className="text-xs font-bold uppercase tracking-[.16em] text-royal-600">Pilotage opérationnel</p><h1 className="mt-1 text-2xl font-extrabold text-ink-800 font-display">Terrain & activité</h1><p className="mt-1 max-w-2xl text-sm text-ink-400">Un seul espace pour retrouver le suivi terrain, les VAD/Duo, les rapports, les contrôles et l’animation des équipes.</p></div>
