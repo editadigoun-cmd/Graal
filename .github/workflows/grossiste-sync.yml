@@ -24,6 +24,18 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      - name: Sync PROMO credentials to Cloudflare Worker
+        if: ${{ secrets.PROMO_USERNAME != '' && secrets.PROMO_PASSWORD != '' && secrets.PROMO_SECOND_PASSWORD != '' }}
+        run: |
+          printf '%s' "$PROMO_USERNAME" | npx wrangler secret put PROMO_USERNAME
+          printf '%s' "$PROMO_PASSWORD" | npx wrangler secret put PROMO_PASSWORD
+          printf '%s' "$PROMO_SECOND_PASSWORD" | npx wrangler secret put PROMO_SECOND_PASSWORD
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          PROMO_USERNAME: ${{ secrets.PROMO_USERNAME }}
+          PROMO_PASSWORD: ${{ secrets.PROMO_PASSWORD }}
+          PROMO_SECOND_PASSWORD: ${{ secrets.PROMO_SECOND_PASSWORD }}
       - name: Inspect UBIPHARM portal (read-only)
         if: github.event_name == 'workflow_dispatch'
         run: |
