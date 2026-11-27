@@ -390,8 +390,11 @@ export default function Planning() {
     : Math.max(1, seuils.minMedical + seuils.minPharmacie)
   const jourComplet = (j: Jour) => {
     const total = lignes.filter((l) => l.jour === j).length
+    // Exception Odypharm2 : autoriser le passage au jour suivant dès que
+    // les 15 visites du jour sont programmées, sans exiger la répartition
+    // exacte des potentiels. Le contrôle complet reste appliqué à la soumission.
     return estOdypharm2
-      ? quotaPharmacieRespecte(j)
+      ? total >= minimumVisitesJour(j)
       : pharmacieUniquement
         ? total >= minimumVisitesJour(j)
         : total >= minimumVisitesJour(j) && jourOk(j)
