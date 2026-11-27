@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { IconPlus, IconX, IconClock, IconCheckCircle, IconAlert, IconSearch, IconCheck } from '@/components/ui/icons'
 import { usePlanning, targetSemaineDebut } from '@/features/data/usePlanning'
 import { supabase } from '@/lib/supabase'
-import { JOURS, JOURS_DEROGATION_MOYEN, potentielAutorise } from '@/lib/rules'
+import { JOURS } from '@/lib/rules'
 import { JOUR_LABEL } from '@/lib/theme'
 import { deadlineSoumission, formatCountdown, nowBenin } from '@/lib/time'
 import { normalizeText } from '@/lib/text'
@@ -32,13 +32,6 @@ const RECAP_CIBLES: Record<string, { cles: Specialite[]; label: string }> = {
 }
 const POTENTIEL_LABEL: Record<Potentiel, string> = { 'G+': 'G+', GROS: 'Gros', MOYEN: 'Moyens', FAIBLE: 'Faibles' }
 
-const QUOTAS_PHARMACIE_ODY: Record<string, Record<string, number>> = {
-  LUNDI: { 'G+': 3, GROS: 4, MOYEN: 8 },
-  MARDI: { 'G+': 3, GROS: 4, MOYEN: 8 },
-  MERCREDI: { 'G+': 3, GROS: 4, MOYEN: 8 },
-  JEUDI: { GROS: 1, MOYEN: 9, FAIBLE: 5 },
-  VENDREDI: { MOYEN: 9, FAIBLE: 6 }
-}
 const SPECIALITE_LABEL: Record<string, string> = {
   "GENERALISTE": "Médecin généraliste",
   "GYNECOLOGUE": "Gynécologue",
@@ -215,16 +208,9 @@ export default function Planning() {
   }, [programme?.id])
   const clientIdsUtilises = new Set(lignes.map((l) => l.client_id))
   const pharmacieUniquement = !!programme?.mode_pharmacie_uniquement
-  const quotasPersonnalisesLydieSylvestre = ['62cdc900-5544-470a-94bf-ef30c9c8fb2f', 'db3b946a-165e-4a20-91e0-073c2e170a72'].includes(programme?.vm_id ?? '')
-  const quotasPharmacieJour = QUOTAS_PHARMACIE_ODY[jourActif] ?? {}
   const pharmaciesDuJour = lignesJour.filter((l) => l.type_visite === 'PHARMACIE')
-  const quotaPharmacieRespecte = (jour: Jour) => {
-    const quotas = QUOTAS_PHARMACIE_ODY[jour] ?? {}
-    const pharmacies = lignes.filter((l) => l.jour === jour && l.type_visite === 'PHARMACIE')
-    return pharmacies.length === 15 && Object.entries(quotas).every(([potentiel, quota]) =>
-      pharmacies.filter((l) => l.clients?.potentiel === potentiel).length === quota
-    )
-  }
+  const quotaPharmacieRespecte = (jour: Jour) =>
+    lignes.filter((l) => l.jour === jour && l.type_visite === 'PHARMACIE').length === 15
 
   const candidats = portefeuille.filter((c) => {
     if (!picking) return false
@@ -257,53 +243,12 @@ export default function Planning() {
   const selectionArray = Array.from(selection)
   const countSelection = (p: Potentiel) => selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === p).length
   const totalJourProjete = lignesJour.length + selection.size
-  const moyenJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'MOYEN').length + countSelection('MOYEN')
-  const grosJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'GROS').length + countSelection('GROS')
-  const faibleJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'FAIBLE').length + countSelection('FAIBLE')
-  const grosMoyenRestant = portefeuille.some((c) => !clientIdsUtilises.has(c.id) && !selection.has(c.id) && c.actif && (c.potentiel === 'GROS' || c.potentiel === 'MOYEN'))
-
   function quotaPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId)) return false
-    if (estOdypharm2) {
-      if (picking !== 'PHARMACIE') {
-        if (picking === 'MEDICAL' && potentiel === 'GROS' && ['JEUDI', 'VENDREDI'].includes(jourActif)) {
-          const currentGross = lignesJour.filter(l => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'GROS').length;
-          const selectedGross = selectionArray.filter(id => portefeuille.find(c => c.id === id)?.potentiel === 'GROS').length;
-          return currentGross + selectedGross >= 2;
-        }
-        return false;
-      }
-      const quota = quotasPharmacieJour[potentiel] ?? 0
-      const deja = pharmaciesDuJour.filter((l) => l.clients?.potentiel === potentiel).length
-      const selectionnes = selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === potentiel).length
-      return quota <= 0 || deja + selectionnes >= quota || pharmaciesDuJour.length + selection.size >= 15
-    }
     if (totalJourProjete >= seuils.maxVisitesJour) return true
-    if (jourActif === 'SAMEDI') return false
-    if (derogationPotentielActive || estFawaz || estFagbede) return false
-    if (quotasPersonnalisesLydieSylvestre) {
-      if (['LUNDI','MARDI','MERCREDI'].includes(jourActif)) {
-        if (picking !== 'MEDICAL') return false
-        const moyenMedicalProjete = lignesJour.filter((l) => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'MOYEN').length + countSelection('MOYEN')
-        const faibleMedicalProjete = lignesJour.filter((l) => l.type_visite === 'MEDICAL' && l.clients?.potentiel === 'FAIBLE').length + countSelection('FAIBLE')
-        if (potentiel === 'MOYEN' && moyenMedicalProjete >= 7) return true
-        if (potentiel === 'FAIBLE' && faibleMedicalProjete >= 2) return true
-      }
-      // Jeudi et vendredi : pas de plafond spécifique par potentiel ; seuls les minima
-      // sont contrôlés à la soumission. Le plafond global quotidien reste applicable.
-      return false
-    }
-    if (JOURS_DEROGATION_MOYEN.includes(jourActif)) {
-      if (potentiel === 'FAIBLE') return true
-      if (potentiel === 'MOYEN' && moyenJourProjete >= seuils.maxMoyenLunMarMer) return true
-    }
-    if (jourActif === 'JEUDI' || jourActif === 'VENDREDI') {
-      const maxGros = jourActif === 'JEUDI' ? seuils.maxGrosJeudi : seuils.maxGrosVendredi
-      const maxFaible = jourActif === 'JEUDI' ? seuils.maxFaibleJeudi : seuils.maxFaibleVendredi
-      if (potentiel === 'GROS' && grosJourProjete >= maxGros) return true
-      if (potentiel === 'FAIBLE' && faibleJourProjete >= maxFaible && grosMoyenRestant) return true
-    }
-    return false
+    return ['LUNDI', 'MARDI', 'MERCREDI'].includes(jourActif)
+      && potentiel === 'FAIBLE'
+      && faibleJourProjete >= 3
   }
 
   // Récapitulatif hebdomadaire par spécialité et potentiel, tous jours confondus.
@@ -343,38 +288,16 @@ export default function Planning() {
   const poidsNormal = seuils.minMedical > 0 ? 100 / seuils.minMedical : 0
   const pointsMedical = (j: Jour) => parJour[j].medical * poidsNormal
 
-  // En mode pharmacie uniquement, les règles de minimums médicaux et pharmaceutiques sont désactivées.
-  const comptePotentielMedical = (j: Jour, potentiel: Potentiel) =>
-    lignes.filter((l) => l.jour === j && l.type_visite === 'MEDICAL' && l.clients?.potentiel === potentiel).length
-  // Le minimum de potentiel ne peut jamais dépasser le stock réellement programmable
-  // pour cette journée : portefeuille actif, fréquence mensuelle disponible, et clients
-  // non affectés à un autre jour de la même semaine.
-  const minimumPotentielDisponible = (j: Jour, potentiel: Potentiel, minimum: number) => {
-    const datePrevue = dayjs(programme?.semaine_debut ?? semaineDebut).add(JOURS.indexOf(j), 'day')
-    const mois = datePrevue.format('YYYY-MM')
-    const affectesAutresJours = new Set(lignes.filter((l) => l.jour !== j).map((l) => l.client_id))
-    const stockProgrammable = portefeuille.filter((c) =>
-      c.actif &&
-      c.potentiel === potentiel &&
-      !affectesAutresJours.has(c.id) &&
-      (c.frequence_visite_mensuelle == null || c.frequence_visite_mensuelle <= 0 ||
-        (visitesMois[`${c.id}:${mois}`] ?? 0) < c.frequence_visite_mensuelle)
-    ).length
-    return Math.min(minimum, stockProgrammable)
-  }
+  // Les seuils de potentiel ne conditionnent plus la validation des journées.
+  // Seuls les volumes médicaux/pharmaceutiques non liés au potentiel sont conservés.
+  const idsLydieSylvestre = ['62cdc900-5544-470a-94bf-ef30c9c8fb2f', 'db3b946a-165e-4a20-91e0-073c2e170a72']
+  const quotasPersonnalisesLydieSylvestre = idsLydieSylvestre.includes(programme?.vm_id ?? '')
   const jourOk = (j: Jour) => estOdypharm2
     ? quotaPharmacieRespecte(j)
     : pharmacieUniquement
       ? true
       : quotasPersonnalisesLydieSylvestre
-        ? ['LUNDI','MARDI','MERCREDI'].includes(j)
-          ? comptePotentielMedical(j, 'GROS') >= minimumPotentielDisponible(j, 'GROS', 7)
-            && parJour[j].pharmacie >= 2
-            && comptePotentielMedical(j, 'MOYEN') <= 7
-            && comptePotentielMedical(j, 'FAIBLE') <= 2
-          : parJour[j].medical >= 16
-            && comptePotentielMedical(j, 'GROS') >= minimumPotentielDisponible(j, 'GROS', 2)
-            && parJour[j].pharmacie >= 2
+        ? (['JEUDI', 'VENDREDI'].includes(j) ? parJour[j].medical >= 16 : true) && parJour[j].pharmacie >= 2
         : pointsMedical(j) >= 100 - 0.01 && parJour[j].pharmacie >= seuils.minPharmacie
   const joursCouverts = JOURS.filter((j) => lignes.some((l) => l.jour === j)).length
   const prêtPourSoumission = estOdypharm2
@@ -629,16 +552,8 @@ export default function Planning() {
                 <span className={pharmaciesDuJour.length === 15 ? 'font-bold text-emerald-600' : 'font-bold text-ink-700'}>{pharmaciesDuJour.length}/15</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                {Object.entries(quotasPharmacieJour).map(([potentiel, quota]) => {
-                  const n = pharmaciesDuJour.filter((l) => l.clients?.potentiel === potentiel).length
-                  return <div key={potentiel} className="rounded-xl bg-ink-50 px-2 py-2 text-center">
-                    <p className="text-[10px] text-ink-500">{potentiel}</p>
-                    <p className="text-sm font-bold text-ink-800">{n}/{quota}</p>
-                  </div>
-                })}
               </div>
               <p className="text-[11px] text-ink-400">Centres ajoutés : {lignesJour.filter((l) => l.type_visite === 'MEDICAL').length} · en supplément des 15 pharmacies</p>
-              {['JEUDI', 'VENDREDI'].includes(jourActif) && <p className="text-[11px] font-medium text-royal-700">Médical : 0 à 2 GROS maximum (aucun minimum). MOYENS et FAIBLES libres.</p>}
             </div>
           ) : (
             <div className={`grid ${pharmacieUniquement ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
@@ -648,9 +563,7 @@ export default function Planning() {
                     <span className="text-ink-500">Médical</span>
                     <span className={quotasPersonnalisesLydieSylvestre ? (jourOk(jourActif) ? 'text-emerald-600 font-semibold' : 'text-ink-500') : (pointsMedical(jourActif) >= 100 - 0.01 ? 'text-emerald-600 font-semibold' : 'text-ink-500')}>
                       {quotasPersonnalisesLydieSylvestre
-                        ? ['LUNDI','MARDI','MERCREDI'].includes(jourActif)
-                          ? `GROS ${comptePotentielMedical(jourActif, 'GROS')}/7 min · MOYEN ${comptePotentielMedical(jourActif, 'MOYEN')}/7 max · FAIBLE ${comptePotentielMedical(jourActif, 'FAIBLE')}/2 max`
-                          : `${parJour[jourActif].medical}/16 médical · GROS ${comptePotentielMedical(jourActif, 'GROS')}/2 min`
+                        ? `${parJour[jourActif].medical}/16 médical${['LUNDI','MARDI','MERCREDI'].includes(jourActif) ? ' (aucun minimum)' : ' minimum'}`
                         : `${Math.round(pointsMedical(jourActif))}% (min 100%)`}
                     </span>
                   </div>
@@ -729,7 +642,7 @@ export default function Planning() {
               <ul className="space-y-1">
                 {estOdypharm2 ? (
                   JOURS.filter((j) => !quotaPharmacieRespecte(j)).map((j) => (
-                    <li key={j} className="text-xs text-flame-700">• {JOUR_LABEL[j]} : compléter les quotas de 15 pharmacies ({Object.entries(QUOTAS_PHARMACIE_ODY[j]).map(([p, q]) => `${p} ${q}`).join(' / ')})</li>
+                    <li key={j} className="text-xs text-flame-700">• {JOUR_LABEL[j]} : programmer 15 pharmacies ({lignes.filter((l) => l.jour === j && l.type_visite === 'PHARMACIE').length}/15)</li>
                   ))
                 ) : pharmacieUniquement ? (
                   lignes.length === 0 && (
@@ -743,9 +656,7 @@ export default function Planning() {
                     {JOURS.filter((j) => !jourOk(j)).map((j) => (
                       <li key={j} className="text-xs text-flame-700">
                         • {JOUR_LABEL[j]} : {quotasPersonnalisesLydieSylvestre
-                          ? ['LUNDI','MARDI','MERCREDI'].includes(j)
-                            ? `GROS ${comptePotentielMedical(j, 'GROS')}/7 minimum, MOYEN ${comptePotentielMedical(j, 'MOYEN')}/7 maximum, FAIBLE ${comptePotentielMedical(j, 'FAIBLE')}/2 maximum, pharmacies ${parJour[j].pharmacie}/2 minimum`
-                            : `${parJour[j].medical}/16 médical minimum, GROS ${comptePotentielMedical(j, 'GROS')}/2 minimum, pharmacies ${parJour[j].pharmacie}/2 minimum`
+                          ? `${['JEUDI','VENDREDI'].includes(j) ? `${parJour[j].medical}/16 médical minimum, ` : ''}${parJour[j].pharmacie}/2 pharmacies minimum`
                           : `${parJour[j].medical}/${seuils.minMedical} médical, ${parJour[j].pharmacie}/${seuils.minPharmacie} pharmacie`}
                       </li>
                     ))}
@@ -799,7 +710,7 @@ export default function Planning() {
                 {candidats.length === 0 && <p className="text-sm text-ink-400 text-center py-6">Aucun client disponible pour ce jour.</p>}
                 {candidats.map((c) => {
                   const selected = selection.has(c.id)
-                  const potentielIndisponible = !estOdypharm2 && !pharmacieUniquement && !derogationPotentielActive && !estFawaz && !estFagbede && !potentielAutorise(jourActif, c.potentiel, picking!)
+                  const potentielIndisponible = false
                   const bloqueQuota = quotaPotentielBloque(c.id, c.potentiel)
                   const bloque = potentielIndisponible || bloqueQuota
                   return (
