@@ -119,7 +119,7 @@ export default function Tournees(){
  async function saveReport(r:Rapport){await action(async()=>{const {error:e}=await supabase.from('tournee_rapports').update({resume:resume[r.id]??r.resume,observations:observations[r.id]??r.observations}).eq('id',r.id);if(e)throw e;setNotice('Rapport enregistré.');await load()})}
  async function addEncounter(r:Rapport,t:Tournee){await action(async()=>{
   if(t.avec_portefeuille && newPrescriber[r.id]){
-   const {error:e}=await supabase.rpc('ajouter_nouveau_prescripteur_tournee',{p_rapport_id:r.id,p_nom:rencontreNom[r.id]??'',p_centre:rencontreCentre[r.id]??'',p_specialite:specialite[r.id]??null,p_potentiel:potentiel[r.id]??null,p_secteur:profile.secteur??secteur[r.id]??null,p_contacts:telephone[r.id]??'',p_notes:rencontreNotes[r.id]??''});if(e)throw e
+   const {error:e}=await supabase.rpc('ajouter_nouveau_prescripteur_tournee',{p_rapport_id:r.id,p_nom:rencontreNom[r.id]??'',p_centre:rencontreCentre[r.id]??'',p_specialite:specialite[r.id]??null,p_potentiel:potentiel[r.id]??null,p_contacts:telephone[r.id]??'',p_notes:rencontreNotes[r.id]??''});if(e)throw e
   }else{
    let c:Client|undefined
    if(t.avec_portefeuille){c=clients.find(x=>x.id===selectedClient[r.id]);if(!c)throw new Error('Sélectionnez un client du portefeuille.')}
