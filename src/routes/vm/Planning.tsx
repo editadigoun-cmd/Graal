@@ -246,7 +246,11 @@ export default function Planning() {
   const faibleJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'FAIBLE').length + countSelection('FAIBLE')
   function quotaPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId)) return false
-    if (totalJourProjete >= seuils.maxVisitesJour) return true
+    if (!estOdypharm2 && totalJourProjete >= seuils.maxVisitesJour) return true
+    if (estOdypharm2 && picking === 'PHARMACIE') {
+      const pharmaciesSelectionnees = selectionArray.filter((id) => portefeuille.find((client) => client.id === id)?.specialite === 'PHARMACIE').length
+      if (pharmaciesDuJour.length + pharmaciesSelectionnees >= 15) return true
+    }
     return ['LUNDI', 'MARDI', 'MERCREDI'].includes(jourActif)
       && potentiel === 'FAIBLE'
       && faibleJourProjete >= 3
