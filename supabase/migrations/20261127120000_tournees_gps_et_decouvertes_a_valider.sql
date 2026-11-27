@@ -23,6 +23,7 @@ create table if not exists public.tournee_decouvertes (
 );
 create index if not exists tournee_decouvertes_statut_idx on public.tournee_decouvertes(statut,created_at desc);
 alter table public.tournee_decouvertes enable row level security;
+grant select on public.tournee_decouvertes to authenticated;
 
 drop policy if exists tournee_decouvertes_read_scope on public.tournee_decouvertes;
 create policy tournee_decouvertes_read_scope on public.tournee_decouvertes
@@ -153,3 +154,16 @@ revoke all on function public.valider_decouverte_tournee(uuid) from public;
 grant execute on function public.enregistrer_depart_tournee_gps(uuid,double precision,double precision) to authenticated;
 grant execute on function public.enregistrer_cloture_tournee_gps(uuid,double precision,double precision) to authenticated;
 grant execute on function public.valider_decouverte_tournee(uuid) to authenticated;
+
+
+-- La durée est figée au moment où le visiteur demande la clôture et ouvre son rapport.
+create or replace function private.marquer_tournee_effectuee_impl(p_jour_id uuid)
+returns void language plpgsql security definer set search_path=public as $$
+begin
+  if auth.uid() is null then raise exception 'Connexion requise.'; end if;
+  update public.tournee_jours j set statut='EFFECTUEE',terminee_at=coalesce(terminee_at,now())
+  from public.tournees t
+  where j.id=p_jour_id and j.tournee_id=t.id and t.demandeur_id=auth.uid()
+    and t.statut='EN_COURS' and j.jour=public.benin_today() and j.statut='EN_COURS';
+  if not found then raise exception 'Journée non démarrée, hors date ou déjà déclarée effectuée.'; end if;
+end; $$;
