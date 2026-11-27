@@ -86,7 +86,7 @@ function selectionGrosCountSafe(selection: Set<string>, portefeuille: Database['
 }
 
 export default function Planning() {
-  const { programme, lignes, portefeuille, visitesMois, loading, error, setError, reload, estFawaz, estFagbede, estOdypharm2, derogationPotentielActive, retirerLigne } = usePlanning()
+  const { programme, lignes, portefeuille, visitesMois, loading, error, setError, reload, estOdypharm2, retirerLigne } = usePlanning()
   const [jourActif, setJourActif] = useState<Jour>('LUNDI')
   const [picking, setPicking] = useState<TypeVisite | null>(null)
   const [recherche, setRecherche] = useState('')
