@@ -741,13 +741,10 @@ export default function Planning() {
                             <p className="text-[10px] text-flame-600 truncate">
                               {bloqueQuota
                                 ? totalJourProjete >= seuils.maxVisitesJour ? `Maximum de ${seuils.maxVisitesJour} visites par jour atteint` :
-                                  JOURS_DEROGATION_MOYEN.includes(jourActif) && c.potentiel === 'MOYEN' ? `Maximum de ${seuils.maxMoyenLunMarMer} MOYENS par jour (médical + pharmacie)` :
-                                  JOURS_DEROGATION_MOYEN.includes(jourActif) ? 'Seuls les potentiels GROS et MOYEN sont autorisés du lundi au mercredi' :
-                                  c.potentiel === 'GROS' ? `Maximum de ${jourActif === 'JEUDI' ? seuils.maxGrosJeudi : seuils.maxGrosVendredi} GROS` :
-                                  'Quota FAIBLE atteint : programmez d’abord les GROS et MOYENS disponibles'
-                                : c.potentiel
-                                  ? `Potentiel ${c.potentiel} non autorisé le ${JOUR_LABEL[jourActif]}`
-                                  : 'Potentiel non renseigné, programmation impossible'}
+                                  ['LUNDI', 'MARDI', 'MERCREDI'].includes(jourActif) && c.potentiel === 'FAIBLE'
+                                    ? 'Maximum de 3 FAIBLES par jour (médical + pharmacie) atteint'
+                                    : 'Maximum de visites par jour atteint'
+                                : 'Client indisponible'}
                             </p>
                           )}
                         </div>
