@@ -10,11 +10,12 @@ type Tournee = {
   id: string; demandeur_id: string; zone: string; date_debut: string; date_fin: string
   avec_portefeuille: boolean; statut: string; motif_refus: string | null; created_at: string
 }
-type Jour = { id: string; tournee_id: string; jour: string; statut: string }
+type Jour = { id: string; tournee_id: string; jour: string; statut: string; demarree_at?: string | null; terminee_at?: string | null; latitude_depart?: number | null; longitude_depart?: number | null }
 type Rapport = { id: string; tournee_jour_id: string; resume: string; observations: string | null; soumis_at: string | null }
 type Rencontre = { id: string; rapport_id: string; nom: string; centre: string | null; specialite: string | null; potentiel: string | null; telephone: string | null; notes: string | null; nouveau_prescripteur: boolean }
 type Planification = { id:string; tournee_jour_id:string; client_id:string; clients?:{nom:string}[]|null }
 type Client = { id: string; nom: string; centre: string | null; specialite: string; potentiel: string }
+type Decouverte = { id:string; nom:string; centre:string|null; specialite:string; potentiel:string; secteur:string; contacts:string|null; notes:string|null; created_at:string }
 const SPECIALITES = ['GENERALISTE','GYNECOLOGUE','PEDIATRE','CARDIOLOGUE','RHUMATOLOGUE','ORL','AUTRE_SPECIALITE','MATERNITE','DISPENSAIRE','PHARMACIE','IDE','ANESTHESISTE','CHIRURGIEN','CHIRURGIEN_PEDIATRIQUE','DERMATOLOGUE','DIABETOLOGUE','ENDOCRINOLOGUE','GASTROENTEROLOGUE','SAGE_FEMME','NEPHROLOGUE','NEUROLOGUE','NEUROCHIRURGIEN','NUTRITIONNISTE','ONCOLOGUE','PNEUMOLOGUE','REANIMATEUR','TRAUMATOLOGUE','URGENTISTE','UROLOGUE','INTERNISTE','PSYCHOLOGUE','DREPANOCYTOSE','CUMAS','CUGO','URGENCE','REANIMATION_ANESTHESIE','CHIRURGIE_GENERALE']
 const POTENTIELS = ['GROS','MOYEN','FAIBLE']
 const SECTEURS = ['A','B','MONO','COUFFO','KETOU-POBE','SAKETE']
@@ -40,6 +41,8 @@ export default function Tournees(){
  const [clientAPlanifier,setClientAPlanifier]=useState<Record<string,string>>({})
  const [noms,setNoms]=useState<Record<string,string>>({})
  const [clients,setClients]=useState<Client[]>([])
+ const [decouvertes,setDecouvertes]=useState<Decouverte[]>([])
+ const [now,setNow]=useState(Date.now())
  const [hasPortfolio,setHasPortfolio]=useState(false)
  const [rapportOuvert,setRapportOuvert]=useState<Record<string,boolean>>({})
  const [loading,setLoading]=useState(true)
@@ -69,8 +72,9 @@ export default function Tournees(){
   const {data:td,error:te}=await supabase.from('tournees').select('*').order('created_at',{ascending:false})
   if(te){setError(te.message);setLoading(false);return}
   const list=(td??[]) as Tournee[];setTours(list)
+  if(profile.role==='admin'){const {data:dd,error:de}=await supabase.from('tournee_decouvertes').select('*').eq('statut','EN_ATTENTE').order('created_at',{ascending:false});if(de)setError(de.message);setDecouvertes((dd??[]) as Decouverte[])}else setDecouvertes([])
   const ids=list.map(x=>x.id)
-  if(!ids.length){setJours([]);setRapports([]);setRencontres([]);setNoms({});setLoading(false);return}
+  if(!ids.length){setJours([]);setRapports([]);setRencontres([]);setPlanifications([]);setNoms({});setLoading(false);return}
   const {data:jd,error:je}=await supabase.from('tournee_jours').select('*').in('tournee_id',ids).order('jour',{ascending:true})
   if(je)setError(je.message)
   const dayList=(jd??[]) as Jour[];setJours(dayList)
@@ -94,6 +98,7 @@ export default function Tournees(){
   setLoading(false)
  },[profile?.id,profile?.role])
  useEffect(()=>{void load()},[load])
+ useEffect(()=>{const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[])
 
  const isAdmin=profile?.role==='admin'
  const isVm=profile?.role==='vm'
@@ -105,11 +110,12 @@ export default function Tournees(){
  const plansByDay=useMemo(()=>{const m:Record<string,Planification[]>={};planifications.forEach(p=>(m[p.tournee_jour_id]??=[]).push(p));return m},[planifications])
 
  async function action(fn:()=>Promise<void>){setBusy(true);setError('');setNotice('');try{await fn();}catch(e:any){setError(e?.message??'Une erreur est survenue.')}finally{setBusy(false)}}
- async function demander(){await action(async()=>{const {error:e}=await supabase.rpc('demander_tournee',{p_zone:zone,p_date_debut:dateDebut,p_date_fin:dateFin});if(e)throw e;setZone('');setNotice('Votre demande de tournée a été envoyée à l’administration.');await load()})}
+ async function demander(){let ok=false;await action(async()=>{const {error:e}=await supabase.rpc('demander_tournee',{p_zone:zone,p_date_debut:dateDebut,p_date_fin:dateFin});if(e)throw e;ok=true;setZone('');setNotice('Votre demande de tournée a été envoyée à l’administration.');await load()});return ok}
  async function decider(id:string,ok:boolean){await action(async()=>{const {error:e}=await supabase.rpc('decider_tournee',{p_tournee_id:id,p_approuver:ok,p_motif:motifs[id]??null});if(e)throw e;setNotice(ok?'Tournée approuvée.':'Demande refusée.');await load()})}
  async function ajouterAuProgramme(jourId:string){await action(async()=>{const clientId=clientAPlanifier[jourId];if(!clientId)throw new Error('Choisissez un client du portefeuille.');const {error:e}=await supabase.from('tournee_programmations').insert({tournee_jour_id:jourId,client_id:clientId});if(e)throw e;setClientAPlanifier(v=>({...v,[jourId]:''}));setNotice('Visite ajoutée au programme de la journée.');await load()})}
  async function retirerDuProgramme(id:string){await action(async()=>{const {error:e}=await supabase.from('tournee_programmations').delete().eq('id',id);if(e)throw e;await load()})}
- async function demarrer(t:Tournee,j:string){await action(async()=>{const {error:e}=await supabase.rpc('demarrer_journee_tournee',{p_tournee_id:t.id,p_jour:j});if(e)throw e;setExpanded(t.id);await load()})}
+ async function positionGPS(){if(!navigator.geolocation)throw new Error('La géolocalisation n’est pas disponible sur cet appareil.');return await new Promise<{latitude:number;longitude:number}>((resolve,reject)=>navigator.geolocation.getCurrentPosition(p=>resolve({latitude:p.coords.latitude,longitude:p.coords.longitude}),()=>reject(new Error('Autorisez la localisation GPS pour démarrer la tournée.')),{enableHighAccuracy:true,timeout:20000,maximumAge:0}))}
+ async function demarrer(t:Tournee,j:string){await action(async()=>{const pos=await positionGPS();const {data:id,error:e}=await supabase.rpc('demarrer_journee_tournee',{p_tournee_id:t.id,p_jour:j});if(e)throw e;const jourId=typeof id==='string'?id:jours.find(x=>x.tournee_id===t.id&&x.jour===j)?.id;if(jourId){const {error:ge}=await supabase.rpc('enregistrer_depart_tournee_gps',{p_jour_id:jourId,p_latitude:pos.latitude,p_longitude:pos.longitude});if(ge)throw ge}setNotice('Tournée démarrée. Position GPS enregistrée.');await load()})}
  async function saveReport(r:Rapport){await action(async()=>{const {error:e}=await supabase.from('tournee_rapports').update({resume:resume[r.id]??r.resume,observations:observations[r.id]??r.observations}).eq('id',r.id);if(e)throw e;setNotice('Rapport enregistré.');await load()})}
  async function addEncounter(r:Rapport,t:Tournee){await action(async()=>{
   if(t.avec_portefeuille && newPrescriber[r.id]){
@@ -124,7 +130,8 @@ export default function Tournees(){
   }
   setRencontreNom(v=>({...v,[r.id]:''}));setRencontreCentre(v=>({...v,[r.id]:''}));setRencontreNotes(v=>({...v,[r.id]:''}));setTelephone(v=>({...v,[r.id]:''}));setNotice('Personne ajoutée au rapport.');await load()
  })}
- async function marquerEffectuee(j:Jour){await action(async()=>{const {error:e}=await supabase.rpc('marquer_tournee_effectuee',{p_jour_id:j.id});if(e)throw e;setNotice('Tournée déclarée effectuée. Vous pouvez maintenant compléter le rapport.');await load()})}
+ async function marquerEffectuee(j:Jour){await action(async()=>{let pos:{latitude:number;longitude:number}|null=null;try{pos=await positionGPS()}catch{};if(pos){const {error:ge}=await supabase.rpc('enregistrer_cloture_tournee_gps',{p_jour_id:j.id,p_latitude:pos.latitude,p_longitude:pos.longitude});if(ge)throw ge}const {error:e}=await supabase.rpc('marquer_tournee_effectuee',{p_jour_id:j.id});if(e)throw e;setNotice('Tournée clôturée. Complétez maintenant le rapport avant sa soumission.');await load()})}
+ async function validerDecouverte(id:string){await action(async()=>{const {error:e}=await supabase.rpc('valider_decouverte_tournee',{p_decouverte_id:id});if(e)throw e;setNotice('Nouveau client ajouté au portefeuille du visiteur.');await load()})}
  async function submitReport(j:Jour,r:Rapport){await action(async()=>{const {error:saveError}=await supabase.from('tournee_rapports').update({resume:resume[r.id]??r.resume,observations:observations[r.id]??r.observations}).eq('id',r.id);if(saveError)throw saveError;const {error:e}=await supabase.rpc('soumettre_rapport_tournee',{p_jour_id:j.id});if(e)throw e;setNotice('Rapport soumis. Journée clôturée.');await load()})}
 
  if(!profile)return null
@@ -143,6 +150,7 @@ export default function Tournees(){
   {view==='list'&&<>
    <div className="flex items-start gap-3"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-royal-50 text-royal-700"><IconMapPin className="h-6 w-6"/></div><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wider text-royal-600">Terrain & activité</p><h1 className="text-2xl font-extrabold text-ink-800 font-display">Tournées</h1><p className="mt-1 text-sm text-ink-500">{isAdmin?'Demandes à valider et tournées réalisées.':isSupervisor?'Suivi des tournées de vos équipes.':'Retrouvez vos demandes et vos tournées.'}</p></div></div>
    <div className="flex items-center justify-between"><h2 className="font-bold text-ink-800">{isAdmin?'Demandes et tournées':isSupervisor?'Tournées des équipes':'Mes tournées'}</h2><span className="rounded-full bg-ink-100 px-3 py-1 text-xs font-bold text-ink-600">{tours.length}</span></div>
+   {isAdmin&&decouvertes.length>0&&<Card className="space-y-3"><div><h2 className="font-bold text-ink-800">Nouveaux clients découverts</h2><p className="text-sm text-ink-500">{decouvertes.length} découverte(s) en attente de validation</p></div>{decouvertes.map(d=><div key={d.id} className="space-y-2 rounded-xl border border-ink-100 p-3"><div><p className="font-semibold text-ink-800">{d.nom}</p><p className="text-xs text-ink-500">{[d.centre,d.specialite?.replaceAll('_',' '),d.potentiel,d.secteur].filter(Boolean).join(' · ')}</p>{d.contacts&&<p className="text-xs text-ink-500">{d.contacts}</p>}{d.notes&&<p className="text-sm text-ink-600">{d.notes}</p>}</div><Button fullWidth onClick={()=>validerDecouverte(d.id)} loading={busy}>Ajouter au portefeuille</Button></div>)}</Card>}
    {loading?<Card><p className="text-sm text-ink-500">Chargement des tournées…</p></Card>:tours.length===0?<Card className="py-12 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-royal-50 text-royal-700"><IconMapPin className="h-7 w-7"/></div><p className="mt-4 font-bold text-ink-800">Aucune tournée programmée</p><p className="mt-1 text-sm text-ink-500">{isVm?'Vous n’avez pas encore créé de tournée.':'Aucune tournée ne vous est actuellement attribuée.'}</p></Card>:<div className="space-y-3">{tours.map(t=><Card key={t.id} className="space-y-3">
     <button type="button" onClick={()=>navigate(base+'/'+t.id)} className="block w-full min-w-0 text-left"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-base font-bold text-ink-800">{t.zone}</p><p className="mt-1 text-sm text-ink-500">{fmt(t.date_debut)} – {fmt(t.date_fin)}</p>{!isVm&&<p className="mt-1 text-xs font-semibold text-ink-600">{noms[t.demandeur_id]??'Collaborateur'}</p>}</div>{status(t.statut)}</div><p className="mt-2 text-xs text-ink-400">Demande du {new Date(t.created_at).toLocaleDateString('fr-FR')}</p></button>
     {t.statut==='REFUSEE'&&t.motif_refus&&<p className="rounded-lg bg-red-50 p-3 text-xs text-red-700">Motif : {t.motif_refus}</p>}
@@ -156,7 +164,7 @@ export default function Tournees(){
     <div><label className="mb-2 block text-sm font-semibold text-ink-700">Zone / localité</label><input value={zone} onChange={e=>setZone(e.target.value)} placeholder="Ex. : Porto-Novo, Adjarra…" className="w-full min-w-0 rounded-xl border border-ink-200 px-4 py-3.5 text-base"/></div>
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><div><label className="mb-2 block text-sm font-semibold text-ink-700">Date de début</label><input type="date" min={today} value={dateDebut} onChange={e=>{setDateDebut(e.target.value);if(dateFin<e.target.value)setDateFin(e.target.value)}} className="w-full min-w-0 rounded-xl border border-ink-200 px-3 py-3.5 text-base"/></div><div><label className="mb-2 block text-sm font-semibold text-ink-700">Date de fin</label><input type="date" min={dateDebut} value={dateFin} onChange={e=>setDateFin(e.target.value)} className="w-full min-w-0 rounded-xl border border-ink-200 px-3 py-3.5 text-base"/></div></div>
     <div className="rounded-xl bg-ink-50 p-4 text-sm text-ink-600">{hasPortfolio?'Votre portefeuille sera disponible pour programmer les visites et enregistrer les nouveaux clients découverts.':'Les personnes rencontrées pourront être consignées dans le rapport de tournée.'}</div>
-    <Button fullWidth onClick={async()=>{await demander();if(!error)navigate(base)}} loading={busy} disabled={!zone.trim()||!dateDebut||!dateFin||dateFin<dateDebut}><IconPlus className="h-4 w-4"/> Envoyer la demande</Button>
+    <Button fullWidth onClick={async()=>{if(await demander())navigate(base)}} loading={busy} disabled={!zone.trim()||!dateDebut||!dateFin||dateFin<dateDebut}><IconPlus className="h-4 w-4"/> Envoyer la demande</Button>
    </Card>
   </>}
   {view==='detail'&&<>
@@ -170,7 +178,7 @@ export default function Tournees(){
     <Card className="space-y-2"><p className="text-lg font-bold text-ink-800">{fmt(selectedJour.jour)}</p><div className="flex items-center justify-between">{status(selectedJour.statut)}<span className="text-xs text-ink-500">{selectedTour.zone}</span></div></Card>
     {selectedTour.avec_portefeuille&&<Card className="space-y-4"><div><h2 className="font-bold text-ink-800">Visites programmées</h2><p className="text-sm text-ink-500">{selectedPlans.length} client(s) prévu(s)</p></div>{selectedPlans.length===0?<p className="rounded-xl bg-ink-50 p-4 text-sm text-ink-500">Aucun client programmé pour cette journée.</p>:selectedPlans.map(p=><div key={p.id} className="flex min-w-0 items-center justify-between gap-3 rounded-xl bg-royal-50/60 p-3"><span className="min-w-0 break-words text-sm font-medium text-ink-700">{p.clients?.[0]?.nom??clients.find(x=>x.id===p.client_id)?.nom??'Client du portefeuille'}</span>{ownTour&&selectedJour.statut==='A_DEMARRER'&&<button type="button" onClick={()=>retirerDuProgramme(p.id)} className="shrink-0 text-xs font-semibold text-red-600">Retirer</button>}</div>)}{ownTour&&selectedJour.statut==='A_DEMARRER'&&<div className="flex min-w-0 flex-col gap-2 sm:flex-row"><select value={clientAPlanifier[selectedJour.id]??''} onChange={e=>setClientAPlanifier(v=>({...v,[selectedJour.id]:e.target.value}))} className="w-full min-w-0 flex-1 rounded-xl border border-ink-200 bg-white px-3 py-3 text-sm"><option value="">Choisir un client du portefeuille</option>{clients.map(c=><option key={c.id} value={c.id}>{c.nom}</option>)}</select><Button onClick={()=>ajouterAuProgramme(selectedJour.id)} loading={busy} disabled={!clientAPlanifier[selectedJour.id]}><IconPlus className="h-4 w-4"/> Ajouter</Button></div>}</Card>}
     {ownTour&&selectedJour.statut==='A_DEMARRER'&&selectedJour.jour===today&&<Card className="space-y-3"><h2 className="font-bold text-ink-800">Prêt à partir ?</h2><p className="text-sm text-ink-500">Le démarrage enregistre l’heure de départ et la position GPS de votre appareil.</p><Button fullWidth onClick={()=>demarrer(selectedTour,selectedJour.jour)} loading={busy}><IconClock className="h-4 w-4"/> Démarrer la tournée</Button></Card>}
-    {ownTour&&selectedJour.statut==='EN_COURS'&&<Card className="space-y-3"><h2 className="font-bold text-ink-800">Tournée en cours</h2><p className="text-sm text-ink-500">Les visites programmées pour cette journée sont affichées ci-dessus.</p><Button fullWidth onClick={()=>marquerEffectuee(selectedJour)} loading={busy}><IconCheckCircle className="h-4 w-4"/> Clôturer et remplir le rapport</Button></Card>}
+    {selectedJour.statut==='EN_COURS'&&<Card className="space-y-3"><h2 className="font-bold text-ink-800">Tournée en cours</h2>{selectedJour.demarree_at&&<p className="text-sm font-semibold tabular-nums text-royal-700">Temps écoulé : {(()=>{const sec=Math.max(0,Math.floor((now-new Date(selectedJour.demarree_at).getTime())/1000));return [Math.floor(sec/3600),Math.floor(sec%3600/60),sec%60].map(n=>String(n).padStart(2,'0')).join(':')})()}</p>}<p className="text-sm text-ink-500">Les visites programmées pour cette journée sont affichées ci-dessus.</p><Button fullWidth onClick={()=>marquerEffectuee(selectedJour)} loading={busy}><IconCheckCircle className="h-4 w-4"/> Clôturer et remplir le rapport</Button></Card>}
     {ownTour&&selectedJour.statut==='EFFECTUEE'&&selectedReport&&!selectedReport.soumis_at&&<Card className="space-y-4"><div><h2 className="font-bold text-ink-800">Rapport de tournée</h2><p className="text-sm text-ink-500">Complétez le bilan avant de soumettre la clôture de cette journée.</p></div>
      <div><label className="mb-2 block text-sm font-semibold text-ink-700">Résumé de la tournée *</label><textarea value={resume[selectedReport.id]??selectedReport.resume} onChange={e=>setResume(v=>({...v,[selectedReport.id]:e.target.value}))} rows={4} className="w-full min-w-0 rounded-xl border border-ink-200 p-3 text-sm" placeholder="Activités réalisées, résultats obtenus…"/></div>
      <div><label className="mb-2 block text-sm font-semibold text-ink-700">Observations</label><textarea value={observations[selectedReport.id]??selectedReport.observations??''} onChange={e=>setObservations(v=>({...v,[selectedReport.id]:e.target.value}))} rows={3} className="w-full min-w-0 rounded-xl border border-ink-200 p-3 text-sm" placeholder="Difficultés, constats et suites à donner…"/></div>
