@@ -385,16 +385,20 @@ export default function Planning() {
 
   // Verrouillage progressif : un jour n'est accessible que lorsque tous les
   // jours précédents atteignent leur quota quotidien et leurs règles métier.
-  const minimumVisitesJour = (j: Jour) => estOdypharm2
+  // Boni Jonatan et Honfo Basile (TIL Nord) ont un portefeuille pharmacie
+  // insuffisant : leur progression quotidienne ne doit pas dépendre du quota pharmacie.
+  const progressionSansQuotaPharmacie = ['c06cf54f-365b-41f4-96e2-adaee2ad25f9', '7a8b0a66-70d6-45cb-bdb5-f2466523612c'].includes(programme?.vm_id ?? '')
+  const minimumVisitesJour = (j: Jour) => estOdypharm2 || progressionSansQuotaPharmacie
     ? 15
     : Math.max(1, seuils.minMedical + seuils.minPharmacie)
   const jourComplet = (j: Jour) => {
     const total = lignes.filter((l) => l.jour === j).length
-    // Exception Odypharm2 : autoriser le passage au jour suivant dès que
-    // les 15 visites du jour sont programmées, sans exiger la répartition
-    // exacte des potentiels. Le contrôle complet reste appliqué à la soumission.
+    // Pour ces deux VM de TIL Nord, seul le minimum médical conditionne
+    // l'accès au jour suivant ; le quota pharmacie reste contrôlé à la soumission.
+    if (progressionSansQuotaPharmacie) return parJour[j].medical >= seuils.minMedical
+    // Odypharm2 conserve ses propres quotas pharmacie pour le passage au jour suivant.
     return estOdypharm2
-      ? total >= minimumVisitesJour(j)
+      ? quotaPharmacieRespecte(j)
       : pharmacieUniquement
         ? total >= minimumVisitesJour(j)
         : total >= minimumVisitesJour(j) && jourOk(j)
