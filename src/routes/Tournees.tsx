@@ -73,6 +73,14 @@ export default function Tournees(){
   if(te){setError(te.message);setLoading(false);return}
   const list=(td??[]) as Tournee[];setTours(list)
   if(profile.role==='admin'){const {data:dd,error:de}=await supabase.from('tournee_decouvertes').select('*').eq('statut','EN_ATTENTE').order('created_at',{ascending:false});if(de)setError(de.message);setDecouvertes((dd??[]) as Decouverte[])}else setDecouvertes([])
+  if(profile.role==='vm'){
+   const [{data:pf},{count}] = await Promise.all([
+    supabase.from('portefeuille').select('client_id,clients(id,nom,centre,specialite,potentiel)').eq('vm_id',profile.id),
+    supabase.from('portefeuille').select('id',{count:'exact',head:true}).eq('vm_id',profile.id)
+   ])
+   setClients((pf??[]).map((x:any)=>x.clients).filter(Boolean) as Client[])
+   setHasPortfolio((count??0)>0)
+  }
   const ids=list.map(x=>x.id)
   if(!ids.length){setJours([]);setRapports([]);setRencontres([]);setPlanifications([]);setNoms({});setLoading(false);return}
   const {data:jd,error:je}=await supabase.from('tournee_jours').select('*').in('tournee_id',ids).order('jour',{ascending:true})
@@ -87,14 +95,6 @@ export default function Tournees(){
   if(reportIds.length){const {data:ed,error:ee}=await supabase.from('tournee_rencontres').select('*').in('rapport_id',reportIds).order('created_at');if(ee)setError(ee.message);setRencontres((ed??[]) as Rencontre[])}else setRencontres([])
   const userIds=[...new Set(list.map(x=>x.demandeur_id))]
   if(userIds.length){const {data:pd}=await supabase.from('profiles').select('id,full_name').in('id',userIds);setNoms(Object.fromEntries((pd??[]).map((p:any)=>[p.id,p.full_name])))}
-  if(profile.role==='vm'){
-   const [{data:pf},{count}] = await Promise.all([
-    supabase.from('portefeuille').select('client_id,clients(id,nom,centre,specialite,potentiel)').eq('vm_id',profile.id),
-    supabase.from('portefeuille').select('id',{count:'exact',head:true}).eq('vm_id',profile.id)
-   ])
-   setClients((pf??[]).map((x:any)=>x.clients).filter(Boolean) as Client[])
-   setHasPortfolio((count??0)>0)
-  }
   setLoading(false)
  },[profile?.id,profile?.role])
  useEffect(()=>{void load()},[load])
