@@ -144,8 +144,32 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
     setSaving(null);setNotice(remove?'VM retiré du portefeuille du client.':'VM associé au client.')
   }
   async function deleteClient(c:Client){
-    if(!isAdmin){setNotice('Seul un administrateur peut supprimer un client.');return}
+    if(!isAdmin && profile?.role!=='superviseur'){setNotice('Vous ne disposez pas des droits nécessaires.');return}
+    const targetVm = mode==='vm' ? (vmFilter || (isAdmin ? '' : '')) : ''
+    const targetSupervisor = mode==='superviseurs' ? (supervisorFilter || (profile?.role==='superviseur' ? profile.id : '')) : ''
+    if(mode==='vm' && !targetVm){setNotice('Sélectionnez d’abord le VM concerné dans le filtre pour préciser le portefeuille à nettoyer.');return}
+    if(mode==='superviseurs' && !targetSupervisor){setNotice('Sélectionnez d’abord le superviseur concerné dans le filtre.');return}
+    const targetExists = mode==='vm'
+      ? vmLinks.some(x=>x.client_id===c.id && x.vm_id===targetVm)
+      : supervisorLinks.some(x=>x.client_id===c.id && x.superviseur_id===targetSupervisor)
+    if(!targetExists){setNotice('Ce client n’est pas associé au portefeuille sélectionné.');return}
+    const targetLabel = mode==='vm' ? (vmById[targetVm]??'ce VM') : (supervisorById[targetSupervisor]??'ce superviseur')
+    if(!window.confirm('Confirmer le nettoyage de « '+c.nom+' » dans le portefeuille de '+targetLabel+' ? Si aucune autre affectation ne subsiste, la fiche sera supprimée définitivement.'))return
     setSaving(c.id+'delete');setNotice('')
+    const otherVmCount = vmLinks.filter(x=>x.client_id===c.id && x.vm_id!==targetVm).length
+    const otherSupervisorCount = supervisorLinks.filter(x=>x.client_id===c.id && x.superviseur_id!==targetSupervisor).length
+    const hasOtherLinks = otherVmCount+otherSupervisorCount>0
+    if(hasOtherLinks){
+      const table=mode==='vm'?'portefeuille':'portefeuille_superviseurs'
+      const key=mode==='vm'?'vm_id':'superviseur_id'
+      const value=mode==='vm'?targetVm:targetSupervisor
+      const {error}=await supabase.from(table).delete().eq('client_id',c.id).eq(key,value)
+      if(error){setNotice('Retrait du portefeuille impossible : '+error.message);setSaving(null);return}
+      if(mode==='vm')setVmLinks(rows=>rows.filter(x=>!(x.client_id===c.id && x.vm_id===targetVm)))
+      else setSupervisorLinks(rows=>rows.filter(x=>!(x.client_id===c.id && x.superviseur_id===targetSupervisor)))
+      setSaving(null);setNotice('Client retiré du portefeuille de '+targetLabel+'. Sa fiche et ses autres affectations sont conservées.')
+      return
+    }
     const checks=await Promise.all([
       supabase.from('visites').select('id',{count:'exact',head:true}).eq('client_id',c.id),
       supabase.from('programme_lignes').select('id',{count:'exact',head:true}).eq('client_id',c.id),
@@ -155,7 +179,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
     if(failed){setNotice('Vérification impossible. Suppression annulée : '+failed.error!.message);setSaving(null);return}
     const [visites,programmes,programmesSuperviseur]=checks.map(x=>x.count??0)
     if(visites+programmes+programmesSuperviseur>0){
-      setNotice('Suppression impossible : ce client est déjà associé à '+visites+' visite(s), '+programmes+' ligne(s) de programme VM et '+programmesSuperviseur+' ligne(s) de programme superviseur. Conservez sa fiche et désactivez-le si nécessaire.')
+      setNotice('Aucune autre affectation ne subsiste, mais la fiche possède un historique ('+visites+' visite(s), '+programmes+' programme(s) VM, '+programmesSuperviseur+' programme(s) superviseur). Pour préserver cet historique, la suppression définitive est bloquée.')
       setSaving(null);return
     }
     const {error}=await supabase.from('clients').delete().eq('id',c.id)
@@ -163,7 +187,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
     setClients(rows=>rows.filter(x=>x.id!==c.id))
     setVmLinks(rows=>rows.filter(x=>x.client_id!==c.id))
     setSupervisorLinks(rows=>rows.filter(x=>x.client_id!==c.id))
-    setSaving(null);setNotice('Client supprimé.')
+    setSaving(null);setNotice('Client supprimé définitivement : aucune autre affectation ni historique bloquant.')
   }
   async function createClient(){
     const isSupervisor = profile?.role === 'superviseur'
@@ -239,7 +263,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
     <Card className="overflow-hidden p-0">
       <div className="max-h-[70vh] overflow-auto">
         <table className="min-w-[1450px] w-full border-separate border-spacing-0 text-xs">
-          <thead className="sticky top-0 z-20 bg-ink-50"><tr>{['Nom du client','Centre','Spécialité','Potentiel','Secteur','Fréquence/mois',...(mode==='vm'?['Visiteurs médicaux']:['Superviseur']),'Contacts','Observations','Statut',...(isAdmin?['Action']:[])].map((h,i)=><th key={h} className={'whitespace-nowrap border-b border-ink-200 px-3 py-3 text-left font-bold text-ink-600 '+(i===0?'sticky left-0 z-30 min-w-[230px] bg-ink-50':'')}>{h}</th>)}</tr></thead>
+          <thead className="sticky top-0 z-20 bg-ink-50"><tr>{['Nom du client','Centre','Spécialité','Potentiel','Secteur','Fréquence/mois',...(mode==='vm'?['Visiteurs médicaux']:['Superviseur']),'Contacts','Observations','Statut',...((isAdmin||profile?.role==='superviseur')?['Action']:[])].map((h,i)=><th key={h} className={'whitespace-nowrap border-b border-ink-200 px-3 py-3 text-left font-bold text-ink-600 '+(i===0?'sticky left-0 z-30 min-w-[230px] bg-ink-50':'')}>{h}</th>)}</tr></thead>
           <tbody>{shown.map(c=><tr key={c.id} className="group hover:bg-royal-50/40">
             <td className="sticky left-0 z-10 border-b border-ink-100 bg-white px-3 py-1 font-bold text-ink-800 group-hover:bg-royal-50 min-w-[230px]"><Cell value={c.nom} onSave={v=>saveCell(c,'nom',v)}/></td>
             <td className="border-b border-ink-100 p-1"><Cell value={c.centre??''} onSave={v=>saveCell(c,'centre',v)}/></td>
@@ -250,7 +274,7 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
             {mode==='vm'?<td className="border-b border-ink-100 p-1"><div className="flex min-w-[230px] flex-wrap items-center gap-1">{vmLinks.filter(x=>x.client_id===c.id).map(x=><span key={x.vm_id} className="inline-flex items-center gap-1 rounded-full bg-royal-50 px-2 py-1 text-[11px] text-royal-800">{vmById[x.vm_id]??'VM'}{canManageVmLinks&&<button title="Retirer ce client du portefeuille de ce VM" onClick={()=>void saveAssignment(c,'vm_id',x.vm_id,true)} className="font-bold text-red-600">×</button>}</span>)}{canManageVmLinks&&<select value="" onChange={e=>{if(e.target.value)void saveAssignment(c,'vm_id',e.target.value)}} className="max-w-[130px] rounded-lg border border-dashed border-royal-300 bg-white p-1.5 text-[11px]"><option value="">+ Ajouter VM</option>{vms.filter(v=>(!allowedVmIds||allowedVmIds.includes(v.id))&&!vmLinks.some(x=>x.client_id===c.id&&x.vm_id===v.id)).map(v=><option key={v.id} value={v.id}>{v.full_name}</option>)}</select>}</div></td>:<td className="border-b border-ink-100 p-1"><div className="flex items-center gap-2"><select disabled={!isAdmin} value={supervisorLinks.find(x=>x.client_id===c.id)?.superviseur_id??''} onChange={e=>saveAssignment(c,'superviseur_id',e.target.value)} className="w-44 rounded-lg border border-transparent bg-transparent p-2 disabled:opacity-60 hover:border-ink-200"><option value="">Non affecté</option>{superviseurs.map(v=><option key={v.id} value={v.id}>{v.full_name}</option>)}</select>{!isAdmin&&supervisorLinks.some(x=>x.client_id===c.id&&x.superviseur_id===profile?.id)&&<button title="Retirer ce client de mon portefeuille" onClick={()=>void saveAssignment(c,'superviseur_id',profile!.id,true)} disabled={saving===c.id+'superviseur_id'} className="rounded-lg px-2 py-1 text-base font-bold text-red-600 hover:bg-red-50 disabled:opacity-40">×</button>}</div></td>}
             <td className="border-b border-ink-100 p-1"><Cell value={c.contacts??''} onSave={v=>saveCell(c,'contacts',v)}/></td>
             <td className="border-b border-ink-100 p-1"><Cell value={c.observations??''} onSave={v=>saveCell(c,'observations',v)}/></td>
-            <td className="border-b border-ink-100 p-1"><select value={String(c.actif)} onChange={e=>saveCell(c,'actif',e.target.value==='true'?'true':'false')} className="rounded-lg border border-transparent bg-transparent p-2"><option value="true">Actif</option><option value="false">Inactif</option></select></td>{isAdmin&&<td className="border-b border-ink-100 p-1 text-center"><button title="Supprimer le client" onClick={()=>void deleteClient(c)} disabled={saving===c.id+'delete'} className="rounded-lg px-3 py-2 text-base font-bold text-red-600 hover:bg-red-50 disabled:opacity-40">×</button></td>}
+            <td className="border-b border-ink-100 p-1"><select value={String(c.actif)} onChange={e=>saveCell(c,'actif',e.target.value==='true'?'true':'false')} className="rounded-lg border border-transparent bg-transparent p-2"><option value="true">Actif</option><option value="false">Inactif</option></select></td>{(isAdmin||profile?.role==='superviseur')&&<td className="border-b border-ink-100 p-1 text-center"><button title="Nettoyer ce client dans le portefeuille sélectionné" onClick={()=>void deleteClient(c)} disabled={saving===c.id+'delete'} className="whitespace-nowrap rounded-lg border border-red-200 px-3 py-2 text-[11px] font-bold text-red-700 hover:bg-red-50 disabled:opacity-40">{saving===c.id+'delete'?'Traitement…':'Supprimer / retirer'}</button></td>}
           </tr>)}</tbody>
         </table>
         {!shown.length&&<p className="p-10 text-center text-sm text-ink-400">Aucun client ne correspond aux filtres.</p>}
