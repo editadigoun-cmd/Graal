@@ -385,9 +385,9 @@ export default function Planning() {
 
   // Verrouillage progressif : un jour n'est accessible que lorsque tous les
   // jours précédents atteignent leur quota quotidien et leurs règles métier.
-  // Boni Jonatan et Honfo Basile (TIL Nord) ont un portefeuille pharmacie
+  // Boni Jonatan, Honfo Basile et ATROKPO Chadrac (TIL Nord) ont un portefeuille pharmacie
   // insuffisant : leur progression quotidienne ne doit pas dépendre du quota pharmacie.
-  const progressionSansQuotaPharmacie = ['c06cf54f-365b-41f4-96e2-adaee2ad25f9', '7a8b0a66-70d6-45cb-bdb5-f2466523612c'].includes(programme?.vm_id ?? '')
+  const progressionSansQuotaPharmacie = ['c06cf54f-365b-41f4-96e2-adaee2ad25f9', '7a8b0a66-70d6-45cb-bdb5-f2466523612c', 'd0be68dd-eba0-4b9e-8215-df216d6a7963'].includes(programme?.vm_id ?? '')
   const minimumVisitesJour = (j: Jour) => estOdypharm2 || progressionSansQuotaPharmacie
     ? 15
     : Math.max(1, seuils.minMedical + seuils.minPharmacie)
