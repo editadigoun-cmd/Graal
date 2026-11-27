@@ -243,6 +243,7 @@ export default function Planning() {
   const selectionArray = Array.from(selection)
   const countSelection = (p: Potentiel) => selectionArray.filter((id) => portefeuille.find((c) => c.id === id)?.potentiel === p).length
   const totalJourProjete = lignesJour.length + selection.size
+  const faibleJourProjete = lignesJour.filter((l) => l.clients?.potentiel === 'FAIBLE').length + countSelection('FAIBLE')
   function quotaPotentielBloque(candidatId: string, potentiel: string) {
     if (selection.has(candidatId)) return false
     if (totalJourProjete >= seuils.maxVisitesJour) return true
