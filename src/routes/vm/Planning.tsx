@@ -385,15 +385,15 @@ export default function Planning() {
 
   // Verrouillage progressif : un jour n'est accessible que lorsque tous les
   // jours précédents atteignent leur quota quotidien et leurs règles métier.
-  // Boni Jonatan, Honfo Basile et ATROKPO Chadrac (TIL Nord) ont un portefeuille pharmacie
-  // insuffisant : leur progression quotidienne ne doit pas dépendre du quota pharmacie.
-  const progressionSansQuotaPharmacie = ['c06cf54f-365b-41f4-96e2-adaee2ad25f9', '7a8b0a66-70d6-45cb-bdb5-f2466523612c', 'd0be68dd-eba0-4b9e-8215-df216d6a7963'].includes(programme?.vm_id ?? '')
+  // Ces VM de TIL Nord ont un portefeuille pharmacie insuffisant : leur progression
+  // quotidienne dépend du minimum médical, pas du quota pharmacie.
+  const progressionSansQuotaPharmacie = ['c06cf54f-365b-41f4-96e2-adaee2ad25f9', '7a8b0a66-70d6-45cb-bdb5-f2466523612c', 'd0be68dd-eba0-4b9e-8215-df216d6a7963', 'a995e1bf-54fd-4af6-8b42-11cf514d0298', 'b981f7a8-559c-45ca-ba9a-52130d3bff6d'].includes(programme?.vm_id ?? '')
   const minimumVisitesJour = (j: Jour) => estOdypharm2 || progressionSansQuotaPharmacie
     ? 15
     : Math.max(1, seuils.minMedical + seuils.minPharmacie)
   const jourComplet = (j: Jour) => {
     const total = lignes.filter((l) => l.jour === j).length
-    // Pour ces deux VM de TIL Nord, seul le minimum médical conditionne
+    // Pour ces VM de TIL Nord, seul le minimum médical conditionne
     // l'accès au jour suivant ; le quota pharmacie reste contrôlé à la soumission.
     if (progressionSansQuotaPharmacie) return parJour[j].medical >= seuils.minMedical
     // Odypharm2 conserve ses propres quotas pharmacie pour le passage au jour suivant.
