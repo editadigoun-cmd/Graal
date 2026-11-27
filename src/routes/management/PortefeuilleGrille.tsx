@@ -173,13 +173,16 @@ export default function PortefeuilleGrille({ mode }: { mode: Mode }) {
     const checks=await Promise.all([
       supabase.from('visites').select('id',{count:'exact',head:true}).eq('client_id',c.id),
       supabase.from('programme_lignes').select('id',{count:'exact',head:true}).eq('client_id',c.id),
-      supabase.from('programme_visites_superviseur_lignes').select('id',{count:'exact',head:true}).eq('client_id',c.id)
+      supabase.from('programme_visites_superviseur_lignes').select('id',{count:'exact',head:true}).eq('client_id',c.id),
+      supabase.from('tournee_programmations').select('id',{count:'exact',head:true}).eq('client_id',c.id),
+      supabase.from('tournee_decouvertes').select('id',{count:'exact',head:true}).eq('client_id',c.id),
+      supabase.from('tournee_rencontres').select('id',{count:'exact',head:true}).eq('client_id',c.id)
     ])
     const failed=checks.find(x=>x.error)
     if(failed){setNotice('Vérification impossible. Suppression annulée : '+failed.error!.message);setSaving(null);return}
-    const [visites,programmes,programmesSuperviseur]=checks.map(x=>x.count??0)
-    if(visites+programmes+programmesSuperviseur>0){
-      setNotice('Aucune autre affectation ne subsiste, mais la fiche possède un historique ('+visites+' visite(s), '+programmes+' programme(s) VM, '+programmesSuperviseur+' programme(s) superviseur). Pour préserver cet historique, la suppression définitive est bloquée.')
+    const [visites,programmes,programmesSuperviseur,tourneesProgrammees,tourneesDecouvertes,tourneesRencontres]=checks.map(x=>x.count??0)
+    if(visites+programmes+programmesSuperviseur+tourneesProgrammees+tourneesDecouvertes+tourneesRencontres>0){
+      setNotice('Aucune autre affectation ne subsiste, mais la fiche est encore utilisée ('+visites+' visite(s), '+programmes+' programme(s) VM, '+programmesSuperviseur+' programme(s) superviseur, '+tourneesProgrammees+' programmation(s) de tournée, '+tourneesDecouvertes+' découverte(s), '+tourneesRencontres+' rencontre(s)). Pour préserver ces données, la suppression définitive est bloquée.')
       setSaving(null);return
     }
     const {error}=await supabase.from('clients').delete().eq('id',c.id)
