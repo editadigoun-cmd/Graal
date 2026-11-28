@@ -226,7 +226,7 @@ export default function Planning() {
     const moisPrevu = dateVisitePrevue.format('YYYY-MM')
     const frequence = c.frequence_visite_mensuelle
     if (frequence != null && frequence > 0 && (visitesMois[`${c.id}:${moisPrevu}`] ?? 0) >= frequence) return false
-    if (clientIdsUtilises.has(c.id) && !(autorisePharmacieRepetee && picking === 'PHARMACIE' && c.specialite === 'PHARMACIE')) return false
+    if (clientIdsUtilises.has(c.id) && !(autorisePharmacieRepetee && picking === 'PHARMACIE' && c.specialite === 'PHARMACIE' && !lignes.some((l) => l.client_id === c.id && l.jour === jourActif))) return false
     if (recherche) {
       // Accepter les mots dans n'importe quel ordre : « Pharmacie Togoudo »
       // doit retrouver une fiche enregistrée sous « TOGOUDO » / spécialité « PHARMACIE ».
