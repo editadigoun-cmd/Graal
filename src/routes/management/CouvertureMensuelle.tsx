@@ -126,7 +126,7 @@ export default function CouvertureMensuelle() {
         }
       })
       setRows(computed)
-      setSpecialties([...monthSpecialties.values()].sort((a, b) => b.planned - a.planned))
+      setSpecialties([...specialtyCoverage.values()].sort((a, b) => b.covered / Math.max(1, b.portfolio) - a.covered / Math.max(1, a.portfolio)))
       const weeks = new Map<string, { week: string; planned: number; done: number }>()
       for (const d of daily) {
         const key = dayjs(d.jour).startOf('week').format('YYYY-MM-DD')
@@ -169,7 +169,7 @@ export default function CouvertureMensuelle() {
       </div>
       <Card>
         <div className="mb-4"><h2 className="font-bold text-ink-800">Couverture du portefeuille par spécialité et par VM</h2><p className="text-xs text-ink-400 mt-1">Part des clients actifs de chaque spécialité effectivement visités au moins une fois pendant le mois.</p></div>
-        <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm"><thead><tr className="border-b border-ink-100 text-left text-xs text-ink-400"><th className="py-3 pr-3">VM</th><th className="py-3 px-2">Spécialité</th><th className="py-3 px-2 text-right">Portefeuille</th><th className="py-3 px-2 text-right">Couverts</th><th className="py-3 pl-2 text-right">Couverture</th></tr></thead><tbody>{visibleSpecialties.map(s => <tr key={s.name} className="border-b border-ink-50 last:border-0"><td className="py-3 pr-3 font-semibold text-ink-800">{rows.find(r=>r.id===s.vm_id)?.name??'VM'}</td><td className="px-2">{s.name}</td><td className="px-2 text-right">{s.portfolio}</td><td className="px-2 text-right">{s.covered}</td><td className="pl-2 text-right font-bold text-royal-700">{pct(s.covered,s.portfolio)}%</td></tr>)}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm"><thead><tr className="border-b border-ink-100 text-left text-xs text-ink-400"><th className="py-3 pr-3">VM</th><th className="py-3 px-2">Spécialité</th><th className="py-3 px-2 text-right">Portefeuille</th><th className="py-3 px-2 text-right">Couverts</th><th className="py-3 pl-2 text-right">Couverture</th></tr></thead><tbody>{visibleSpecialties.map(s => <tr key={s.vm_id+'-'+s.name} className="border-b border-ink-50 last:border-0"><td className="py-3 pr-3 font-semibold text-ink-800">{rows.find(r=>r.id===s.vm_id)?.name??'VM'}</td><td className="px-2">{s.name}</td><td className="px-2 text-right">{s.portfolio}</td><td className="px-2 text-right">{s.covered}</td><td className="pl-2 text-right font-bold text-royal-700">{pct(s.covered,s.portfolio)}%</td></tr>)}</tbody></table></div>
       </Card>
       <Card>
         <div className="mb-4"><h2 className="font-bold text-ink-800">Synthèse par VM</h2><p className="text-xs text-ink-400 mt-1">Les colonnes gardes et hors programme restent distinctes du taux de réalisation classique.</p></div>
