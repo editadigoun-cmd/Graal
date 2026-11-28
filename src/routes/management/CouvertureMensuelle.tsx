@@ -22,7 +22,7 @@ type Row = {
   portfolio: number; covered: number; coverage: number; medical: number; pharmacy: number
   guards: number; outOfProgram: number; points: number
 }
-type SpecialtyStat = { vm_id: string; name: string; planned: number; done: number }
+type SpecialtyStat = { vm_id: string; name: string; portfolio: number; covered: number }
 
 const pct = (n: number, d: number) => d ? Math.round(n / d * 100) : 0
 const pharmacy = (v: { specialite?: string | null; categorie?: string | null } | null | undefined) =>
@@ -78,14 +78,27 @@ export default function CouvertureMensuelle() {
       const guards = (guardsRes.data ?? []) as Guard[]
       const approvedKeys = new Set(approvals.map(a => a.programme_id + '|' + a.jour))
       const approvedLines = lines.filter(l => ['VALIDE', 'VERROUILLE'].includes(l.programme_statut) || approvedKeys.has(l.programme_id + '|' + l.jour))
-      const monthSpecialties = new Map<string, SpecialtyStat>()
-      for (const line of approvedLines) {
-        const key = line.vm_id + '|' + specialtyName(line.specialite)
-        const item = monthSpecialties.get(key) ?? { vm_id: line.vm_id, name: specialtyName(line.specialite), planned: 0, done: 0 }
-        item.planned += 1
-        if (line.statut_reel === 'REALISEE') item.done += 1
-        monthSpecialties.set(key, item)
+      const specialtyCoverage = new Map<string, SpecialtyStat>()
+      for (const item of portfolios) {
+        if (!item.clients || !item.client_id) continue
+        const name = specialtyName(item.clients.specialite)
+        const key = item.vm_id + '|' + name
+        const stat = specialtyCoverage.get(key) ?? { vm_id: item.vm_id, name, portfolio: 0, covered: 0 }
+        stat.portfolio += 1
+        specialtyCoverage.set(key, stat)
       }
+      const coveredByVmSpecialty = new Map<string, Set<string>>()
+      for (const visit of visits) {
+        if (!visit.client_id || !(visit.statut === 'REALISEE' || visit.statut === 'HORS_PROGRAMME')) continue
+        const portfolioItem = portfolios.find(p => p.vm_id === visit.vm_id && p.client_id === visit.client_id)
+        if (!portfolioItem?.clients) continue
+        const name = specialtyName(portfolioItem.clients.specialite)
+        const key = visit.vm_id + '|' + name
+        const covered = coveredByVmSpecialty.get(key) ?? new Set<string>()
+        covered.add(visit.client_id)
+        coveredByVmSpecialty.set(key, covered)
+      }
+      for (const [key, stat] of specialtyCoverage) stat.covered = coveredByVmSpecialty.get(key)?.size ?? 0
       const computed: Row[] = scopedVms.map((vm: Vm) => {
         const ownDaily = daily.filter(d => d.vm_id === vm.id)
         const planned = ownDaily.reduce((s, d) => s + Number(d.visites_prevues || 0), 0)
@@ -135,10 +148,7 @@ export default function CouvertureMensuelle() {
     covered: a.covered + r.covered, medical: a.medical + r.medical, pharmacy: a.pharmacy + r.pharmacy,
     guards: a.guards + r.guards, outOfProgram: a.outOfProgram + r.outOfProgram, points: a.points + r.points
   }), { planned: 0, done: 0, rateNumerator: 0, rateDenominator: 0, portfolio: 0, covered: 0, medical: 0, pharmacy: 0, guards: 0, outOfProgram: 0, points: 0 })
-  const visibleSpecialties = [...specialties.filter(s => visibleIds.has(s.vm_id)).reduce((acc, s) => {
-    const item = acc.get(s.name) ?? { name: s.name, planned: 0, done: 0 }
-    item.planned += s.planned; item.done += s.done; acc.set(s.name, item); return acc
-  }, new Map<string, { name: string; planned: number; done: number }>()).values()]
+  const visibleSpecialties = specialties.filter(s => visibleIds.has(s.vm_id)).sort((a,b) => b.covered / Math.max(1,b.portfolio) - a.covered / Math.max(1,a.portfolio))
   const teamOptions = [...new Set(rows.map(r => r.team))].sort()
 
   return <div className="space-y-6">
@@ -158,8 +168,8 @@ export default function CouvertureMensuelle() {
         <StatCard label="Points cumulés du mois" value={total.points} decimals={1} sub="Gardes + visites hors programme" tone="ink" />
       </div>
       <Card>
-        <div className="mb-4"><h2 className="font-bold text-ink-800">Visites classiques par spécialité</h2><p className="text-xs text-ink-400 mt-1">Uniquement les journées de programme validées. Les gardes et les visites hors programme sont exclues de ce calcul.</p></div>
-        <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-sm"><thead><tr className="border-b border-ink-100 text-left text-xs text-ink-400"><th className="py-3 pr-3">Spécialité</th><th className="py-3 px-2 text-right">Prévues</th><th className="py-3 px-2 text-right">Réalisées</th><th className="py-3 pl-2 text-right">Taux</th></tr></thead><tbody>{visibleSpecialties.map(s => <tr key={s.name} className="border-b border-ink-50 last:border-0"><td className="py-3 pr-3 font-medium text-ink-800">{s.name}</td><td className="px-2 text-right">{s.planned}</td><td className="px-2 text-right">{s.done}</td><td className="pl-2 text-right font-bold text-royal-700">{pct(s.done, s.planned)}%</td></tr>)}</tbody></table></div>
+        <div className="mb-4"><h2 className="font-bold text-ink-800">Couverture du portefeuille par spécialité et par VM</h2><p className="text-xs text-ink-400 mt-1">Part des clients actifs de chaque spécialité effectivement visités au moins une fois pendant le mois.</p></div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm"><thead><tr className="border-b border-ink-100 text-left text-xs text-ink-400"><th className="py-3 pr-3">VM</th><th className="py-3 px-2">Spécialité</th><th className="py-3 px-2 text-right">Portefeuille</th><th className="py-3 px-2 text-right">Couverts</th><th className="py-3 pl-2 text-right">Couverture</th></tr></thead><tbody>{visibleSpecialties.map(s => <tr key={s.name} className="border-b border-ink-50 last:border-0"><td className="py-3 pr-3 font-semibold text-ink-800">{rows.find(r=>r.id===s.vm_id)?.name??'VM'}</td><td className="px-2">{s.name}</td><td className="px-2 text-right">{s.portfolio}</td><td className="px-2 text-right">{s.covered}</td><td className="pl-2 text-right font-bold text-royal-700">{pct(s.covered,s.portfolio)}%</td></tr>)}</tbody></table></div>
       </Card>
       <Card>
         <div className="mb-4"><h2 className="font-bold text-ink-800">Synthèse par VM</h2><p className="text-xs text-ink-400 mt-1">Les colonnes gardes et hors programme restent distinctes du taux de réalisation classique.</p></div>
