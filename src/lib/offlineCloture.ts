@@ -24,6 +24,7 @@ export interface PendingCloture {
   longitude: number
   motifsLocaux: MotifLocal[]
   reports?: { programme_ligne_id: string; jour_report: string }[]
+  rapport?: { type_rapport: 'MEDICAL_PHARMACIE' | 'PHARMACIE_ODY2'; points_forts: string; constat_prescription: string; points_faibles?: string; commandes_obtenues?: string; ventes_obtenues?: string }
   createdAt: string
 }
 
