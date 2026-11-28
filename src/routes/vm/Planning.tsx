@@ -207,6 +207,8 @@ export default function Planning() {
       })
   }, [programme?.id])
   const clientIdsUtilises = new Set(lignes.map((l) => l.client_id))
+  // Jérôme dispose d'un petit portefeuille de pharmacies : une même pharmacie peut être reprogrammée sur plusieurs jours de la semaine.
+  const autorisePharmacieRepetee = programme?.vm_id === 'b981f7a8-559c-45ca-ba9a-52130d3bff6d'
   const pharmacieUniquement = !!programme?.mode_pharmacie_uniquement
   const pharmaciesDuJour = lignesJour.filter((l) => l.type_visite === 'PHARMACIE')
   const quotaPharmacieRespecte = (jour: Jour) =>
@@ -224,7 +226,7 @@ export default function Planning() {
     const moisPrevu = dateVisitePrevue.format('YYYY-MM')
     const frequence = c.frequence_visite_mensuelle
     if (frequence != null && frequence > 0 && (visitesMois[`${c.id}:${moisPrevu}`] ?? 0) >= frequence) return false
-    if (clientIdsUtilises.has(c.id)) return false
+    if (clientIdsUtilises.has(c.id) && !(autorisePharmacieRepetee && picking === 'PHARMACIE' && c.specialite === 'PHARMACIE')) return false
     if (recherche) {
       // Accepter les mots dans n'importe quel ordre : « Pharmacie Togoudo »
       // doit retrouver une fiche enregistrée sous « TOGOUDO » / spécialité « PHARMACIE ».
