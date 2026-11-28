@@ -55,7 +55,7 @@ const groups: NavGroup[] = [
       { to: '/admin/programmes', label: 'Programmes', icon: IconClipboard },
       { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard },
       { to: '/admin/reporting', label: 'Reporting', icon: IconBarChart },
-      { to: '/admin/couverture-mensuelle', label: 'Couverture mensuelle CRM', icon: IconTrendingUp, adminOnly: true },
+      { to: '/admin/couverture-mensuelle', label: 'Couverture mensuelle CRM', icon: IconTrendingUp },
       { to: '/admin/evaluation-superviseurs', label: 'Évaluation des superviseurs', icon: IconBarChart, adminOnly: true },
     ],
   },
@@ -117,7 +117,7 @@ export function ManagementShell() {
   const supervisorPaths = new Set([
     '/admin/programmes', '/admin/plan-activites', '/admin/reporting',
     '/admin/terrain', '/admin/suivi-terrain', '/admin/tournees', '/admin/vad-plan', '/admin/quotas-vad',
-    '/admin/rapport-activite-hebdo', '/admin/controle-frequence',
+    '/admin/rapport-activite-hebdo', '/admin/controle-frequence', '/admin/couverture-mensuelle',
     '/admin/rapports-duo', '/admin/animation-equipe', '/admin/equipes',
     '/admin/portefeuille', '/admin/mon-portefeuille', '/admin/portefeuille-vm', '/admin/activite', '/admin/profil'
   ])
