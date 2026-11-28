@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card'
 import { StatCard } from '@/components/ui/StatCard'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth/AuthProvider'
 
 dayjs.locale('fr')
 
@@ -37,6 +38,7 @@ const specialtyName = (value: string | null | undefined) => {
 }
 
 export default function CouvertureMensuelle() {
+  const { profile } = useAuth()
   const [month, setMonth] = useState(dayjs().format('YYYY-MM'))
   const [teamFilter, setTeamFilter] = useState('all')
   const [rows, setRows] = useState<Row[]>([])
@@ -51,7 +53,8 @@ export default function CouvertureMensuelle() {
       setLoading(true); setError('')
       const start = dayjs(month + '-01').startOf('month').format('YYYY-MM-DD')
       const end = dayjs(month + '-01').endOf('month').format('YYYY-MM-DD')
-      const [vmsRes, teamsRes, dailyRes, portfolioRes, visitsRes, linesRes, approvalsRes, guardsRes] = await Promise.all([
+      const [{ data: teamRows }, vmsRes, teamsRes, dailyRes, portfolioRes, visitsRes, linesRes, approvalsRes, guardsRes] = await Promise.all([
+        profile?.role === 'superviseur' ? supabase.from('superviseur_equipes').select('equipe_id').eq('superviseur_id', profile.id) : Promise.resolve({ data: [] as { equipe_id: string }[] }),
         supabase.from('profiles').select('id, full_name, equipe_id').eq('role', 'vm').eq('actif', true).order('full_name'),
         supabase.from('equipes').select('id, nom').order('nom'),
         supabase.from('v_taux_realisation_journalier').select('vm_id, jour, visites_prevues, visites_realisees, taux_realisation').gte('jour', start).lte('jour', end),
@@ -65,6 +68,8 @@ export default function CouvertureMensuelle() {
       const failure = [vmsRes, dailyRes, portfolioRes, visitsRes, linesRes, approvalsRes, guardsRes].find(r => r.error)
       if (failure?.error) { setError(failure.error.message); setLoading(false); return }
       const teamNames = new Map((teamsRes.data ?? []).map(t => [t.id, t.nom]))
+      const allowedTeams = new Set((teamRows ?? []).map(t => t.equipe_id))
+      const scopedVms = (vmsRes.data ?? []).filter((vm: Vm) => profile?.role !== 'superviseur' || (!!vm.equipe_id && allowedTeams.has(vm.equipe_id)))
       const daily = (dailyRes.data ?? []) as Daily[]
       const portfolios = (portfolioRes.data ?? []) as unknown as Portfolio[]
       const visits = (visitsRes.data ?? []) as unknown as Visit[]
@@ -81,7 +86,7 @@ export default function CouvertureMensuelle() {
         if (line.statut_reel === 'REALISEE') item.done += 1
         monthSpecialties.set(key, item)
       }
-      const computed: Row[] = (vmsRes.data ?? []).map((vm: Vm) => {
+      const computed: Row[] = scopedVms.map((vm: Vm) => {
         const ownDaily = daily.filter(d => d.vm_id === vm.id)
         const planned = ownDaily.reduce((s, d) => s + Number(d.visites_prevues || 0), 0)
         const done = ownDaily.reduce((s, d) => s + Number(d.visites_realisees || 0), 0)
@@ -121,7 +126,7 @@ export default function CouvertureMensuelle() {
     }
     load()
     return () => { cancelled = true }
-  }, [month])
+  }, [month, profile?.id, profile?.role])
 
   const visible = useMemo(() => teamFilter === 'all' ? rows : rows.filter(r => r.team === teamFilter), [rows, teamFilter])
   const visibleIds = new Set(visible.map(r => r.id))
