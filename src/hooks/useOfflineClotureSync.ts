@@ -46,6 +46,11 @@ export function useOfflineClotureSync() {
         }
       }
 
+      if (pending.rapport) {
+        const { error: reportError } = await (supabase as any).from('rapports_journaliers_vm').upsert({ vm_id: uid, jour: pending.jour, ...pending.rapport }, { onConflict: 'vm_id,jour' })
+        if (reportError) { console.error('Échec de synchronisation du rapport journalier :', reportError); return }
+      }
+
       const paths: string[] = []
       const blobs = pending.photoBlobs?.length
         ? pending.photoBlobs
