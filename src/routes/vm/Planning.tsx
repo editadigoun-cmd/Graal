@@ -208,7 +208,7 @@ export default function Planning() {
   }, [programme?.id])
   const clientIdsUtilises = new Set(lignes.map((l) => l.client_id))
   // Jérôme dispose d'un portefeuille limité : un même client médical ou une même pharmacie peut être reprogrammé sur plusieurs jours de la semaine.
-  const autoriseClientRepete = programme?.vm_id === 'b981f7a8-559c-45ca-ba9a-52130d3bff6d'
+  const autoriseClientRepete = ['b981f7a8-559c-45ca-ba9a-52130d3bff6d', 'a0436f11-d425-4014-9733-5c7cc4271189'].includes(programme?.vm_id ?? '')
   const pharmacieUniquement = !!programme?.mode_pharmacie_uniquement
   const pharmaciesDuJour = lignesJour.filter((l) => l.type_visite === 'PHARMACIE')
   const quotaPharmacieRespecte = (jour: Jour) =>
