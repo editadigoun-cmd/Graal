@@ -225,7 +225,7 @@ export default function Planning() {
     const dateVisitePrevue = dayjs(programme?.semaine_debut ?? semaineDebut).add(JOURS.indexOf(jourActif), 'day')
     const moisPrevu = dateVisitePrevue.format('YYYY-MM')
     const frequence = c.frequence_visite_mensuelle
-    if (frequence != null && frequence > 0 && (visitesMois[`${c.id}:${moisPrevu}`] ?? 0) >= frequence) return false
+    if (frequence != null && frequence > 0 && (visitesMois[`${c.id}:${moisPrevu}`] ?? 0) >= frequence && !(autorisePharmacieRepetee && picking === 'PHARMACIE' && lignes.some((l) => l.client_id === c.id))) return false
     if (clientIdsUtilises.has(c.id) && !(autorisePharmacieRepetee && picking === 'PHARMACIE' && c.specialite === 'PHARMACIE' && !lignes.some((l) => l.client_id === c.id && l.jour === jourActif))) return false
     if (recherche) {
       // Accepter les mots dans n'importe quel ordre : « Pharmacie Togoudo »
