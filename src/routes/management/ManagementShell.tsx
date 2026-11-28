@@ -7,7 +7,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import {
   IconHome, IconUsers, IconSettings, IconLogout, IconBell, IconChat, IconActivity,
   IconUser, IconClipboard, IconMapPin, IconPill, IconTrendingUp, IconBarChart,
-  IconMenu, IconX, IconChevronRight, IconGift
+  IconMenu, IconX, IconChevronRight, IconGift, IconCalendar
 } from '@/components/ui/icons'
 import logoMark from '@/assets/logo-mark.png'
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
@@ -53,6 +53,7 @@ const groups: NavGroup[] = [
     icon: IconBarChart,
     children: [
       { to: '/admin/programmes', label: 'Programmes', icon: IconClipboard },
+      { to: '/admin/absences', label: 'Permissions & maladies', icon: IconCalendar },
       { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard },
       { to: '/admin/reporting', label: 'Reporting', icon: IconBarChart },
       { to: '/admin/couverture-mensuelle', label: 'Couverture mensuelle CRM', icon: IconTrendingUp },
@@ -115,7 +116,7 @@ export function ManagementShell() {
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['Pilotage', 'Ventes', 'Terrain & activité', 'Administration']))
 
   const supervisorPaths = new Set([
-    '/admin/programmes', '/admin/plan-activites', '/admin/reporting',
+    '/admin/programmes', '/admin/absences', '/admin/plan-activites', '/admin/reporting',
     '/admin/terrain', '/admin/suivi-terrain', '/admin/tournees', '/admin/vad-plan', '/admin/quotas-vad',
     '/admin/rapport-activite-hebdo', '/admin/controle-frequence', '/admin/couverture-mensuelle',
     '/admin/rapports-duo', '/admin/animation-equipe', '/admin/equipes',
