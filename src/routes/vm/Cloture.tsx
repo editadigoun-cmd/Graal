@@ -17,6 +17,8 @@ type Motif = Database['public']['Tables']['motifs_non_visite']['Row']
 export default function Cloture() {
   const navigate = useNavigate()
   const { session } = useAuth()
+  const [odypharm2, setOdypharm2] = useState(false)
+  const [rapport, setRapport] = useState({ points_forts: '', constat_prescription: '', points_faibles: '', commandes_obtenues: '', ventes_obtenues: '' })
   const geo = useGeolocation()
   const { lignes, loading, reload } = useVisitesDuJour()
   const { hasPending } = useOfflineClotureSync()
@@ -33,6 +35,17 @@ export default function Cloture() {
   const [done, setDone] = useState(false)
   const [doneOffline, setDoneOffline] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!session?.user.id) return
+    ;(async () => {
+      const { data: p } = await supabase.from('profiles').select('equipe_id').eq('id', session.user.id).maybeSingle()
+      if (p?.equipe_id) {
+        const { data: e } = await supabase.from('equipes').select('nom').eq('id', p.equipe_id).maybeSingle()
+        setOdypharm2((e?.nom ?? '').trim().toUpperCase() === 'ODYPHARM2')
+      }
+    })()
+  }, [session?.user.id])
 
   useEffect(() => {
     supabase.from('motifs_non_visite').select('*').eq('actif', true).order('ordre')
@@ -100,6 +113,7 @@ export default function Cloture() {
   async function handleCloture() {
     if (!session) return
     if (restantesSansMotif.length > 0) { setError('Chaque visite manquante doit avoir un motif ou être reportée. Une visite déjà reportée mais non réalisée doit être reportée à nouveau.'); return }
+    if (!rapport.points_forts.trim() || !rapport.constat_prescription.trim() || (odypharm2 ? (!rapport.commandes_obtenues.trim() || !rapport.ventes_obtenues.trim()) : !rapport.points_faibles.trim())) { setError('Complète tous les champs du rapport journalier avant de clôturer.'); return }
     if (photos.length === 0) { setError('Prends au moins une photo de la fiche papier avec la caméra.'); return }
     if (geo.status !== 'ok' || geo.latitude === null || geo.longitude === null) { setError('Position GPS requise pour clôturer.'); return }
     const latitude = geo.latitude
@@ -108,16 +122,22 @@ export default function Cloture() {
 
     setCloturing(true)
     setError(null)
+    const rapportPayload = odypharm2
+      ? { type_rapport: 'PHARMACIE_ODY2' as const, points_forts: rapport.points_forts.trim(), constat_prescription: rapport.constat_prescription.trim(), commandes_obtenues: rapport.commandes_obtenues.trim(), ventes_obtenues: rapport.ventes_obtenues.trim() }
+      : { type_rapport: 'MEDICAL_PHARMACIE' as const, points_forts: rapport.points_forts.trim(), constat_prescription: rapport.constat_prescription.trim(), points_faibles: rapport.points_faibles.trim() }
 
     if (!navigator.onLine) {
       await savePendingCloture({
         jour, photoBlobs: photos, photoTypes: photos.map((p) => p.type), latitude, longitude,
-        motifsLocaux: Object.values(motifsLocaux), reports: reportsSelectionnes.map(([programme_ligne_id, jour_report]) => ({ programme_ligne_id, jour_report })), createdAt: new Date().toISOString()
+        motifsLocaux: Object.values(motifsLocaux), reports: reportsSelectionnes.map(([programme_ligne_id, jour_report]) => ({ programme_ligne_id, jour_report })), rapport: rapportPayload, createdAt: new Date().toISOString()
       })
       setCloturing(false)
       setDoneOffline(true)
       return
     }
+
+    const { error: reportError } = await (supabase as any).from('rapports_journaliers_vm').upsert({ vm_id: session.user.id, jour, ...rapportPayload }, { onConflict: 'vm_id,jour' })
+    if (reportError) { setError(reportError.message); setCloturing(false); return }
 
     const paths: string[] = []
     for (let i = 0; i < photos.length; i++) {
@@ -266,6 +286,31 @@ export default function Cloture() {
           })}
         </div>
       )}
+
+      <Card>
+        <div className="mb-4">
+          <p className="text-base font-bold text-ink-800">Rapport journalier</p>
+          <p className="text-xs text-ink-400 mt-1">{odypharm2 ? 'Rapport pharmacie · ODYPHARM2' : 'Rapport des activités médicales et pharmacies'}</p>
+        </div>
+        <div className="space-y-4">
+          <label className="block text-sm font-semibold text-ink-700">Points forts
+            <textarea value={rapport.points_forts} onChange={e => setRapport(v => ({ ...v, points_forts: e.target.value }))} rows={3} placeholder="Résultats positifs, échanges, opportunités…" className="mt-2 w-full rounded-xl border border-ink-200 p-3 text-sm font-normal" />
+          </label>
+          {odypharm2 ? <>
+            <label className="block text-sm font-semibold text-ink-700">Commandes obtenues
+              <textarea value={rapport.commandes_obtenues} onChange={e => setRapport(v => ({ ...v, commandes_obtenues: e.target.value }))} rows={3} placeholder="Détail des commandes obtenues…" className="mt-2 w-full rounded-xl border border-ink-200 p-3 text-sm font-normal" />
+            </label>
+            <label className="block text-sm font-semibold text-ink-700">Ventes obtenues
+              <textarea value={rapport.ventes_obtenues} onChange={e => setRapport(v => ({ ...v, ventes_obtenues: e.target.value }))} rows={3} placeholder="Détail des ventes réalisées…" className="mt-2 w-full rounded-xl border border-ink-200 p-3 text-sm font-normal" />
+            </label>
+          </> : <label className="block text-sm font-semibold text-ink-700">Points faibles
+            <textarea value={rapport.points_faibles} onChange={e => setRapport(v => ({ ...v, points_faibles: e.target.value }))} rows={3} placeholder="Difficultés, objections, visites non abouties…" className="mt-2 w-full rounded-xl border border-ink-200 p-3 text-sm font-normal" />
+          </label>}
+          <label className="block text-sm font-semibold text-ink-700">Constat de prescription
+            <textarea value={rapport.constat_prescription} onChange={e => setRapport(v => ({ ...v, constat_prescription: e.target.value }))} rows={3} placeholder="Observations sur les habitudes et tendances de prescription…" className="mt-2 w-full rounded-xl border border-ink-200 p-3 text-sm font-normal" />
+          </label>
+        </div>
+      </Card>
 
       <Card>
         <div className="mb-3 flex items-center justify-between gap-2">
