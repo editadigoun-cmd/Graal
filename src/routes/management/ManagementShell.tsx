@@ -56,6 +56,7 @@ const groups: NavGroup[] = [
       { to: '/admin/absences', label: 'Permissions & maladies', icon: IconCalendar },
       { to: '/admin/plan-activites', label: "Plan d'activités", icon: IconClipboard },
       { to: '/admin/reporting', label: 'Reporting', icon: IconBarChart },
+      { to: '/admin/rapports-journaliers', label: 'Rapports journaliers VM', icon: IconClipboard },
       { to: '/admin/couverture-mensuelle', label: 'Couverture mensuelle CRM', icon: IconTrendingUp },
       { to: '/admin/evaluation-superviseurs', label: 'Évaluation des superviseurs', icon: IconBarChart, adminOnly: true },
     ],
@@ -116,7 +117,7 @@ export function ManagementShell() {
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(['Pilotage', 'Ventes', 'Terrain & activité', 'Administration']))
 
   const supervisorPaths = new Set([
-    '/admin/programmes', '/admin/absences', '/admin/plan-activites', '/admin/reporting',
+    '/admin/programmes', '/admin/absences', '/admin/plan-activites', '/admin/reporting', '/admin/rapports-journaliers',
     '/admin/terrain', '/admin/suivi-terrain', '/admin/tournees', '/admin/vad-plan', '/admin/quotas-vad',
     '/admin/rapport-activite-hebdo', '/admin/controle-frequence', '/admin/couverture-mensuelle',
     '/admin/rapports-duo', '/admin/animation-equipe', '/admin/equipes',
