@@ -109,11 +109,7 @@ export default function PlanningVisitesSuperviseurs(){
   setObjectifs(old=>old.filter(o=>o.id!==id))
  }
  
- async function evaluerObjectif(id:string,statut_realisation:'ATTEINT'|'PARTIELLEMENT_ATTEINT'|'NON_ATTEINT'){
-  const {error}=await (supabase as any).from('objectifs_semaine_superviseurs').update({statut_realisation}).eq('id',id)
-  if(error){setNotice(error.message);return}
-  setObjectifsPrecedents(old=>old.map(o=>o.id===id?{...o,statut_realisation}:o))
- }
+
  async function ajouterSelection(){
   if(!programme||selection.size===0)return
   setBusy(true);setNotice('')
