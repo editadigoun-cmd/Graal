@@ -24,9 +24,6 @@ export default function PlanningVisitesSuperviseurs(){
  const [lignes,setLignes]=useState<Ligne[]>([])
  const [objectifs,setObjectifs]=useState<ObjectifSemaine[]>([])
  const [nouvelObjectif,setNouvelObjectif]=useState('')
- const [objectifsPrecedents,setObjectifsPrecedents]=useState<ObjectifSemaine[]>([])
- const [bilanSemaine,setBilanSemaine]=useState({points_forts:'',points_faibles:''})
- const [savingBilan,setSavingBilan]=useState(false)
  const [clients,setClients]=useState<Client[]>([])
  const [jour,setJour]=useState<string>('LUNDI')
  const [type,setType]=useState<'MEDICAL'|'PHARMACIE'>('MEDICAL')
@@ -75,19 +72,7 @@ export default function PlanningVisitesSuperviseurs(){
   setLoading(false)
  }
  useEffect(()=>{void load()},[profile?.id,profile?.role])
- useEffect(()=>{
-  if(!profile?.id||isAdmin)return
-  const semaineTerminee=isoWeekMonday(nowBenin()).format('YYYY-MM-DD')
-  ;(async()=>{
-   const db=supabase as any
-   const {data:p}=await db.from('programmes_visites_superviseurs').select('id,bilan_points_forts,bilan_points_faibles').eq('superviseur_id',profile.id).eq('semaine_debut',semaineTerminee).maybeSingle()
-   if(!p){setObjectifsPrecedents([]);setBilanSemaine({points_forts:'',points_faibles:''});return}
-   setBilanSemaine({points_forts:p.bilan_points_forts??'',points_faibles:p.bilan_points_faibles??''})
-   const {data:o,error}=await db.from('objectifs_semaine_superviseurs').select('*').eq('programme_id',p.id).order('created_at')
-   if(error){setNotice(error.message);return}
-   setObjectifsPrecedents((o??[]) as ObjectifSemaine[])
-  })()
- },[profile?.id,profile?.role])
+
  const isEditable=!!programme&&['BROUILLON','REFUSE'].includes(programme.statut)
  const clientsProgrammes=new Set(lignes.map(l=>l.client_id))
  const filtered=useMemo(()=>clients.filter(c=>{
@@ -123,13 +108,7 @@ export default function PlanningVisitesSuperviseurs(){
   if(error){setNotice(error.message);return}
   setObjectifs(old=>old.filter(o=>o.id!==id))
  }
- async function enregistrerBilan(){
-  const semaineTerminee=isoWeekMonday(nowBenin()).format('YYYY-MM-DD')
-  setSavingBilan(true)
-  const {error}=await (supabase as any).from('programmes_visites_superviseurs').update({bilan_points_forts:bilanSemaine.points_forts,bilan_points_faibles:bilanSemaine.points_faibles}).eq('superviseur_id',profile?.id).eq('semaine_debut',semaineTerminee)
-  setSavingBilan(false)
-  setNotice(error?error.message:'Bilan hebdomadaire enregistré.')
- }
+ 
  async function evaluerObjectif(id:string,statut_realisation:'ATTEINT'|'PARTIELLEMENT_ATTEINT'|'NON_ATTEINT'){
   const {error}=await (supabase as any).from('objectifs_semaine_superviseurs').update({statut_realisation}).eq('id',id)
   if(error){setNotice(error.message);return}
@@ -176,14 +155,6 @@ export default function PlanningVisitesSuperviseurs(){
  {isEditable&&<div className="space-y-2"><textarea value={nouvelObjectif} onChange={e=>setNouvelObjectif(e.target.value)} rows={2} maxLength={500} placeholder="Ex. Obtenir 5 nouveaux engagements de prescription…" className="w-full rounded-xl border border-ink-200 p-3 text-sm"/><Button fullWidth variant="secondary" onClick={()=>void ajouterObjectif()} loading={busy} disabled={!nouvelObjectif.trim()}>+ Ajouter cet objectif</Button></div>}
  {objectifs.length===0&&<p className="text-xs text-ink-400">Aucun objectif spécifique ajouté pour le moment.</p>}
 </Card>
-{objectifsPrecedents.length>0&&<Card className="space-y-3">
- <div><p className="text-sm font-bold text-ink-800">Bilan des objectifs de cette semaine</p><p className="text-xs text-ink-400">Évaluez chaque objectif : atteint, partiellement atteint ou non atteint.</p></div>
- {objectifsPrecedents.map((o,i)=><div key={o.id} className="space-y-2 border-t border-ink-100 pt-3"><p className="text-sm font-semibold text-ink-800">{i+1}. {o.libelle}</p><div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
- <button onClick={()=>void evaluerObjectif(o.id,'ATTEINT')} className={o.statut_realisation==='ATTEINT'?'rounded-xl border border-emerald-500 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700':'rounded-xl border border-ink-200 px-3 py-2 text-xs font-semibold text-ink-600'}>Atteint</button>
- <button onClick={()=>void evaluerObjectif(o.id,'PARTIELLEMENT_ATTEINT')} className={o.statut_realisation==='PARTIELLEMENT_ATTEINT'?'rounded-xl border border-amber-500 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700':'rounded-xl border border-ink-200 px-3 py-2 text-xs font-semibold text-ink-600'}>Partiellement atteint</button>
- <button onClick={()=>void evaluerObjectif(o.id,'NON_ATTEINT')} className={o.statut_realisation==='NON_ATTEINT'?'rounded-xl border border-red-500 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700':'rounded-xl border border-ink-200 px-3 py-2 text-xs font-semibold text-ink-600'}>Non atteint</button>
- </div></div>)}
- <div className="space-y-3"><label className="block text-sm font-semibold text-ink-700">Points forts de la semaine<textarea value={bilanSemaine.points_forts} onChange={e=>setBilanSemaine(v=>({...v,points_forts:e.target.value}))} rows={3} placeholder="Les réussites et résultats positifs…" className="mt-2 w-full rounded-xl border border-ink-200 p-3 text-sm font-normal"/></label><label className="block text-sm font-semibold text-ink-700">Points faibles de la semaine<textarea value={bilanSemaine.points_faibles} onChange={e=>setBilanSemaine(v=>({...v,points_faibles:e.target.value}))} rows={3} placeholder="Les difficultés et éléments à améliorer…" className="mt-2 w-full rounded-xl border border-ink-200 p-3 text-sm font-normal"/></label><Button fullWidth onClick={()=>void enregistrerBilan()} loading={savingBilan}>Enregistrer le bilan</Button></div>
-</Card>
+
 <div className="grid grid-cols-2 gap-3"><Card><p className="text-xs font-semibold text-royal-700">Visites médicales · max 8/jour</p><p className="text-2xl font-extrabold">{med}/8</p></Card><Card><p className="text-xs font-semibold text-emerald-700">Visites pharmacie · max 2/jour</p><p className="text-2xl font-extrabold">{pharma}/2</p></Card></div><div className="flex flex-wrap gap-2">{JOURS.map(d=><button key={d} onClick={()=>setJour(d)} className={`rounded-xl px-3 py-2 text-xs font-semibold ${jour===d?'bg-royal-700 text-white':'bg-ink-100 text-ink-600'}`}>{LABELS[d]}</button>)}</div><Card className="space-y-3"><p className="text-sm font-bold">Ajouter une visite · {LABELS[jour]}</p><div className="grid grid-cols-2 gap-2"><button onClick={()=>{setType('MEDICAL');setSelection(new Set())}} className={`rounded-xl p-2.5 text-sm font-semibold ${type==='MEDICAL'?'bg-royal-700 text-white':'bg-ink-100'}`}>Médicale</button><button onClick={()=>{setType('PHARMACIE');setSelection(new Set())}} className={`rounded-xl p-2.5 text-sm font-semibold ${type==='PHARMACIE'?'bg-royal-700 text-white':'bg-ink-100'}`}>Pharmacie</button></div><Button variant="secondary" fullWidth onClick={()=>{setPicking(true);setSearch('');setSelection(new Set())}} disabled={!isEditable||(type==='MEDICAL'&&med>=8)||(type==='PHARMACIE'&&pharma>=2)}>Choisir des clients</Button><p className="text-xs text-ink-400">Sélection multiple comme dans le planning des VM. Les clients déjà programmés ne sont pas proposés.</p></Card><Card className="space-y-2"><p className="text-sm font-bold">{LABELS[jour]} · {jourLignes.length} visite(s)</p>{jourLignes.length===0?<p className="text-xs text-ink-400">Aucune visite planifiée pour cette journée.</p>:jourLignes.map(l=><div key={l.id} className="flex items-center justify-between gap-3 border-t border-ink-100 py-2"><div><p className="text-sm font-semibold">{l.clients?.nom??'Client'}</p><p className="text-xs text-ink-400">{l.type_visite==='PHARMACIE'?'Pharmacie':'Médicale'} · {l.clients?.centre??'Centre non renseigné'}</p></div>{isEditable&&<button onClick={()=>void retirer(l.id)} disabled={busy} className="text-xs font-semibold text-red-600">Retirer</button>}</div>)}</Card>{isEditable&&<div className="space-y-2"><p className="text-center text-xs text-ink-400">Date limite de soumission : dimanche à 10h00 (heure du Bénin). {deadlineExpired?'Délai dépassé.':`Temps restant : ${deadlineText}`}</p><Button fullWidth onClick={()=>void soumettre()} loading={busy} disabled={lignes.length!==50||deadlineExpired}>Soumettre mon planning hebdomadaire</Button></div>}<AnimatePresence>{picking&&<motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-end bg-ink-900/40" onClick={()=>setPicking(false)}><motion.div initial={{y:'100%'}} animate={{y:0}} exit={{y:'100%'}} transition={{type:'spring',damping:30,stiffness:300}} className="w-full max-h-[88vh] overflow-y-auto rounded-t-[28px] bg-white p-5 pb-6 shadow-2xl" onClick={e=>e.stopPropagation()}><div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink-200"/><p className="mb-1 text-sm font-bold text-ink-800">Sélection de clients — {LABELS[jour]}</p><p className="mb-3 text-xs text-ink-400">Choisissez plusieurs clients. Les clients déjà programmés sont automatiquement masqués.</p><div className="relative mb-3"><IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher un client…" className="w-full rounded-2xl border border-ink-200 bg-ink-50 pl-10 pr-3.5 py-3 text-sm outline-none transition focus:border-royal-400 focus:bg-white focus:ring-4 focus:ring-royal-100"/></div><div className="mb-3 flex items-center justify-between rounded-xl bg-ink-50 px-3 py-2"><span className="text-xs text-ink-500">Sélection en cours</span><span className="text-xs font-bold text-royal-700">{selection.size} client(s)</span></div><div className="space-y-2 pb-2">{candidats.length===0&&<p className="py-6 text-center text-sm text-ink-400">Aucun client disponible pour cette recherche.</p>}{candidats.map(c=>{const selected=selection.has(c.id);return <button key={c.id} onClick={()=>toggleSelection(c.id)} className={`flex w-full items-center justify-between rounded-2xl border p-3 text-left transition ${selected?'border-royal-400 bg-royal-50':'border-ink-100 hover:bg-ink-50'}`}><div className="flex min-w-0 items-center gap-3"><span className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border ${selected?'border-royal-600 bg-royal-600':'border-ink-300'}`}>{selected&&<IconCheck className="h-3.5 w-3.5 text-white"/>}</span><div className="min-w-0"><p className="truncate text-sm font-semibold text-ink-800">{c.nom}</p><p className="truncate text-[11px] font-medium text-royal-600">Spécialité : {c.specialite??'Non renseignée'}</p>{c.centre&&<p className="truncate text-[10px] text-ink-400">{c.centre}</p>}</div></div>{c.potentiel&&<PotentielBadge potentiel={c.potentiel} compact/>}</button>})}</div><Button fullWidth className="mt-2" loading={busy} disabled={selection.size===0||busy} onClick={()=>void ajouterSelection()}>Ajouter {selection.size>0?`(${selection.size})`:''}</Button></motion.div></motion.div>}</AnimatePresence></div>
 }
